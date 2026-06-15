@@ -1,0 +1,703 @@
+/* ============================================================
+   LUCKY 5 v8 — Quality pass (image-independent button rendering)
+   ------------------------------------------------------------
+   IMPORTANT: The cabinet uses a LOCKED 9:16 portrait coordinate
+   system defined in cabinet-layout-vnext.css. `#game-screen` has
+   `container-type: size`, so descendants MUST use `cqh` / `cqw`
+   units (percentage of the cabinet face, NOT the viewport).
+   Using `vw` / `vh` here DOES NOT WORK — it breaks the layout on
+   portrait-letterboxed desktop and over-sizes elements on narrow
+   mobile. The previous iteration of this file used `vw`-based
+   clamps and caused:
+     - Card slots collapsed to 0 height (aspect-ratio fight)
+     - Paytable rows overflowed their 15% band
+     - Idle "LUCKY 5 POKER" text exploded to 74px
+     - Absolute-positioned rows got margin-top that broke the grid
+   This rewrite uses `cqh` throughout, never adds margin/padding
+   to absolutely-positioned zones, and never forces aspect-ratio
+   on children that are flex-stretched by the layout system.
+   ============================================================ */
+
+/* ----- 1. Fonts & color tokens ------------------------------ */
+
+:root {
+    --v8-btn-font: 'Press Start 2P', 'Courier New', monospace;
+    --v8-btn-shadow: 0 0.45cqh 0 rgba(0,0,0,0.55), 0 0.9cqh 1.5cqh rgba(0,0,0,0.55);
+    --v8-btn-inset:
+        inset 0 0.45cqh 0 rgba(255,255,255,0.38),
+        inset 0 -0.6cqh 0 rgba(0,0,0,0.35);
+    --v8-hold-yellow-1: #ffe66b;
+    --v8-hold-yellow-2: #f5b307;
+    --v8-hold-yellow-3: #9c6d00;
+    --v8-hold-active-1: #fff7a0;
+    --v8-hold-active-2: #ffd92b;
+    --v8-orange-1: #ff993c;
+    --v8-orange-2: #e5651a;
+    --v8-orange-3: #8a3606;
+    --v8-red-1: #ff5956;
+    --v8-red-2: #d01814;
+    --v8-red-3: #6d0907;
+    --v8-green-1: #56d968;
+    --v8-green-2: #1ba237;
+    --v8-green-3: #0a4a18;
+    --v8-cream-1: #fff4e0;
+    --v8-cream-2: #f5d8a8;
+    --v8-cream-3: #9d7538;
+    --v8-gold-ring: #b48423;
+}
+
+/* ----- 2. Universal cab button reset (pure CSS, no PNG) ---- */
+/* The original cabinet-image-cache sets background-image on .cab-btn
+   from PNG sprites. We force background-image:none so our pure-CSS
+   gradients render instead — this way the cabinet works even when
+   button PNGs are stale in the CDN. */
+
+.cab-btn {
+    background-image: none !important;
+    background-repeat: no-repeat !important;
+    background-size: 100% 100% !important;
+    background-position: center center !important;
+    color: #111;
+    font-family: var(--v8-btn-font);
+    font-weight: 700;
+    letter-spacing: 0.2cqh;
+    text-align: center;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    border-radius: 1.2cqh !important;
+    box-shadow: var(--v8-btn-inset), var(--v8-btn-shadow) !important;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.28), 0 -1px 0 rgba(0,0,0,0.45);
+    transition: transform 0.06s ease-out, filter 0.06s ease-out,
+                box-shadow 0.06s ease-out !important;
+    overflow: hidden;
+    padding: 0 !important;
+    line-height: 1;
+}
+
+.cab-btn:active:not(:disabled),
+.cab-btn.is-pressed:not(:disabled) {
+    transform: translateY(0.3cqh) scale(0.97) !important;
+    filter: brightness(0.85) !important;
+    box-shadow:
+        inset 0 0.3cqh 0 rgba(255,255,255,0.12),
+        inset 0 -0.3cqh 0 rgba(0,0,0,0.55),
+        0 1px 0 rgba(0,0,0,0.5),
+        0 2px 4px rgba(0,0,0,0.4) !important;
+}
+
+.cab-btn:disabled {
+    filter: grayscale(0.55) brightness(0.7);
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+/* Label is drawn via ::before so it is never hidden by a failed PNG.
+   Uses cqh so type scales with the cabinet, not the viewport. */
+.cab-btn::before {
+    color: inherit;
+    text-shadow: inherit;
+    pointer-events: none;
+    white-space: nowrap;
+    font-size: 1.8cqh;
+    letter-spacing: 0.15cqh;
+    line-height: 1;
+}
+
+/* ----- 3. HOLD buttons -------------------------------------- */
+
+.cab-btn.cab-hold {
+    background: linear-gradient(180deg,
+        var(--v8-hold-yellow-1) 0%,
+        var(--v8-hold-yellow-2) 55%,
+        var(--v8-hold-yellow-3) 100%) !important;
+    border: 0.3cqh solid var(--v8-gold-ring) !important;
+    color: #1c1200 !important;
+}
+
+.cab-btn.cab-hold::before {
+    content: 'HOLD';
+    font-size: 2.2cqh;
+    font-weight: 800;
+    letter-spacing: 0.25cqh;
+}
+
+.cab-btn.cab-hold.active {
+    background: linear-gradient(180deg,
+        var(--v8-hold-active-1) 0%,
+        var(--v8-hold-active-2) 100%) !important;
+    box-shadow:
+        inset 0 0 1.8cqh rgba(255, 240, 110, 0.95),
+        inset 0 0.3cqh 0 rgba(255,255,255,0.5),
+        0 0 2.2cqh rgba(255, 210, 0, 0.75),
+        0 0.3cqh 0 rgba(0,0,0,0.55) !important;
+    border-color: #ffcf3a !important;
+}
+
+/* FH-TARGET MODE on the first (leftmost) hold button.
+   Set by game.js::setButtonStates when canAdjustJackpotRank() is true
+   (gameState === 'idle' && jackpotRankArmed). In this mode the button
+   cycles the Full House jackpot rank (2..A) instead of toggling a hold.
+   We paint it with a red-edged border and swap the label to "FH" + rank,
+   so the two different behaviors of the same physical button cannot be
+   confused by the player. */
+.cab-btn.cab-hold.fh-target {
+    background: linear-gradient(180deg, #ffd14d 0%, #c45a0f 55%, #5a1f04 100%) !important;
+    border-color: #ff6a1a !important;
+    box-shadow:
+        inset 0 0 1.4cqh rgba(255, 170, 50, 0.75),
+        inset 0 0.3cqh 0 rgba(255, 255, 255, 0.35),
+        0 0 2cqh rgba(255, 90, 20, 0.7),
+        0 0.3cqh 0 rgba(0, 0, 0, 0.55) !important;
+    animation: v8-fh-target-pulse 1.1s ease-in-out infinite alternate;
+    color: #ffffff !important;
+}
+
+.cab-btn.cab-hold.fh-target::before {
+    content: 'FH';
+    font-size: 1.75cqh;
+    color: #ffffff;
+    text-shadow:
+        0 0 0.5cqh rgba(255, 80, 20, 0.9),
+        0 1px 0 rgba(80, 20, 0, 0.9);
+}
+
+@keyframes v8-fh-target-pulse {
+    0%   { filter: brightness(0.95); }
+    100% { filter: brightness(1.12); }
+}
+
+/* ----- 4. Action row buttons -------------------------------- */
+
+.cab-btn.cab-big,
+.cab-btn.cab-small,
+.cab-btn.cab-takehalf,
+.cab-btn.cab-takescore {
+    background: linear-gradient(180deg,
+        var(--v8-orange-1) 0%,
+        var(--v8-orange-2) 55%,
+        var(--v8-orange-3) 100%) !important;
+    color: #fff !important;
+    border: 0.25cqh solid #5a2500 !important;
+}
+
+.cab-btn.cab-big::before    { content: 'BIG';   font-size: 2cqh; }
+.cab-btn.cab-small::before  { content: 'SMALL'; font-size: 2cqh; }
+.cab-btn.cab-takehalf::before  {
+    content: 'TAKE\A HALF';
+    white-space: pre-line;
+    line-height: 1.05;
+    font-size: 1.7cqh;
+}
+.cab-btn.cab-takescore::before {
+    content: 'TAKE\A SCORE';
+    white-space: pre-line;
+    line-height: 1.05;
+    font-size: 1.7cqh;
+}
+
+.cab-btn.cab-cancel {
+    background: linear-gradient(180deg,
+        var(--v8-cream-1) 0%,
+        var(--v8-cream-2) 60%,
+        var(--v8-cream-3) 100%) !important;
+    color: #b11914 !important;
+    border: 0.25cqh solid #75531c !important;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.6);
+}
+.cab-btn.cab-cancel::before {
+    content: 'CANCEL\A HOLD';
+    white-space: pre-line;
+    line-height: 1.05;
+    font-size: 1.55cqh;
+}
+
+.cab-btn.cab-deal {
+    background: linear-gradient(180deg,
+        var(--v8-red-1) 0%,
+        var(--v8-red-2) 55%,
+        var(--v8-red-3) 100%) !important;
+    color: #fff !important;
+    border: 0.25cqh solid #4a0403 !important;
+}
+.cab-btn.cab-deal::before {
+    content: 'DEAL\A DRAW';
+    white-space: pre-line;
+    line-height: 1.05;
+    font-size: 1.65cqh;
+}
+
+.cab-btn.cab-bet {
+    background: linear-gradient(180deg,
+        var(--v8-green-1) 0%,
+        var(--v8-green-2) 55%,
+        var(--v8-green-3) 100%) !important;
+    color: #fff !important;
+    border: 0.25cqh solid #052d0e !important;
+}
+.cab-btn.cab-bet::before { content: 'BET'; font-size: 2cqh; }
+
+/* ----- 5. MENU (round) button ------------------------------- */
+
+.cab-btn.cab-menu {
+    background: radial-gradient(circle at 50% 42%, #5a5a5a 0%, #2a2a2a 68%, #0e0e0e 100%) !important;
+    color: #f0dc6c !important;
+    border: 0.25cqh solid #111 !important;
+    border-radius: 50% !important;
+    width: 7cqh !important;
+    height: 7cqh !important;
+    max-width: 7cqh !important;
+    max-height: 7cqh !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    box-shadow:
+        inset 0 0.3cqh 0.6cqh rgba(255,255,255,0.22),
+        inset 0 -0.6cqh 1.2cqh rgba(0,0,0,0.7),
+        0 0.45cqh 0 rgba(0,0,0,0.55),
+        0 0.9cqh 1.5cqh rgba(0,0,0,0.55) !important;
+}
+.cab-btn.cab-menu::before {
+    content: '\2630'; /* hamburger U+2630 */
+    font-family: 'Segoe UI Symbol', 'Arial', sans-serif;
+    font-size: 3.4cqh;
+    letter-spacing: 0;
+    color: #f0dc6c;
+    text-shadow: 0 1px 0 rgba(0,0,0,0.6);
+}
+
+/* ----- 6. Paytable sizing (fit all 8 rows + FH meter in 15%) */
+/* At 15% of ~1280 board = 192 board-px. 8 rows + FH jackpot footer
+   ~ 9 text lines. 15%/9 = 1.67cqh per line. We leave padding for
+   breathing room and cap rows at 1.55cqh. */
+
+#paytable {
+    font-family: var(--v8-btn-font);
+}
+
+#paytable .pay-row {
+    font-size: 1.5cqh !important;
+    line-height: 1 !important;
+    padding: 0.15cqh 0.6cqh !important;
+    letter-spacing: 0.08cqh;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#paytable .pay-row .hand-name,
+#paytable .pay-row .pay-amount {
+    font-family: var(--v8-btn-font);
+    letter-spacing: 0.08cqh;
+}
+
+#paytable .pay-row .pay-amount {
+    color: #e8e8e8;
+}
+
+#paytable .pay-row.active,
+#paytable .pay-row[data-attract-active="1"] {
+    outline: 0.2cqh solid #fff !important;
+    background: rgba(255,255,255,0.08) !important;
+}
+
+/* FH jackpot meter is anchored to the BOTTOM-RIGHT of the paytable zone
+   so it sits visually:
+     - above the deck (paytable bottom is exactly at 15%, deck starts at 19%)
+     - to the right of the 2 PAIR row (anchored right:0 with width:55%)
+     - out of the pay-row flow so it never overflows and never pushes rows
+   This replaces the old in-flow 9th-row rendering that caused the white
+   "A 20000000" ribbon glitch when rows overflowed their 15% band. */
+#paytable { position: absolute; } /* already absolute in layout css — ensure */
+
+#paytable #jackpot-full-house {
+    position: absolute;
+    right: 0.4cqh;
+    bottom: 0.15cqh;
+    left: auto;
+    width: auto;
+    max-width: 60%;
+    padding: 0.25cqh 0.7cqh;
+    font-family: var(--v8-btn-font);
+    font-size: 1.4cqh;
+    line-height: 1;
+    color: #ffe27a;
+    background: linear-gradient(180deg, rgba(50, 20, 0, 0.72) 0%, rgba(25, 10, 0, 0.85) 100%);
+    border: 1px solid rgba(255, 200, 60, 0.35);
+    border-radius: 0.4cqh 0 0.2cqh 0.2cqh;
+    box-shadow:
+        0 0 0.6cqh rgba(255, 180, 40, 0.25),
+        inset 0 0 0.4cqh rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: flex-end;
+    align-items: baseline;
+    gap: 0.5cqh;
+    z-index: 3;
+    pointer-events: none;
+}
+
+#paytable #jackpot-full-house .jp-meter-label {
+    font-size: 1.15cqh;
+    color: #ffbd2c;
+    letter-spacing: 0.15cqh;
+}
+
+#paytable #jackpot-full-house #jp-fh-rank {
+    color: #ffffff;
+    font-weight: 900;
+    margin-left: 0.15cqh;
+}
+
+#paytable #jackpot-full-house .jp-counter-fh .jp-cval {
+    color: #ffe27a;
+    font-size: 1.55cqh;
+    letter-spacing: 0.1cqh;
+    text-shadow: 0 0 0.5cqh rgba(255, 200, 40, 0.65);
+}
+
+/* 4-of-a-kind star — red, blinking, only visible on the starred slot.
+   game.js::updateActive4kHighlight toggles style.display inline between
+   'inline' and 'none'. We make it unmistakably red and prominent. */
+.jp-4k-star {
+    color: #ff2a2a !important;
+    font-size: 1.6cqh !important;
+    margin-right: 0.25cqh;
+    text-shadow:
+        0 0 0.45cqh rgba(255, 80, 80, 0.85),
+        0 0 0.9cqh rgba(255, 40, 40, 0.5);
+    animation: v8-star-blink 0.9s steps(1, end) infinite;
+}
+
+@keyframes v8-star-blink {
+    0%, 49%   { opacity: 1; transform: scale(1); }
+    50%, 100% { opacity: 0.35; transform: scale(0.92); }
+}
+
+/* Active 4OAK counter gets a soft ring so the starred side stays obvious
+   even at a glance. updateActive4kHighlight adds .jp-active on the
+   active `[data-jackpot-slot^="4k-"]` element. */
+#machine-info-block .jp-counter[data-jackpot-slot^="4k-"].jp-active {
+    background: rgba(255, 60, 40, 0.18);
+    outline: 1px solid rgba(255, 90, 60, 0.7);
+    border-radius: 0.4cqh;
+    padding: 0 0.25cqh;
+}
+
+/* ----- 7. Credit / stake bar -------------------------------- */
+
+#credit-stake-bar #credits,
+#credit-stake-bar #stake-display {
+    font-family: var(--v8-btn-font);
+    font-size: 1.6cqh;
+    line-height: 1.2;
+}
+
+#credit-stake-bar #credits span,
+#credit-stake-bar #stake-display span {
+    font-size: 2.6cqh;
+    color: #9bf7ff;
+    text-shadow: 0 0 0.6cqh rgba(155, 247, 255, 0.5);
+}
+
+/* ----- 8. Machine info block -------------------------------- */
+
+#machine-info-block {
+    font-family: var(--v8-btn-font);
+    font-size: 1.35cqh;
+    line-height: 1.3;
+}
+
+#machine-info-block #mi-serial {
+    color: #9bf7ff !important;
+}
+
+#machine-info-block #mi-serie,
+#machine-info-block #mi-kent {
+    color: #5ff26f !important;
+}
+
+#machine-info-block #jp-counter-a .jp-cval,
+#machine-info-block #jp-counter-b .jp-cval {
+    color: #5ff26f !important;
+}
+
+#machine-info-block #jp-counter-center .jp-cval {
+    color: #ff4a4a !important;
+}
+
+/* ----- 9. Card slots — DO NOT fight flex-stretch sizing ---- */
+/* The layout system sets #card-area to position:absolute; top:19%;
+   height:19%; display:flex; align-items:stretch. The card slots
+   must flex-fill the height naturally. We only refine visual edges. */
+
+#card-area {
+    padding: 0.3cqh 1cqh !important;
+    gap: 0.6cqh !important;
+}
+
+.card-slot {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 0;
+    max-width: 18%;
+    border-radius: 0.8cqh;
+    background: #111;
+    box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,0.08),
+        0.2cqh 0.4cqh 1cqh rgba(0,0,0,0.7);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    overflow: visible;      /* allow HOLD badge to sit below card face */
+}
+
+.card-slot .card-face {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    background: #fff;
+    border-radius: 0.5cqh;
+    overflow: hidden;
+    display: block;
+}
+
+.card-slot .card-face img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+    background: #fff;
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+}
+
+/* Diagnostic marker: if JS flags a card as face-load-error. */
+.card-slot.v8-face-error::after {
+    content: 'MISSING';
+    position: absolute;
+    top: 0.6cqh;
+    left: 0.6cqh;
+    right: 0.6cqh;
+    text-align: center;
+    color: #fff;
+    background: rgba(200, 30, 30, 0.88);
+    padding: 0.25cqh 0.4cqh;
+    font-family: var(--v8-btn-font);
+    font-size: 1cqh;
+    letter-spacing: 0.15cqh;
+    border-radius: 0.3cqh;
+    pointer-events: none;
+    z-index: 5;
+}
+
+/* HOLD badge under the card — only appears when the slot is marked held.
+   The app toggles `.held` on .card-slot (see game.js::toggleHold,
+   cabinet-stage-vnext.js::setHold, and the original game.css rule
+   `.card-slot.held .hold-badge { display:block }`). We MUST match that
+   exact class; earlier iterations used `.is-held` / `[data-held="1"]`
+   which the app never sets, leaving the badge permanently hidden. */
+.card-slot .hold-badge {
+    display: none;
+    background: transparent;
+    color: #ffd23a;
+    font-family: var(--v8-btn-font);
+    font-size: 1.2cqh;
+    letter-spacing: 0.25cqh;
+    margin-top: 0.3cqh;
+    text-align: center;
+    text-shadow:
+        0 0 0.4cqh rgba(255, 200, 40, 0.95),
+        0 0 0.9cqh rgba(255, 140, 20, 0.55);
+    animation: v8-hold-pulse 0.95s ease-in-out infinite alternate;
+}
+
+.card-slot.held .hold-badge {
+    display: block;
+}
+
+@keyframes v8-hold-pulse {
+    0%   { filter: brightness(1);   transform: translateY(0); }
+    100% { filter: brightness(1.25); transform: translateY(-0.15cqh); }
+}
+
+/* Held card face: soft golden ring so the state is readable even if the
+   badge is scrolled off. Complements game.css .card-slot.held .card-face. */
+.card-slot.held .card-face {
+    box-shadow:
+        0 0 0.8cqh rgba(255, 210, 60, 0.65),
+        0 0 1.6cqh rgba(255, 140, 30, 0.35),
+        0.2cqh 0.3cqh 0.8cqh rgba(0,0,0,0.7) !important;
+}
+
+/* ----- 10. Win display — no duplicate label -------------------
+   The separate #win-amount-display label is redundant with the
+   existing paytable-drain animation (animateJackpotFill in game.js)
+   which decrements the matching jackpot counter straight into the
+   credits span. We hide the duplicate label so winnings always
+   read from the paytable/jackpot counters the player is already
+   watching. JS still writes to these nodes; display:none just
+   suppresses the extra visible chrome. */
+
+#win-amount-display {
+    display: none !important;
+}
+
+/* ----- 11. Idle attract title LUCKY 5 / POKER (arcade VFD look) ------
+   2026-04-20: reworked to match reference cabinet art. The title now
+   sits in the screen band (positioned via cabinet-layout-vnext.css),
+   renders on two stacked lines ("LUCKY 5" over "POKER" indented right),
+   uses a bold pixel-matrix typeface, and glows cyan like a vacuum
+   fluorescent display. No rotation — real cabinets display straight.
+   We use `-webkit-text-stroke` as a pixel-block outline and a double
+   text-shadow for the soft LED bloom. */
+
+#idle-overlay #idle-overlay-text .idle-line {
+    font-family: var(--v8-btn-font);
+    font-weight: 900;
+    font-size: 9cqh;
+    letter-spacing: 0.6cqh;
+    color: #9ceaff;
+    text-transform: uppercase;
+    /* Sharp pixel edge + outer bloom stack — reads like a VFD/LED screen */
+    text-shadow:
+        0 0 0.4cqh #9ceaff,
+        0 0 1.4cqh rgba(95, 216, 255, 0.9),
+        0 0 3cqh rgba(40, 160, 220, 0.55),
+        0 0.25cqh 0 rgba(0, 0, 0, 0.65);
+    -webkit-text-stroke: 0.08cqh #1a5d7a;
+    opacity: 0.95;
+}
+#idle-overlay #idle-overlay-text .idle-line-lucky { font-size: 10cqh; }
+#idle-overlay #idle-overlay-text .idle-line-poker { font-size: 11.5cqh; }
+
+/* Attract-mode pulse: slow cyan breathing to sell the "cabinet calling
+   for a coin" feel. Disabled by prefers-reduced-motion. */
+@keyframes v8-idle-title-breathe {
+    0%, 100% { filter: brightness(1) drop-shadow(0 0 0.6cqh rgba(95, 216, 255, 0.4)); }
+    50%      { filter: brightness(1.25) drop-shadow(0 0 1.4cqh rgba(95, 216, 255, 0.8)); }
+}
+#idle-overlay.visible #idle-overlay-text {
+    animation: v8-idle-title-breathe 2.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+    #idle-overlay.visible #idle-overlay-text { animation: none; }
+}
+
+/* ----- 12. FH jackpot meter + 2 PAIR coexistence ------------
+   2026-04-20: previous CSS sized the FH pill at ~2.5cqh tall and
+   absolutely positioned it at bottom:0.15cqh — tall enough that it
+   covered the 2 PAIR row entirely, hiding row 8 of the paytable.
+   Fix: shrink FH pill to one-row-tall, align it with the 2 PAIR
+   row, and let the "2 PAIR" label remain visible on the left half
+   while the FH jackpot takes the right half (matching reference
+   art where 2 PAIR text + FH badge share the same baseline). */
+
+#paytable #jackpot-full-house {
+    height: 1.9cqh;
+    bottom: 0.15cqh;
+    right: 0.2cqh;
+    padding: 0.1cqh 0.45cqh;
+    gap: 0.35cqh;
+    background: linear-gradient(180deg, #1a120a 0%, #0c0805 100%);
+    border: 0.15cqh solid #e4b12e;
+    border-radius: 0.35cqh;
+    box-shadow:
+        inset 0 0 0.25cqh rgba(255, 200, 60, 0.35),
+        0 0.1cqh 0.25cqh rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    max-width: 48%;
+    overflow: hidden;
+}
+
+/* "FH A" label: bright gold, pixel-block */
+#paytable #jackpot-full-house .jp-meter-label {
+    font-size: 1.1cqh;
+    color: #ffc83d;
+    letter-spacing: 0.12cqh;
+    text-shadow: 0 0 0.2cqh rgba(255, 200, 60, 0.6);
+}
+
+/* FH rank badge ("A" / "2" / ... / "K") in a cream chip so it stands
+   out as the active-target indicator, matching reference art. */
+#paytable #jackpot-full-house #jp-fh-rank {
+    display: inline-block;
+    min-width: 1cqh;
+    padding: 0 0.25cqh;
+    margin: 0 0.25cqh 0 0.1cqh;
+    background: #fff6d8;
+    color: #1a1207;
+    border-radius: 0.15cqh;
+    font-weight: 900;
+}
+
+/* Jackpot value: pale-cyan on black so it reads against the gold frame
+   and doesn't clash with the paytable amounts. */
+#paytable #jackpot-full-house .jp-counter-fh .jp-cval {
+    color: #c4f1ff;
+    font-size: 1.35cqh;
+    letter-spacing: 0.08cqh;
+    font-weight: 900;
+    text-shadow: 0 0 0.3cqh rgba(95, 216, 255, 0.6);
+}
+
+/* Guarantee 2 PAIR row visibility: rows before it stay at the default
+   1.5cqh; we force the last row to remain in flow even under tight
+   viewports by dropping row vertical padding to zero on the last row. */
+#paytable .pay-row.tp {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+}
+
+/* ----- 13. Safety fallbacks -------------------------------- */
+/* Ensure no other stylesheet re-applies button background PNGs. */
+button.cab-btn { background-image: none !important; }
+
+/* ----- 14. Clone asset buttons re-enabled ---------------------
+   v8 initially forced pure CSS buttons so the cabinet could survive
+   missing PNG assets. The full asset set is present again, and the
+   shipped vanilla cabinet is closer to the real machine when the clone
+   PNG button faces are used. We keep the CSS buttons as a fallback, but
+   any button that JS marks with .asset-button now renders the PNG face. */
+
+.cab-btn.asset-button {
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background-repeat: no-repeat !important;
+    background-position: center center !important;
+    background-size: contain !important;
+    color: transparent !important;
+    text-indent: -9999px !important;
+    overflow: hidden !important;
+}
+
+.cab-btn.asset-button::before,
+.cab-btn.asset-button::after {
+    display: none !important;
+    content: none !important;
+}
+
+button.cab-btn.asset-button {
+    background-image: var(--cab-btn-image, none) !important;
+}
+
+.cab-btn.cab-hold.asset-button {
+    background-size: 100% 100% !important;
+}
+
+.cab-btn.cab-hold.fh-target.asset-button {
+    background-image: none !important;
+    color: #ffe7aa !important;
+    text-indent: 0 !important;
+    overflow: visible !important;
+}
+
+.cab-btn.cab-hold.fh-target.asset-button::before {
+    display: block !important;
+    content: 'FH' !important;
+}

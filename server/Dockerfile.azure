@@ -1,0 +1,44 @@
+# Use the official .NET runtime as a parent image
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
+WORKDIR /app
+EXPOSE 8080
+EXPOSE 443
+
+# Use the SDK image to build the application
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+
+# Copy csproj and restore as distinct layers
+COPY ["server/src/Lucky5.Api/Lucky5.Api.csproj", "server/src/Lucky5.Api/"]
+COPY ["server/src/Lucky5.Domain/Lucky5.Domain.csproj", "server/src/Lucky5.Domain/"]
+COPY ["server/src/Lucky5.Application/Lucky5.Application.csproj", "server/src/Lucky5.Application/"]
+COPY ["server/src/Lucky5.Infrastructure/Lucky5.Infrastructure.csproj", "server/src/Lucky5.Infrastructure/"]
+COPY ["server/src/Lucky5.Realtime/Lucky5.Realtime.csproj", "server/src/Lucky5.Realtime/"]
+
+RUN dotnet restore "server/src/Lucky5.Api/Lucky5.Api.csproj"
+
+# Copy the rest of the files
+COPY . .
+
+# Build and publish
+WORKDIR "/src/server"
+RUN dotnet publish "src/Lucky5.Api/Lucky5.Api.csproj" -c Release -o /app/publish /p:UseAppHost=false --no-restore
+
+# Build runtime image
+FROM base AS final
+WORKDIR /app
+COPY --from=build /app/publish .
+
+# Create non-root user for security
+RUN adduser --disabled-password --gecos '' appuser && chown -R appuser /app
+USER appuser
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD curl -f http://localhost:8080/health/live || exit 1
+
+# Set environment variables for Azure
+ENV ASPNETCORE_URLS=http://+:8080
+ENV ASPNETCORE_ENVIRONMENT=Production
+
+ENTRYPOINT ["dotnet", "Lucky5.Api.dll"]

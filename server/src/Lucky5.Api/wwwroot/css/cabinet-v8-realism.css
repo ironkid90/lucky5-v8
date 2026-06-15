@@ -1,0 +1,497 @@
+/* ============================================================
+   LUCKY 5 v8 — CABINET REALISM LAYER
+   ------------------------------------------------------------
+   Phase 2/3/4 visual enhancements. Layered on top of existing
+   vnext CSS so rollback is a single <link> removal.
+   Scope:
+     - Physical cabinet frame (bezel, marquee, coin tray)
+     - CRT upgrade (phosphor scanlines, curvature, glow)
+     - Button haptics (press, LED heartbeat)
+     - Card flip polish
+     - Win celebration tiers
+     - Idle attract hooks
+   ============================================================ */
+
+/* ----- 1. CABINET FRAME ------------------------------------- */
+/* The #game-container already has max-width:540px. We wrap it
+   in a wooden cabinet bezel using pseudo-elements so no DOM
+   changes are required. */
+
+body {
+    background: radial-gradient(ellipse at 50% 40%, #1a0f08 0%, #0a0503 70%, #000 100%);
+    min-height: 100vh;
+}
+
+#game-container {
+    /* position:relative anchors the marquee, coin hopper, coin canvas,
+       and CRT pseudo-elements to the cabinet wrapper instead of <body>. */
+    position: relative;
+    /* Slight padding so bezel is visible inside container */
+    box-shadow:
+        0 0 0 6px #2a1a0c,              /* inner cabinet lip */
+        0 0 0 8px #1a0f08,              /* seam */
+        0 0 0 20px #4a2f18,              /* wooden side panel */
+        0 0 0 22px #3a2515,              /* wood grain darker */
+        0 0 0 24px #2a1a0c,              /* outer cabinet edge */
+        0 0 80px 30px rgba(0,0,0,0.9),   /* ambient room darkening */
+        inset 0 0 40px rgba(0,0,0,0.6);
+    border-radius: 4px;
+}
+
+@media (min-width: 768px) {
+    #game-container {
+        box-shadow:
+            0 0 0 8px #2a1a0c,
+            0 0 0 10px #1a0f08,
+            0 0 0 28px #4a2f18,
+            0 0 0 30px #3a2515,
+            0 0 0 34px #2a1a0c,
+            0 0 100px 40px rgba(0,0,0,0.95),
+            inset 0 0 60px rgba(0,0,0,0.7);
+    }
+}
+
+/* ----- 2. LED MARQUEE (optional DOM node id="cabinet-marquee") */
+#cabinet-marquee {
+    position: absolute;
+    top: -18px;
+    left: 0;
+    right: 0;
+    height: 16px;
+    z-index: 150;
+    background: linear-gradient(180deg, #1a0603 0%, #2a0e06 50%, #0c0301 100%);
+    border-top: 1px solid #4a2f18;
+    border-bottom: 1px solid #0a0301;
+    overflow: hidden;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    letter-spacing: 2px;
+    display: flex;
+    align-items: center;
+    box-shadow:
+        0 2px 4px rgba(0,0,0,0.8),
+        inset 0 1px 0 rgba(255,140,60,0.15);
+}
+
+#cabinet-marquee .marquee-track {
+    display: inline-block;
+    white-space: nowrap;
+    padding-left: 100%;
+    animation: v8-marquee-scroll 22s linear infinite;
+    color: #ffb860;
+    text-shadow:
+        0 0 3px #ff8020,
+        0 0 6px #ff6000,
+        0 0 10px rgba(255,96,0,0.6);
+}
+
+#cabinet-marquee .marquee-track span {
+    margin: 0 3em;
+}
+
+@keyframes v8-marquee-scroll {
+    0% { transform: translate3d(0, 0, 0); }
+    100% { transform: translate3d(-100%, 0, 0); }
+}
+
+/* ----- 3. COIN HOPPER TRAY (optional DOM id="cabinet-hopper") */
+#cabinet-hopper {
+    position: absolute;
+    bottom: -14px;
+    left: 10%;
+    right: 10%;
+    height: 12px;
+    z-index: 150;
+    background:
+        linear-gradient(180deg, #1c1208 0%, #0c0804 80%, #000 100%);
+    border: 1px solid #3a2515;
+    border-radius: 4px 4px 2px 2px;
+    box-shadow:
+        inset 0 2px 4px rgba(0,0,0,0.9),
+        0 2px 4px rgba(0,0,0,0.7);
+}
+
+#cabinet-hopper::before {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 30%;
+    height: 3px;
+    background: #000;
+    border-radius: 2px;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.95);
+}
+
+/* ----- 4. CRT REALISM UPGRADE ------------------------------- */
+/* Preserve existing .crt-overlay behavior but add heavier
+   phosphor + animated scan roll + edge curvature. */
+
+.crt-overlay {
+    /* Existing scanline pattern is fine; layer additional effects
+       via pseudo-elements and new helpers below. */
+    z-index: 90;
+}
+
+.crt-overlay::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    /* Phosphor subpixel RGB shimmer */
+    background:
+        repeating-linear-gradient(
+            90deg,
+            rgba(255, 0, 0, 0.04) 0px,
+            rgba(0, 255, 0, 0.04) 1px,
+            rgba(0, 0, 255, 0.04) 2px,
+            transparent 3px
+        );
+    mix-blend-mode: screen;
+    opacity: 0.55;
+}
+
+/* Animated slow vertical scan roll */
+#game-container::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 92;
+    pointer-events: none;
+    background: linear-gradient(
+        180deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.025) 45%,
+        rgba(255, 255, 255, 0.06) 50%,
+        rgba(255, 255, 255, 0.025) 55%,
+        transparent 100%
+    );
+    height: 12%;
+    animation: v8-scan-roll 7s linear infinite;
+}
+
+@keyframes v8-scan-roll {
+    0% { transform: translateY(-15%); opacity: 0; }
+    5% { opacity: 1; }
+    95% { opacity: 1; }
+    100% { transform: translateY(900%); opacity: 0; }
+}
+
+/* Curvature hint — inner shadow darkens edges slightly more than
+   the original radial vignette, giving a subtle bulge feel. */
+#game-container::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 91;
+    pointer-events: none;
+    background:
+        radial-gradient(
+            ellipse at center,
+            transparent 60%,
+            rgba(0,0,0,0.15) 80%,
+            rgba(0,0,0,0.45) 100%
+        );
+    border-radius: 2% / 1.5%;
+    box-shadow:
+        inset 0 0 24px 8px rgba(0,0,0,0.35),
+        inset 0 0 2px 1px rgba(120,80,40,0.12);
+}
+
+/* Ambient screen bleed onto the bezel edge */
+@keyframes v8-phosphor-flicker {
+    0%,   100% { opacity: 1; }
+    48%        { opacity: 0.98; }
+    51%        { opacity: 1.02; }
+    73%        { opacity: 0.985; }
+}
+
+#game-screen {
+    animation: v8-phosphor-flicker 6s infinite;
+}
+
+/* ----- 5. BUTTON HAPTICS (press + LED heartbeat) ------------ */
+
+.cab-btn {
+    /* Preserve existing background-image; add press transition */
+    transition:
+        transform 80ms cubic-bezier(.2,.8,.2,1),
+        filter 120ms ease-out,
+        box-shadow 80ms ease-out;
+    will-change: transform, filter;
+}
+
+.cab-btn.is-pressed,
+.cab-btn:active {
+    transform: translateY(2px) scale(0.97);
+    filter: brightness(0.85);
+    box-shadow:
+        inset 0 2px 4px rgba(0,0,0,0.5),
+        0 0 0 1px rgba(0,0,0,0.3);
+}
+
+/* LED heartbeat on valid/enabled action buttons. The game already
+   toggles a .valid or :not([disabled]) state; we use the existing
+   structure. Suppress heartbeat during disabled or pressed. */
+
+@keyframes v8-led-heartbeat {
+    0%, 100% { box-shadow: 0 0 0 rgba(255,200,80,0); }
+    50%       { box-shadow: 0 0 12px 2px rgba(255,200,80,0.35); }
+}
+
+#btn-deal:not([disabled]):not(.is-pressed),
+#btn-bet:not([disabled]):not(.is-pressed),
+#btn-big:not([disabled]):not(.is-pressed),
+#btn-small:not([disabled]):not(.is-pressed) {
+    animation: v8-led-heartbeat 1.8s ease-in-out infinite;
+    border-radius: 6px;
+}
+
+.cab-btn[disabled],
+.cab-btn.disabled {
+    filter: grayscale(0.6) brightness(0.55);
+    animation: none !important;
+}
+
+/* Hold button LED ring when toggled */
+.cab-hold.active {
+    box-shadow:
+        0 0 0 2px rgba(255, 200, 80, 0.8),
+        0 0 14px 3px rgba(255, 140, 40, 0.6),
+        inset 0 0 8px rgba(255, 200, 80, 0.3);
+    border-radius: 8px;
+}
+
+/* ----- 6. CARD FLIP POLISH ---------------------------------- */
+
+.card-slot {
+    perspective: 800px;
+    perspective-origin: center center;
+}
+
+.card-face {
+    transition: transform 260ms cubic-bezier(.2,.8,.2,1), filter 200ms;
+    transform-style: preserve-3d;
+    backface-visibility: hidden;
+    will-change: transform;
+}
+
+.card-slot.v8-win-pulse .card-face {
+    animation: v8-card-win-pulse 900ms ease-in-out;
+}
+
+@keyframes v8-card-win-pulse {
+    0%, 100% {
+        filter: drop-shadow(0 0 0 rgba(255, 220, 80, 0));
+        transform: scale(1);
+    }
+    35% {
+        filter:
+            drop-shadow(0 0 10px rgba(255, 220, 80, 0.85))
+            drop-shadow(0 0 20px rgba(255, 140, 40, 0.5))
+            brightness(1.15);
+        transform: scale(1.04);
+    }
+    70% {
+        filter:
+            drop-shadow(0 0 6px rgba(255, 220, 80, 0.6))
+            drop-shadow(0 0 12px rgba(255, 140, 40, 0.3))
+            brightness(1.08);
+        transform: scale(1.02);
+    }
+}
+
+.card-slot.v8-lose-dim .card-face {
+    filter: brightness(0.55) saturate(0.4);
+}
+
+/* 3D flip when re-dealing a card on draw */
+.card-slot.v8-flipping .card-face {
+    animation: v8-card-flip 420ms cubic-bezier(.4,0,.2,1);
+}
+
+@keyframes v8-card-flip {
+    0%   { transform: rotateY(0deg);   filter: brightness(1); }
+    45%  { transform: rotateY(90deg);  filter: brightness(0.6); }
+    55%  { transform: rotateY(-90deg); filter: brightness(0.6); }
+    100% { transform: rotateY(0deg);   filter: brightness(1); }
+}
+
+/* ----- 7. WIN CELEBRATION TIERS ----------------------------- */
+
+body.v8-win-small #win-amount-display {
+    animation: v8-win-small 700ms ease-out;
+}
+
+body.v8-win-medium #win-amount-display {
+    animation: v8-win-medium 1100ms ease-out;
+}
+
+body.v8-win-big #win-amount-display,
+body.v8-win-jackpot #win-amount-display {
+    animation: v8-win-big 1800ms ease-out;
+}
+
+@keyframes v8-win-small {
+    0%   { transform: scale(0.8); opacity: 0; }
+    40%  { transform: scale(1.08); opacity: 1; }
+    100% { transform: scale(1);    opacity: 1; }
+}
+
+@keyframes v8-win-medium {
+    0%   { transform: scale(0.6);  opacity: 0;   filter: brightness(0.6); }
+    30%  { transform: scale(1.25); opacity: 1;   filter: brightness(1.4); }
+    60%  { transform: scale(0.95); opacity: 1;   filter: brightness(1.1); }
+    100% { transform: scale(1);    opacity: 1;   filter: brightness(1); }
+}
+
+@keyframes v8-win-big {
+    0%   { transform: scale(0.3)  rotate(-8deg); opacity: 0;   filter: brightness(0.4) blur(6px); }
+    25%  { transform: scale(1.35) rotate(3deg);  opacity: 1;   filter: brightness(1.7) blur(0); }
+    40%  { transform: scale(1.12) rotate(-1deg); filter: brightness(1.3); }
+    60%  { transform: scale(1.25) rotate(0deg);  filter: brightness(1.5); }
+    100% { transform: scale(1)    rotate(0deg);  filter: brightness(1); }
+}
+
+/* Big-win camera shake on whole cabinet */
+body.v8-win-big #game-container,
+body.v8-win-jackpot #game-container {
+    animation: v8-cabinet-shake 900ms cubic-bezier(.36,.07,.19,.97) both;
+}
+
+@keyframes v8-cabinet-shake {
+    0%, 100% { transform: translateX(0) translateY(0); }
+    10%      { transform: translateX(-2px) translateY(1px); }
+    20%      { transform: translateX(3px) translateY(-1px); }
+    30%      { transform: translateX(-3px) translateY(2px); }
+    40%      { transform: translateX(3px) translateY(-2px); }
+    50%      { transform: translateX(-2px) translateY(1px); }
+    60%      { transform: translateX(2px) translateY(-1px); }
+    70%      { transform: translateX(-1px) translateY(1px); }
+    80%      { transform: translateX(1px) translateY(-1px); }
+    90%      { transform: translateX(-1px) translateY(0); }
+}
+
+/* Marquee strobe on big win */
+body.v8-win-big #cabinet-marquee,
+body.v8-win-jackpot #cabinet-marquee {
+    animation: v8-marquee-strobe 200ms steps(2) 6;
+}
+
+@keyframes v8-marquee-strobe {
+    0%, 100% { filter: brightness(1); }
+    50%      { filter: brightness(2.5) hue-rotate(20deg); }
+}
+
+/* Jackpot siren pulse on entire screen */
+body.v8-win-jackpot #game-screen::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 85;
+    background: radial-gradient(ellipse at center,
+        rgba(255, 200, 80, 0.4) 0%,
+        rgba(255, 60, 0, 0.2) 50%,
+        transparent 80%);
+    animation: v8-jackpot-siren 2400ms ease-out;
+}
+
+@keyframes v8-jackpot-siren {
+    0%, 100% { opacity: 0; }
+    10%      { opacity: 1; }
+    50%      { opacity: 0.6; }
+    80%      { opacity: 0.2; }
+}
+
+/* Coin shower canvas overlay */
+#v8-coin-canvas {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 95;
+    display: none;
+}
+
+body.v8-win-big #v8-coin-canvas,
+body.v8-win-jackpot #v8-coin-canvas {
+    display: block;
+}
+
+/* ----- 8. IDLE ATTRACT MODE --------------------------------- */
+
+body.v8-attract .pay-row {
+    animation: v8-attract-paytable-sweep 6s linear infinite;
+}
+
+.pay-row[data-attract-active="1"] {
+    animation: v8-attract-paytable-flash 400ms ease-in-out 3;
+}
+
+@keyframes v8-attract-paytable-sweep {
+    0%, 100% { filter: brightness(0.95); }
+    50%      { filter: brightness(1.15); }
+}
+
+@keyframes v8-attract-paytable-flash {
+    0%, 100% {
+        background: transparent;
+        filter: brightness(1);
+    }
+    50% {
+        background: rgba(255, 220, 80, 0.15);
+        filter: brightness(1.5);
+    }
+}
+
+body.v8-attract #idle-overlay-text {
+    animation: v8-attract-cta-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes v8-attract-cta-pulse {
+    0%, 100% {
+        color: #004400;
+        text-shadow:
+            0 0 0 rgba(0, 255, 80, 0.2),
+            2px 2px 0 rgba(0, 60, 20, 0.6);
+    }
+    50% {
+        color: #00aa33;
+        text-shadow:
+            0 0 10px rgba(0, 255, 80, 0.8),
+            0 0 20px rgba(0, 255, 80, 0.4),
+            2px 2px 0 rgba(0, 60, 20, 0.6);
+    }
+}
+
+/* ----- 9. AMBIENT DETAIL ------------------------------------ */
+
+/* Subtle CRT warm-up on load — fades in over the first second */
+body:not(.v8-ready) #game-container {
+    filter: brightness(0.2) blur(4px);
+    animation: v8-crt-warmup 1.2s cubic-bezier(.2,.8,.2,1) forwards;
+}
+
+@keyframes v8-crt-warmup {
+    0%   { filter: brightness(0)   blur(10px) saturate(0); }
+    50%  { filter: brightness(0.6) blur(4px)  saturate(0.8); }
+    100% { filter: brightness(1)   blur(0)    saturate(1); }
+}
+
+/* Honor reduced-motion preferences */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+
+    #game-container::after,
+    .crt-overlay::before,
+    #cabinet-marquee .marquee-track {
+        animation: none !important;
+    }
+}

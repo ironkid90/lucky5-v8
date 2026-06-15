@@ -1,0 +1,332 @@
+/*
+ * cabinet-layout-vnext.css
+ * OWNER: Codex Agent 1
+ * PURPOSE: Portrait cabinet coordinate system (720x1280 reference board, scaled as one unit).
+ * LOADS AFTER: game.css
+ * DO NOT EDIT: game.css, any .js files, index.html
+ */
+
+/* ── Cabinet container: always centers the portrait face ─────────────────── */
+#game-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+
+/* ── Cabinet face: locked 9:16 portrait, scales with viewport ────────────── */
+/* Uses dvh (dynamic viewport height) with vh fallback for mobile browsers.  */
+/* container-type:size lets child rules use cqh/cqw units that track the     */
+/* cabinet's actual rendered height, so all type and spacing scale together.  */
+#game-screen,
+#game-screen[data-zone="game-screen"],
+#game-screen.active {
+    position: relative;
+    display: block;          /* override game.css flex */
+    flex-direction: unset;
+    overflow: hidden;
+    /* Always 9:16 — fits entirely within the viewport */
+    width:  min(100vw, calc(100vh  * 9 / 16));
+    height: min(100vh,  calc(100vw * 16 / 9));
+    width:  min(100vw, calc(100dvh * 9 / 16));
+    height: min(100dvh, calc(100vw * 16 / 9));
+    /* Enable container query units for all descendants */
+    container-type: size;
+    container-name: cabinet;
+}
+
+/* Top band 0%-15%: paytable left (65%) + credit/stake right (35%) */
+#paytable,
+[data-zone="paytable"] {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 65%;
+    height: 15%;
+    padding: 2px 6px 0 6px;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+#credit-stake-bar,
+[data-zone="credit-stake"] {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 35%;
+    height: 15%;
+    padding: 2px 8px 0 4px;
+    box-sizing: border-box;
+}
+
+/* Legacy center win text inside top-right block is not used in vNext layout */
+#win-indicator {
+    display: none;
+}
+
+/* 15%-19%: Lucky5 label band */
+#lucky5-banner,
+[data-zone="label-band"] {
+    position: absolute;
+    top: 15%;
+    left: 0;
+    width: 100%;
+    height: 4%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* 19%-38%: card stage */
+#card-area,
+[data-zone="card-stage"] {
+    position: absolute;
+    top: 19%;
+    left: 0;
+    width: 100%;
+    height: 19%;
+    max-height: none;
+    padding: 2px 8px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    gap: 4px;
+    overflow: hidden;
+}
+
+/* 38%-42%: win amount row */
+#win-amount-display,
+[data-zone="win-amount"] {
+    position: absolute;
+    top: 38%;
+    left: 0;
+    width: 100%;
+    height: 4%;
+    min-height: 0;
+    padding: 0 8px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+/* 42%-53%: machine info block */
+#machine-info-block,
+[data-zone="machine-info"] {
+    position: absolute;
+    top: 42%;
+    left: 0;
+    width: 100%;
+    height: 11%;
+    padding: 2px 8px;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+/* Double-up info and info bar remain on cabinet face (no modal/drawer reflow) */
+#du-info-panel,
+[data-zone="du-info"] {
+    position: absolute;
+    top: 47%;
+    left: 0;
+    width: 100%;
+    height: 5%;
+    padding: 1px 8px;
+    box-sizing: border-box;
+}
+
+#info-bar,
+[data-zone="info-bar"] {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 100%;
+    height: 3%;
+    padding: 0 8px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#bonus-bar {
+    position: absolute;
+    top: 52%;
+    left: 0;
+    width: 100%;
+    height: 1%;
+    padding: 0;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 53%-97% control deck */
+#controls {
+    position: absolute;
+    top: 53%;
+    left: 0;
+    width: 100%;
+    height: 44%;
+    padding: 4px 8px 8px;
+    box-sizing: border-box;
+    background: url('/assets/images/board.png') center/cover no-repeat;
+    overflow: hidden;
+}
+
+/* Inside controls, preserve the global map proportions:
+   hold: 14/44, action: 17/44, bottom: 13/44
+*/
+#hold-row,
+[data-zone="hold-row"] {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 31.8182%;
+    padding: 2px 10px 2px 10px;
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    align-items: center;
+    justify-items: center;
+    gap: 4px;
+}
+
+#action-row,
+[data-zone="action-row"] {
+    position: absolute;
+    top: 31.8182%;
+    left: 0;
+    width: 100%;
+    height: 38.6364%;
+    padding: 2px 10px;
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    align-items: center;
+    justify-items: center;
+    gap: 4px;
+}
+
+#bottom-row,
+[data-zone="bottom-row"] {
+    position: absolute;
+    top: 70.4546%;
+    left: 0;
+    width: 100%;
+    height: 29.5454%;
+    padding: 2px 14px;
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    justify-items: center;
+    gap: 6px;
+}
+
+/* ── Idle attract overlay (arcade VFD title in the SCREEN band) ──────────
+   2026-04-20: moved out of #controls into #game-screen so the LUCKY 5
+   POKER title reads like a classic cabinet attract banner sitting on the
+   CRT, not in the wooden control deck. Spans the vertical band 15%-42%
+   so it covers the label band + card area + win-amount row while idle. */
+#idle-overlay {
+    position: absolute;
+    top: 15%;
+    left: 0;
+    width: 100%;
+    height: 27%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 5;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 320ms ease;
+}
+#idle-overlay.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* The per-line spans that render LUCKY 5 over POKER stacked like a
+   classic coin-op attract title. Full typographic treatment lives in
+   cabinet-v8-quality.css so the v8 quality layer can override fonts,
+   pixel-matrix shadow, and LED-glow cleanly. */
+#idle-overlay-text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4cqh;
+}
+#idle-overlay-text .idle-line {
+    display: block;
+    line-height: 1;
+    white-space: nowrap;
+}
+#idle-overlay-text .idle-line-poker {
+    align-self: flex-end;
+    padding-right: 4cqh;
+}
+
+/* Button sizing and alignment only; image states handled by JS */
+.cab-btn {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+}
+
+.cab-hold {
+    width: min(100%, 11.5cqh);
+    height: auto;
+    aspect-ratio: 86 / 62;
+    justify-self: center;
+    align-self: center;
+}
+
+.cab-big,
+.cab-small,
+.cab-cancel,
+.cab-deal,
+.cab-bet {
+    width: min(100%, 12.8cqh);
+    height: auto;
+    aspect-ratio: 90 / 70;
+    justify-self: center;
+    align-self: center;
+}
+
+.cab-takehalf,
+.cab-takescore {
+    width: min(100%, 13.8cqh);
+    height: auto;
+    aspect-ratio: 98 / 72;
+    justify-self: center;
+    align-self: center;
+}
+
+.cab-menu {
+    width: min(100%, 6.8cqh);
+    height: auto;
+    aspect-ratio: 1 / 1;
+    min-width: 0;
+    min-height: 0;
+    justify-self: center;
+    align-self: center;
+}
+
+/* Desktop remains a centered portrait machine face. No sidebars/reflow. */
+@media (min-width: 900px) {
+    #game-container {
+        margin-left: auto;
+        margin-right: auto;
+    }
+}

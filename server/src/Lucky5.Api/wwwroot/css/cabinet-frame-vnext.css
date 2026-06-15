@@ -1,0 +1,59 @@
+/*
+ * cabinet-frame-vnext.css
+ * LOADS AFTER: cabinet-layout-vnext.css
+ * PURPOSE: Cosmetic layer only — CRT scanline overlay, button press feedback,
+ *          image-rendering hints, and menu z-index.
+ * DO NOT add zone coordinates or #game-container sizing here.
+ * Zone layout is owned by cabinet-layout-vnext.css.
+ */
+
+/* Body: flex-center so the cabinet face is centred on all viewports */
+body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Apply crisp pixel rendering on the game screen (portrait face) */
+#game-screen {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+}
+
+/* Button press cosmetics (layered on top of cabinet-layout-vnext rules) */
+#controls .cab-btn,
+#controls .cab-hold {
+    will-change: transform, filter, opacity;
+    transition: transform 80ms linear, filter 80ms linear, opacity 80ms linear;
+}
+
+#controls .cab-btn:active,
+#controls .cab-hold:active,
+#controls .cab-btn.is-pressed,
+#controls .cab-hold.is-pressed {
+    transform: translateY(4px) scale(0.985);
+    filter: brightness(0.92);
+}
+
+#controls .cab-btn:disabled,
+#controls .cab-hold:disabled {
+    opacity: 0.82;
+    filter: saturate(0.65) brightness(0.88);
+}
+
+.crt-overlay {
+    pointer-events: none;
+    background:
+        linear-gradient(rgba(255,255,255,0.035), rgba(255,255,255,0.01)),
+        repeating-linear-gradient(
+            to bottom,
+            rgba(255,255,255,0.025) 0,
+            rgba(255,255,255,0.025) 1px,
+            rgba(0,0,0,0.02) 2px,
+            rgba(0,0,0,0.02) 4px
+        );
+}
+
+.menu-panel {
+    z-index: 10000;
+}
