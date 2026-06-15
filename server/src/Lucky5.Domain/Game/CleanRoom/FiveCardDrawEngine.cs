@@ -1,0 +1,340 @@
+namespace Lucky5.Domain.Game.CleanRoom;
+
+public static class FiveCardDrawEngine
+{
+    private static readonly char[] Suits = ['C', 'D', 'H', 'S'];
+
+    public static CleanRoomCard[] BuildStandardDeck()
+    {
+        var deck = new List<CleanRoomCard>(52);
+
+        foreach (var suit in Suits)
+        {
+            for (var rank = 2; rank <= 14; rank++)
+            {
+                deck.Add(new CleanRoomCard(rank, suit));
+            }
+        }
+
+        return deck.ToArray();
+    }
+
+    public static CleanRoomCard[] ShuffleDeck(ulong seed, string stream = "deck", IEnumerable<CleanRoomCard>? deck = null)
+    {
+        var workingDeck = deck?.ToList() ?? BuildStandardDeck().ToList();
+        var rng = new SplitMix64Rng(DeterministicSeed.Derive(seed, stream));
+        rng.Shuffle(workingDeck);
+        return workingDeck.ToArray();
+    }
+
+    public static FiveCardDrawState DealFiveCardDraw(ulong seed, string stream = "hand")
+    {
+        var seedToken = DeterministicSeed.Derive(seed, stream);
+        var deck = ShuffleDeck(seedToken, "cards");
+        var hand = deck.Take(5).ToArray();
+        return FiveCardDrawState.Create(seedToken, deck, hand);
+    }
+
+    public static FiveCardDrawState Reduce(FiveCardDrawState state, RoundAction action)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(action);
+
+        return action.Kind switch
+        {
+            RoundActionKind.ToggleHold => ToggleHold(state, action.CardIndex),
+            RoundActionKind.SetHoldMask => SetHoldMask(state, action.HoldMask),
+            RoundActionKind.Draw => Draw(state),
+            _ => throw new ArgumentOutOfRangeException(nameof(action), action.Kind, "Unsupported round action.")
+        };
+    }
+
+    public static CleanRoomCard[] ParseCards(IEnumerable<string> codes)
+    {
+        ArgumentNullException.ThrowIfNull(codes);
+        return codes.Select(CleanRoomCard.FromCode).ToArray();
+    }
+
+    public static HandEvaluation EvaluateHand(IReadOnlyList<CleanRoomCard> cards)
+    {
+        if (cards.Count != 5)
+        {
+            throw new ArgumentException("Exactly five cards are required.", nameof(cards));
+        }
+
+        var orderedRanks = cards
+            .Select(card => card.Rank)
+            .OrderByDescending(rank => rank)
+            .ToArray();
+
+        var groups = cards
+            .GroupBy(card => card.Rank)
+            .Select(group => new { Rank = group.Key, Count = group.Count() })
+            .OrderByDescending(group => group.Count)
+            .ThenByDescending(group => group.Rank)
+            .ToArray();
+
+        var isFlush = cards.All(card => card.Suit == cards[0].Suit);
+        var (isStraight, straightHigh) = DetectStraight(cards.Select(card => card.Rank));
+
+        if (isStraight && isFlush)
+        {
+            if (straightHigh == 14)
+            {
+                return new HandEvaluation(HandCategory.RoyalFlush, "Royal Flush", [14]);
+            }
+
+            return new HandEvaluation(HandCategory.StraightFlush, "Straight Flush", [straightHigh]);
+        }
+
+        if (groups[0].Count == 4)
+        {
+            return new HandEvaluation(
+                HandCategory.FourOfAKind,
+                "Four of a Kind",
+                [groups[0].Rank, groups[1].Rank]);
+        }
+
+        if (groups[0].Count == 3 && groups[1].Count == 2)
+        {
+            return new HandEvaluation(
+                HandCategory.FullHouse,
+                "Full House",
+                [groups[0].Rank, groups[1].Rank]);
+        }
+
+        if (isFlush)
+        {
+            return new HandEvaluation(HandCategory.Flush, "Flush", orderedRanks);
+        }
+
+        if (isStraight)
+        {
+            return new HandEvaluation(HandCategory.Straight, "Straight", [straightHigh]);
+        }
+
+        if (groups[0].Count == 3)
+        {
+            var kickers = groups
+                .Where(group => group.Count == 1)
+                .Select(group => group.Rank)
+                .OrderByDescending(rank => rank);
+
+            return new HandEvaluation(
+                HandCategory.ThreeOfAKind,
+                "Three of a Kind",
+                [groups[0].Rank, .. kickers]);
+        }
+
+        if (groups[0].Count == 2 && groups[1].Count == 2)
+        {
+            var pairRanks = groups
+                .Where(group => group.Count == 2)
+                .Select(group => group.Rank)
+                .OrderByDescending(rank => rank)
+                .ToArray();
+
+            var kicker = groups.Single(group => group.Count == 1).Rank;
+            return new HandEvaluation(HandCategory.TwoPair, "Two Pair", [pairRanks[0], pairRanks[1], kicker]);
+        }
+
+        if (groups[0].Count == 2)
+        {
+            var pairRank = groups[0].Rank;
+            var kickers = groups
+                .Where(group => group.Count == 1)
+                .Select(group => group.Rank)
+                .OrderByDescending(rank => rank);
+
+            return new HandEvaluation(
+                HandCategory.OnePair,
+                "One Pair",
+                [pairRank, .. kickers],
+                pairRank);
+        }
+
+        return new HandEvaluation(HandCategory.HighCard, "High Card", orderedRanks);
+    }
+
+    public static int ResolvePayout(HandEvaluation evaluation, int bet, PaytableProfile? paytable = null)
+        => (paytable ?? PaytableProfile.Lebanese).ResolvePayout(evaluation, bet);
+
+    private static FiveCardDrawState ToggleHold(FiveCardDrawState state, int? cardIndex)
+    {
+        if (state.Phase != RoundPhase.Dealt)
+        {
+            throw new InvalidOperationException("Cards can only be held before the draw.");
+        }
+
+        if (cardIndex is null || cardIndex < 0 || cardIndex >= state.Held.Length)
+        {
+            throw new ArgumentOutOfRangeException(nameof(cardIndex), cardIndex, "Card index must address one of the five cards.");
+        }
+
+        var held = (bool[])state.Held.Clone();
+        held[cardIndex.Value] = !held[cardIndex.Value];
+        return state with { Held = held, State = RoundState.Hold };
+    }
+
+    private static FiveCardDrawState SetHoldMask(FiveCardDrawState state, bool[]? holdMask)
+    {
+        if (state.Phase != RoundPhase.Dealt)
+        {
+            throw new InvalidOperationException("Cards can only be held before the draw.");
+        }
+
+        if (holdMask is null || holdMask.Length != 5)
+        {
+            throw new ArgumentException("Hold mask must contain five entries.", nameof(holdMask));
+        }
+
+        return state with
+        {
+            Held = (bool[])holdMask.Clone(),
+            State = RoundState.Hold
+        };
+    }
+
+    private static FiveCardDrawState Draw(FiveCardDrawState state)
+    {
+        if (state.Phase != RoundPhase.Dealt)
+        {
+            throw new InvalidOperationException("The draw can only be executed once.");
+        }
+
+        var hand = (CleanRoomCard[])state.Hand.Clone();
+        var drawIndex = state.DrawIndex;
+
+        for (var index = 0; index < hand.Length; index++)
+        {
+            if (state.Held[index])
+            {
+                continue;
+            }
+
+            if (drawIndex >= state.Deck.Length)
+            {
+                throw new InvalidOperationException("Deck exhausted during draw.");
+            }
+
+            hand[index] = state.Deck[drawIndex];
+            drawIndex++;
+        }
+
+        return state with
+        {
+            Hand = hand,
+            DrawIndex = drawIndex,
+            Phase = RoundPhase.Drawn,
+            State = RoundState.Evaluate
+        };
+    }
+
+    public static int[] ComputeAdvisedHolds(IReadOnlyList<CleanRoomCard> cards)
+    {
+        if (cards.Count != 5) return [];
+
+        var rankGroups = cards
+            .Select((c, i) => new { c.Rank, c.Suit, Index = i })
+            .GroupBy(x => x.Rank)
+            .Select(g => new { Rank = g.Key, Indexes = g.Select(x => x.Index).ToArray() })
+            .OrderByDescending(g => g.Indexes.Length)
+            .ThenByDescending(g => g.Rank)
+            .ToArray();
+
+        var suitGroups = cards
+            .Select((c, i) => new { c.Rank, c.Suit, Index = i })
+            .GroupBy(x => x.Suit)
+            .Select(g => new { Suit = g.Key, Items = g.ToArray() })
+            .ToArray();
+
+        var quads = rankGroups.Where(g => g.Indexes.Length == 4).ToArray();
+        if (quads.Length > 0)
+            return quads[0].Indexes.Order().ToArray();
+
+        var trips = rankGroups.Where(g => g.Indexes.Length == 3).ToArray();
+        var pairs = rankGroups.Where(g => g.Indexes.Length == 2).ToArray();
+
+        if (trips.Length > 0 && pairs.Length > 0)
+            return trips[0].Indexes.Concat(pairs[0].Indexes).Order().ToArray();
+
+        var flush5 = suitGroups.FirstOrDefault(g => g.Items.Length == 5);
+        if (flush5 != null)
+            return [0, 1, 2, 3, 4];
+
+        var sortedRanks = cards.Select(c => c.Rank).Distinct().Order().ToArray();
+        if (sortedRanks.Length == 5)
+        {
+            var isStraight = (sortedRanks[4] - sortedRanks[0] == 4) ||
+                sortedRanks.SequenceEqual([2, 3, 4, 5, 14]);
+            if (isStraight)
+                return [0, 1, 2, 3, 4];
+        }
+
+        if (trips.Length > 0)
+            return trips[0].Indexes.Order().ToArray();
+
+        if (pairs.Length >= 2)
+            return pairs[0].Indexes.Concat(pairs[1].Indexes).Order().ToArray();
+
+        var flush4 = suitGroups.FirstOrDefault(g => g.Items.Length == 4);
+        if (flush4 != null)
+            return flush4.Items.Select(x => x.Index).Order().ToArray();
+
+        var allCards = cards.Select((c, i) => new { c.Rank, Index = i }).ToArray();
+        var sorted = allCards.OrderBy(c => c.Rank).ToArray();
+        for (var i = 0; i <= sorted.Length - 4; i++)
+        {
+            var window4 = sorted.Skip(i).Take(4).ToArray();
+            var uRanks = window4.Select(c => c.Rank).Distinct().Order().ToArray();
+            if (uRanks.Length == 4 && (uRanks[3] - uRanks[0] <= 4))
+                return window4.Select(c => c.Index).Order().ToArray();
+        }
+        var ace = sorted.FirstOrDefault(c => c.Rank == 14);
+        if (ace != null)
+        {
+            var lowCards = sorted.Where(c => c.Rank >= 2 && c.Rank <= 5).Take(3).ToArray();
+            if (lowCards.Length >= 3)
+            {
+                var combo = new[] { ace }.Concat(lowCards).ToArray();
+                var uRanks = combo.Select(c => c.Rank).Distinct().ToArray();
+                if (uRanks.Length == 4)
+                    return combo.Select(c => c.Index).Order().ToArray();
+            }
+        }
+
+        if (pairs.Length == 1)
+            return pairs[0].Indexes.Order().ToArray();
+
+        return [];
+    }
+
+    private static (bool IsStraight, int HighCard) DetectStraight(IEnumerable<int> ranks)
+    {
+        var uniqueRanks = ranks
+            .Distinct()
+            .OrderBy(rank => rank)
+            .ToArray();
+
+        if (uniqueRanks.Length != 5)
+        {
+            return (false, 0);
+        }
+
+        var isWheel = uniqueRanks.SequenceEqual([2, 3, 4, 5, 14]);
+        if (isWheel)
+        {
+            return (true, 5);
+        }
+
+        for (var index = 1; index < uniqueRanks.Length; index++)
+        {
+            if (uniqueRanks[index] != uniqueRanks[index - 1] + 1)
+            {
+                return (false, 0);
+            }
+        }
+
+        return (true, uniqueRanks[^1]);
+    }
+}

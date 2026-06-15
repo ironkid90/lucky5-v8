@@ -1,0 +1,419 @@
+/*
+ * cabinet-shell-vnext.css
+ * OWNER: Lead Agent
+ * PURPOSE: Shell additions only — game.css already covers all shell screens.
+ *          This file adds only the genuinely missing pieces and targeted overrides.
+ * LOADS AFTER: cabinet-labels-vnext.css
+ * DO NOT EDIT: game.css, any .js files, index.html
+ */
+
+/* ─── ADMIN INPUT ────────────────────────────────────────────────────────── */
+/* game.css does not define admin-input-lite */
+
+.admin-input-lite {
+    font-family: 'Press Start 2P', 'Arcade', monospace;
+    font-size: 7px;
+    background: #111;
+    border: 1px solid #3d2815;
+    color: #ffcc00;
+    padding: 8px 10px;
+    letter-spacing: 1px;
+    border-radius: 2px;
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.admin-input-lite:focus {
+    border-color: #ffcc00;
+}
+
+/* ─── LUCKY5 CARD GLOW (applied by CabinetStage.showLucky5Active) ────────── */
+/* game.css has .du-card-slot lucky5-glow but not .card-slot.lucky5-active */
+
+.card-slot.lucky5-active .card-face {
+    box-shadow: 0 0 18px rgba(255, 215, 0, 0.85), 0 0 36px rgba(255, 215, 0, 0.35);
+    animation: lucky5-card-slot-glow 0.6s ease-out forwards;
+}
+
+@keyframes lucky5-card-slot-glow {
+    0%   { box-shadow: 0 0 24px rgba(255,215,0,0.9), 0 0 48px rgba(255,215,0,0.5); }
+    100% { box-shadow: 2px 2px 6px rgba(0,0,0,0.8); }
+}
+
+/* ─── LOBBY MACHINE CARD (used by CabinetShell.renderLobbyMachineCards) ──── */
+/* Additive — not a replacement for .game-card, just an alternative class     */
+
+.lobby-machine-card {
+    position: relative;
+    display: grid;
+    grid-template-rows: auto auto;
+    gap: 10px;
+    min-height: 240px;
+    padding: 12px;
+    border: 2px solid #6a421a;
+    border-radius: 8px;
+    background:
+        radial-gradient(circle at top, rgba(255, 214, 111, 0.18), transparent 40%),
+        linear-gradient(180deg, rgba(52, 31, 11, 0.97) 0%, rgba(17, 10, 3, 0.98) 100%);
+    font-family: 'Press Start 2P', 'Arcade', monospace;
+    box-shadow:
+        0 10px 24px rgba(0, 0, 0, 0.46),
+        inset 0 1px 0 rgba(255, 227, 154, 0.12);
+    cursor: pointer;
+    transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+    overflow: hidden;
+}
+
+.lobby-machine-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.08), transparent 42%);
+    pointer-events: none;
+}
+
+.lobby-machine-card:hover,
+.lobby-machine-card:active {
+    border-color: #ffcc00;
+    transform: translateY(-2px);
+    box-shadow:
+        0 14px 32px rgba(0, 0, 0, 0.55),
+        0 0 24px rgba(255, 204, 0, 0.16),
+        inset 0 1px 0 rgba(255, 233, 171, 0.16);
+}
+
+.lobby-machine-card.unavailable {
+    opacity: 0.68;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.lobby-machine-cabinet {
+    position: relative;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    gap: 6px;
+    aspect-ratio: 5 / 6.6;
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 204, 0, 0.25);
+    background: linear-gradient(180deg, rgba(52, 27, 6, 0.98) 0%, rgba(24, 11, 3, 0.98) 100%);
+    box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,0.04),
+        inset 0 -8px 12px rgba(0,0,0,0.35);
+}
+
+.lobby-machine-marquee {
+    padding: 6px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 208, 79, 0.4);
+    background: linear-gradient(180deg, #9b1010 0%, #4f0808 100%);
+    color: #ffe27a;
+    font-size: 8px;
+    letter-spacing: 1px;
+    text-align: center;
+    text-shadow: 0 0 8px rgba(255, 199, 72, 0.35);
+}
+
+.lobby-machine-screen {
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    gap: 8px;
+    padding: 10px 8px 8px;
+    border-radius: 5px;
+    background:
+        radial-gradient(circle at top, rgba(34, 86, 140, 0.4), transparent 38%),
+        linear-gradient(180deg, rgba(7, 17, 27, 0.98) 0%, rgba(5, 10, 16, 0.98) 100%);
+    border: 1px solid rgba(126, 212, 255, 0.18);
+    box-shadow:
+        inset 0 0 0 1px rgba(130, 230, 255, 0.06),
+        inset 0 0 16px rgba(0, 0, 0, 0.55);
+}
+
+.lobby-machine-preview-payout {
+    font-size: 6px;
+    color: #aef0ff;
+    letter-spacing: 1px;
+    text-align: center;
+}
+
+.lobby-machine-preview-cards {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 4px;
+    align-items: center;
+}
+
+.lobby-machine-preview-card {
+    position: relative;
+    aspect-ratio: 5 / 7;
+    border-radius: 3px;
+    background: linear-gradient(180deg, #ffffff 0%, #e6edf8 100%);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.36);
+}
+
+.lobby-machine-preview-card::after {
+    content: attr(data-suit);
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-size: 11px;
+    color: #f7f9ff;
+    text-shadow: 0 0 8px rgba(126, 212, 255, 0.3);
+}
+
+.lobby-machine-preview-card[data-red="1"]::after {
+    color: #ff7565;
+}
+
+.lobby-machine-preview-credits {
+    font-size: 6px;
+    color: #49ff8b;
+    letter-spacing: 1px;
+    text-align: center;
+}
+
+.lobby-machine-controls {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 4px;
+}
+
+.lobby-machine-control {
+    height: 12px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, #ffd86a 0%, #8f5b06 100%);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.32),
+        0 2px 3px rgba(0, 0, 0, 0.35);
+}
+
+.lobby-machine-meta {
+    display: grid;
+    gap: 6px;
+}
+
+.lobby-machine-status-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.lobby-machine-status,
+.lobby-machine-id,
+.lobby-machine-bet-label,
+.lobby-machine-cta {
+    font-size: 6px;
+    letter-spacing: 1px;
+}
+
+.lobby-machine-status {
+    color: #49ff8b;
+}
+
+.lobby-machine-status.is-closed {
+    color: #ff7565;
+}
+
+.lobby-machine-id,
+.lobby-machine-bet-label {
+    color: #b8925b;
+}
+
+.lobby-machine-name {
+    font-size: 9px;
+    line-height: 1.45;
+    color: #ffffff;
+    letter-spacing: 0.4px;
+    overflow-wrap: anywhere;
+}
+
+.lobby-machine-bet {
+    font-size: 8px;
+    color: #ffe27a;
+    letter-spacing: 0.6px;
+}
+
+.lobby-machine-cta {
+    color: #9ceaff;
+}
+
+/* ─── LOBBY NAV ACTIVE INDICATOR (override game.css gold with amber) ──────── */
+
+.lobby-nav-item.active {
+    color: #ffcc00;
+    border-top: 2px solid #ffcc00;
+}
+
+/* ─── MENU OVERLAY TITLE (override game.css yellow with gold) ─────────────── */
+
+.menu-panel-title {
+    font-size: 11px;
+    color: #ffcc00;
+    letter-spacing: 3px;
+}
+
+/* ─── WALLET DEPOSIT/WITHDRAW PLACEHOLDER TEXT ────────────────────────────── */
+
+.wallet-coming-soon {
+    font-family: 'Press Start 2P', 'Arcade', monospace;
+    font-size: 6px;
+    color: #444;
+    text-align: center;
+    letter-spacing: 1px;
+    padding: 4px 0;
+}
+
+.wallet-history-row {
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+}
+
+.wallet-history-info {
+    min-width: 0;
+    flex: 1 1 180px;
+}
+
+.wallet-history-type,
+.wallet-history-date,
+.wallet-history-amount {
+    overflow-wrap: anywhere;
+}
+
+#admin-users-list .wallet-history-row > div:last-child,
+#admin-machines-list .wallet-history-row > div:last-child {
+    flex: 1 1 100%;
+    justify-content: flex-start;
+}
+
+/* ─── COMPACT CABINET-MOUNTED MENU OVERLAY ────────────────────────────── */
+
+body.menu-open {
+    overflow: hidden;
+}
+
+body.menu-open::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.52);
+    z-index: 9998;
+    pointer-events: none;
+}
+
+.menu-panel {
+    position: fixed;
+    inset: auto;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -36%);
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    width: min(82vw, 320px);
+    max-height: min(72vh, 520px);
+    gap: 10px;
+    padding: 16px 14px 18px;
+    background: linear-gradient(180deg, rgba(34, 18, 6, 0.97) 0%, rgba(10, 6, 2, 0.99) 100%);
+    border: 3px solid #7a4d1f;
+    border-radius: 10px;
+    box-shadow:
+        0 18px 42px rgba(0, 0, 0, 0.7),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15),
+        0 0 0 1px rgba(255, 193, 91, 0.18);
+    z-index: 9999;
+    font-family: 'Press Start 2P', 'Arcade', monospace;
+}
+
+.menu-panel.is-open {
+    display: flex;
+}
+
+.menu-panel-title {
+    margin: 0 0 4px;
+    text-align: center;
+    font-size: 11px;
+    color: #ffcc00;
+    letter-spacing: 3px;
+    text-shadow: 0 0 8px rgba(255, 196, 40, 0.28);
+}
+
+.menu-panel-btn,
+.menu-panel-close {
+    min-width: 0;
+    width: 100%;
+    padding: 11px 12px;
+    font-family: 'Press Start 2P', 'Arcade', monospace;
+    font-size: 8px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    border-radius: 4px;
+    box-shadow: 0 3px 0 rgba(0, 0, 0, 0.38);
+}
+
+.menu-panel-btn {
+    color: #fff;
+    border: 2px solid transparent;
+}
+
+.menu-panel-btn:active,
+.menu-panel-close:active {
+    transform: translateY(2px);
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.38);
+}
+
+.menu-panel-btn-cashin {
+    background: linear-gradient(180deg, #118c28 0%, #0b5f1a 100%);
+    border-color: #28ca4d;
+}
+
+.menu-panel-btn-cashout {
+    background: linear-gradient(180deg, #c89612 0%, #8b5f06 100%);
+    border-color: #ffd04f;
+}
+
+.menu-panel-btn-lobby {
+    background: linear-gradient(180deg, #2a6bb2 0%, #1c4472 100%);
+    border-color: #6cb7ff;
+}
+
+.menu-panel-btn-reset {
+    background: linear-gradient(180deg, #b9331c 0%, #7e1f10 100%);
+    border-color: #ff7a5a;
+}
+
+.menu-panel-btn-logout {
+    background: linear-gradient(180deg, #4c4c4c 0%, #242424 100%);
+    border-color: #9a9a9a;
+}
+
+.menu-panel-close {
+    margin-top: 2px;
+    background: rgba(255, 255, 255, 0.03);
+    color: #bbb;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+@media (max-width: 540px) {
+    .menu-panel {
+        width: min(88vw, 320px);
+        transform: translate(-50%, -34%);
+    }
+}
+
+@media (min-width: 640px) {
+    .wallet-history-row {
+        flex-wrap: nowrap;
+        align-items: center;
+    }
+
+    #admin-users-list .wallet-history-row > div:last-child,
+    #admin-machines-list .wallet-history-row > div:last-child {
+        flex: 0 0 auto;
+        justify-content: flex-end;
+    }
+}

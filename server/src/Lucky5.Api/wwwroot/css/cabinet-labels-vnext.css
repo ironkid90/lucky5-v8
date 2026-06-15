@@ -1,0 +1,321 @@
+/*
+ * cabinet-labels-vnext.css
+ * OWNER: Codex Agent 1
+ * PURPOSE: Label system — paytable colors, credit/stake labels, jackpot surface text.
+ * LOADS AFTER: cabinet-layout-vnext.css
+ * DO NOT EDIT: game.css, any .js files, index.html
+ */
+
+/* Pixel typography baseline on cabinet face */
+#game-screen,
+#game-screen * {
+    font-family: 'Press Start 2P', 'Arcade', monospace;
+}
+
+/* PAYTABLE */
+#paytable .pay-row {
+    border-radius: 0;
+    line-height: 1.45;
+    font-size: 0.85cqh;
+    letter-spacing: 0.025cqh;
+    padding: 0 0.2cqh;
+}
+
+#paytable .pay-amount {
+    text-align: right;
+    min-width: 6cqh;
+    font-size: 0.85cqh;
+}
+
+#paytable .pay-row.rf,
+#paytable .pay-row.rf .pay-amount { color: #ff4444; }
+
+#paytable .pay-row.sf,
+#paytable .pay-row.sf .pay-amount { color: #ff8800; }
+
+#paytable .pay-row.foak,
+#paytable .pay-row.foak .pay-amount { color: #44ffcc; }
+
+#paytable .pay-row.fh,
+#paytable .pay-row.fh .pay-amount { color: #ffff00; }
+
+#paytable .pay-row.fl,
+#paytable .pay-row.fl .pay-amount { color: #ff6666; }
+
+#paytable .pay-row.st,
+#paytable .pay-row.st .pay-amount { color: #44ff88; }
+
+#paytable .pay-row.tok,
+#paytable .pay-row.tok .pay-amount { color: #44ddff; }
+
+#paytable .pay-row.tp,
+#paytable .pay-row.tp .pay-amount { color: #ddddaa; }
+
+/* Solid selection box (not glow-only) */
+#paytable .pay-row.jackpot-selected {
+    outline: 2px solid currentColor;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+/* CREDIT / STAKE */
+#credit-stake-bar {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 3px;
+    text-align: right;
+}
+
+#credits.credit-val {
+    color: #00ff44;
+    font-size: 0.85cqh;
+    line-height: 1.15;
+    letter-spacing: 0.037cqh;
+}
+
+#stake-display.stake-val {
+    color: #ffcc00;
+    font-size: 0.85cqh;
+    line-height: 1.15;
+    letter-spacing: 0.037cqh;
+}
+
+#credits.credit-val span,
+#stake-display.stake-val span {
+    color: #ffffff;
+    display: block;
+    font-size: 1.56cqh;
+    line-height: 1.05;
+}
+
+/* LUCKY5 LABEL BAND */
+#lucky5-banner {
+    color: #00ff44;
+    font-size: 0.85cqh;
+    letter-spacing: 0.21cqh;
+    text-align: center;
+    visibility: hidden;
+    opacity: 0;
+}
+
+#lucky5-banner.active {
+    visibility: visible;
+    opacity: 1;
+    animation: lucky5-banner-flicker 0.18s steps(2, end) 7, neon-blink 1.5s ease-in-out 0.7s infinite;
+}
+
+/* WIN AMOUNT */
+#win-amount-display {
+    text-align: center;
+}
+
+#win-slot-tag,
+#win-amount-value {
+    color: #ffcc00;
+}
+
+#win-slot-tag {
+    font-size: 1.04cqh;
+}
+
+#win-amount-value {
+    font-size: 2.3cqh;
+    text-shadow:
+        0.1cqh 0.1cqh 0 #000000,
+        -0.1cqh -0.1cqh 0 #000000,
+        0.1cqh -0.1cqh 0 #000000,
+        -0.1cqh 0.1cqh 0 #000000;
+}
+
+/* MACHINE INFO BLOCK */
+#machine-info-block {
+    display: grid;
+    align-content: start;
+    gap: 0.35cqh;
+}
+
+#machine-identity,
+#machine-serial,
+#bonus-hand-text {
+    text-align: center;
+}
+
+#machine-identity .mi-label,
+#machine-identity .mi-sep,
+#machine-identity .mi-val,
+#machine-serial .mi-label,
+#machine-serial .mi-val {
+    color: #44ff88;
+    font-size: 0.85cqh;
+}
+
+#jackpot-counters {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+#jp-counter-a,
+#jp-counter-b {
+    color: #44ff88;
+}
+
+#jp-counter-center {
+    color: #ff4444;
+}
+
+#jp-counter-a .jp-tag,
+#jp-counter-b .jp-tag,
+#jp-counter-center .jp-tag,
+#jp-counter-a .jp-cval,
+#jp-counter-b .jp-cval,
+#jp-counter-center .jp-cval {
+    color: inherit;
+}
+
+/* Active jackpot slot highlight: solid amber frame. */
+.jp-counter.jp-active {
+    outline: 2px solid #ffcc00;
+    background: rgba(255, 200, 0, 0.1);
+}
+
+/* Fallback for legacy star-only active slot signaling. */
+#jp-counter-a:has(#jp-star-a[style*="inline"]),
+#jp-counter-b:has(#jp-star-b[style*="inline"]) {
+    outline: 2px solid #ffcc00;
+    background: rgba(255, 200, 0, 0.1);
+}
+
+/* Legacy star still supported but visually secondary. */
+.jp-4k-star {
+    color: #ff2222;
+    font-size: 0.9cqh;
+    margin-right: 0.3cqh;
+    animation: jp-star-blink 0.9s steps(1, end) infinite;
+    display: none; /* shown by JS for the active slot only */
+}
+
+@keyframes jp-star-blink {
+    0%, 49%  { opacity: 1; }
+    50%, 100% { opacity: 0; }
+}
+
+/* FH meter + rank: black text on white container */
+#jackpot-full-house {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+#jackpot-full-house .jp-meter-label {
+    color: #111111;
+    background: #ffffff;
+    padding: 2px 6px;
+}
+
+#jp-fh-rank {
+    color: #111111;
+    background: #ffffff;
+    padding: 0 2px;
+}
+
+#jp-counter-fh {
+    color: #111111;
+    background: #ffffff;
+    padding: 2px 6px;
+}
+
+#jp-counter-fh .jp-cval {
+    color: #111111;
+}
+
+#bonus-hand-text {
+    color: #ffffff;
+    font-size: 1.25cqh;
+    letter-spacing: 0.21cqh;
+    text-align: center;
+    padding: 0.3cqh 0 0.1cqh;
+    text-shadow: 0.1cqh 0.1cqh 0 #000, -0.1cqh -0.1cqh 0 #000;
+}
+
+/* INFO BAR */
+#info-bar,
+#game-message {
+    text-align: center;
+    color: #ffffff;
+    font-size: 0.85cqh;
+}
+
+/* DOUBLE-UP LABEL BAND */
+#du-label {
+    color: #ffcc00;
+    font-size: 0.85cqh;
+    text-align: center;
+}
+
+#du-ace-info {
+    color: #ffffff;
+    font-size: 0.73cqh;
+    text-align: center;
+}
+
+#du-lucky-info {
+    color: #44ddff;
+    font-size: 0.73cqh;
+    text-align: center;
+}
+
+#du-info-panel {
+    visibility: hidden;
+    opacity: 0;
+}
+
+#du-info-panel.visible,
+#du-info-panel.active {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* ── Full House selector card display (centered, normal card) ─────── */
+.idle-selector {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+    pointer-events: none;
+}
+
+.idle-selector-card {
+    position: relative;
+    width: 12cqw;
+    height: 16cqw;
+    transform: scale(1.2);
+    transition: transform 0.4s ease-in-out;
+}
+
+.idle-selector-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: 0.5cqw;
+    box-shadow: 0 0.8cqw 2cqw rgba(0, 0, 0, 0.6);
+}
+
+.idle-selector-card.is-flipping {
+    animation: cardFlip 0.8s ease-in-out;
+}
+
+@keyframes cardFlip {
+    0% { transform: scale(1.2) rotateY(0deg); }
+    50% { transform: scale(1.2) rotateY(90deg); }
+    100% { transform: scale(1.2) rotateY(0deg); }
+}
+
+.idle-selector-title,
+.idle-selector-help {
+    display: none; /* Hide text elements, show only the card */
+}
