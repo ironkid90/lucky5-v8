@@ -116,7 +116,8 @@ const GAME_CONFIG = Object.freeze({
         takeHalfContinueMs:    650,   // delay before re-offering DU after taking half
 
         // Idle overlay / attract
-        idleOverlayAppearMs:   2200,  // quiet period before the LUCKY 5 POKER overlay appears
+        idleTitleHoldMs:       2200,  // how long the LUCKY 5 title stays up before the FH selector card returns
+        idleOverlayAppearMs:   2200,  // legacy fallback for older idle-title timing paths
         idleAttractModeMs:     12000, // full arcade attract sequence kicks in after this long
     }),
 

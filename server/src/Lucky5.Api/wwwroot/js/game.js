@@ -1154,6 +1154,13 @@ function canAdjustJackpotRank() {
 let idleOverlayTimer = null;
 let idleOverlayVisible = false;
 
+function clearIdleOverlayTimer() {
+    if (idleOverlayTimer) {
+        clearTimeout(idleOverlayTimer);
+        idleOverlayTimer = null;
+    }
+}
+
 function showIdleOverlay() {
     const overlay = $('#idle-overlay');
     if (overlay && !idleOverlayVisible) {
@@ -1170,35 +1177,28 @@ function hideIdleOverlay() {
     }
 }
 
-function resetIdleOverlayTimer() {
-    // Clear existing timer
-    if (idleOverlayTimer) {
-        clearTimeout(idleOverlayTimer);
-        idleOverlayTimer = null;
-    }
-    
-    // Hide overlay immediately if visible
-    hideIdleOverlay();
-    
-    // Show overlay after the configured quiet period (arcade default 2.2 s).
+function scheduleIdleSelectorReveal(onReveal) {
+    clearIdleOverlayTimer();
+
+    const holdMs = Math.max(
+        0,
+        Number(T.idleTitleHoldMs ?? T.idleOverlayAppearMs ?? 2200) || 0
+    );
+
     idleOverlayTimer = setTimeout(() => {
         if (gameState === 'idle' && holdIndexes.size === 0 && !isDoubleUpMode()) {
-            showIdleOverlay();
+            hideIdleOverlay();
+            if (typeof onReveal === 'function') {
+                onReveal();
+            }
         }
-    }, T.idleOverlayAppearMs || 2200);
+    }, holdMs);
 }
 
 function updateIdleOverlayVisibility() {
-    // Hide overlay immediately if not idle or cards are held or in DU mode
     if (gameState !== 'idle' || holdIndexes.size > 0 || isDoubleUpMode()) {
         hideIdleOverlay();
-        if (idleOverlayTimer) {
-            clearTimeout(idleOverlayTimer);
-            idleOverlayTimer = null;
-        }
-    } else {
-        // Reset timer to potentially show overlay after delay
-        resetIdleOverlayTimer();
+        clearIdleOverlayTimer();
     }
 }
 
@@ -1214,15 +1214,32 @@ function showIdleTitle(animateSelector = false) {
     card.innerHTML = `<img src="/assets/images/cards/${fullHouseSelectorCode()}.png" alt="full house selector">`;
     selector.appendChild(card);
     area.appendChild(selector);
-    // Reset idle overlay timer when showing idle title
-    resetIdleOverlayTimer();
+
+    if (animateSelector) {
+        hideIdleOverlay();
+        clearIdleOverlayTimer();
+        return;
+    }
+
+    selector.style.visibility = 'hidden';
+    showIdleOverlay();
+    scheduleIdleSelectorReveal(() => {
+        if (!area.contains(selector)) {
+            return;
+        }
+
+        selector.style.visibility = 'visible';
+        card.classList.remove('is-flipping');
+        void card.offsetWidth;
+        card.classList.add('is-flipping');
+    });
 }
 
 function hideIdleTitle() {
     const area = $('#card-area');
     area.innerHTML = '';
-    // Reset idle overlay timer when hiding idle title
-    resetIdleOverlayTimer();
+    hideIdleOverlay();
+    clearIdleOverlayTimer();
 }
 
 // ── 6. RENDERING ─────────────────────────────────────────────────────────
@@ -1386,17 +1403,6 @@ async function doBet() {
     updatePaytable();
     updateBonusHandText();
     setButtonStates();
-    showIdleTitle(true);
-
-    // Arcade convention: the BET button ALSO advances the Full House target
-    // rank on every idle press (like the classic cabinet where BET cycles
-    // the FH selector between 2-3-...-K-A). We fire-and-forget so the bet
-    // UX stays instant; the server reconciles the new rank on its own rhythm.
-    // Gated on jackpotRankArmed so it only fires in true idle state, never
-    // mid-round.
-    if (jackpotRankArmed) {
-        try { cycleJackpotRank(); } catch (err) { /* non-fatal */ }
-    }
 }
 
 async function doSwitchDealer() {

@@ -178,6 +178,23 @@ window.CabinetStage = (function () {
             : [];
     }
 
+    function _pickShuffleCode(codes, previousCode) {
+        if (!Array.isArray(codes) || codes.length === 0) {
+            return '';
+        }
+
+        if (codes.length === 1) {
+            return codes[0];
+        }
+
+        let nextCode = previousCode;
+        while (nextCode === previousCode) {
+            nextCode = codes[Math.floor(Math.random() * codes.length)];
+        }
+
+        return nextCode;
+    }
+
     function _slot(index) {
         return document.querySelector(`.card-slot[data-slot="${index}"]`);
     }
@@ -318,7 +335,7 @@ window.CabinetStage = (function () {
 
             slotEl.classList.remove('du-trail-card', 'du-shuffling', 'du-chall-in', 'du-challenger-card', 'lucky5-active');
             _setFaceDiagnostic(slotEl, false, '');
-            frame.classList.remove('dealer-card', 'lucky5-glow');
+            frame.classList.remove('dealer-card', 'lucky5-glow', 'du-flip-in', 'du-flip-out');
             label.textContent = '';
             img.src = _config.cardBack;
             img.alt = 'Card back';
@@ -395,6 +412,8 @@ window.CabinetStage = (function () {
 
             if (!slotEl || !frame || !label || !img) continue;
 
+            frame.classList.remove('du-flip-in', 'du-flip-out');
+
             if (card) {
                 _applyCardFace(slotEl, img, card, { requireFace: true });
             } else {
@@ -443,12 +462,26 @@ window.CabinetStage = (function () {
         slotEl.classList.add('du-shuffling');
 
         const frameMs = Math.max(60, Number(_config.shuffleFrameMs) || 80);
-        let cursor = 0;
+        const frameEl = _duFrame(slotEl);
+        let lastCode = '';
         _shuffleInterval = setInterval(() => {
-            const code = codes[cursor % codes.length];
-            cursor++;
-            img.src = resolveCardFaceSrc(code);
-            img.alt = `${code} shuffle`;
+            const code = _pickShuffleCode(codes, lastCode);
+            lastCode = code;
+
+            if (frameEl) {
+                frameEl.classList.remove('du-flip-in');
+                frameEl.classList.add('du-flip-out');
+            }
+
+            setTimeout(() => {
+                img.src = resolveCardFaceSrc(code);
+                img.alt = `${code} shuffle`;
+
+                if (frameEl) {
+                    frameEl.classList.remove('du-flip-out');
+                    frameEl.classList.add('du-flip-in');
+                }
+            }, Math.min(60, Math.max(30, Math.round(frameMs * 0.45))));
         }, frameMs);
     }
 
