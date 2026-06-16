@@ -13,6 +13,9 @@ public sealed record DoubleUpResultDto(
     int CurrentRoundIndex = 0,
     PresentationNoiseDto? Noise = null,
     IReadOnlyList<PokerCardDto>? CardTrail = null,
+    string? BoardHandRank = null,
+    decimal BoardBonusAmount = 0,
+    int SlotIndex = 0,
     bool IsLucky5Active = false,
     // DoubleUpWin snapshot fields from live protocol
     int MemberId = 0,

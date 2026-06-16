@@ -139,7 +139,15 @@ public sealed record CabinetDoubleUpDto(
     [property: JsonPropertyName("card_trail"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     IReadOnlyList<CabinetCardDto>? CardTrail = null,
     [property: JsonPropertyName("lucky_multiplier")]
-    int LuckyMultiplier = 1);
+    int LuckyMultiplier = 1,
+    [property: JsonPropertyName("board_hand_rank"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? BoardHandRank = null,
+    [property: JsonPropertyName("board_bonus_amount")]
+    string BoardBonusAmount = "0",
+    [property: JsonPropertyName("current_bonus_amount")]
+    string CurrentBonusAmount = "0",
+    [property: JsonPropertyName("slot_index")]
+    int SlotIndex = 0);
 
 public sealed record CabinetCreditsDto(
     [property: JsonPropertyName("machine_credits")]

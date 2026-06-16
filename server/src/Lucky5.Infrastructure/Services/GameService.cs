@@ -550,7 +550,8 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
             playDeck,
             startingAmount,
             machineCreditBaseline,
-            new Lucky5DoubleUpOptions(MaxCreditLimit: Decimal.ToInt32(EngineCfg.CloseThreshold)));
+            new Lucky5DoubleUpOptions(MaxCreditLimit: Decimal.ToInt32(EngineCfg.CloseThreshold)),
+            Decimal.ToInt32(round.BetAmount));
 
         round.DoubleUpSession = session;
         round.EnteredDoubleUp = true;
@@ -566,7 +567,11 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
             CurrentRoundIndex: session.CurrentRoundIndex,
             Noise: noise,
             CardTrail: BuildCardTrail(session),
+            BoardHandRank: session.BoardHandRank,
+            BoardBonusAmount: session.LastBoardBonusAmount,
+            SlotIndex: session.LastResolvedBoardSlotIndex,
             IsLucky5Active: session.IsNoLoseActive,
+            CurrentBonusAmount: session.BoardBonusTotal,
             AceCard: round.AceCard != null,
             AceMultiplier: round.AceMultiplier,
             AceMultiplierFired: round.AceMultiplierFired);
@@ -611,7 +616,11 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
                 CurrentRoundIndex: session.CurrentRoundIndex,
                 Noise: noise,
                 CardTrail: BuildCardTrail(session),
-                IsLucky5Active: session.IsNoLoseActive);
+                BoardHandRank: session.BoardHandRank,
+                BoardBonusAmount: session.LastBoardBonusAmount,
+                SlotIndex: session.LastResolvedBoardSlotIndex,
+                IsLucky5Active: session.IsNoLoseActive,
+                CurrentBonusAmount: session.BoardBonusTotal);
         }
 
         InvalidateCaches(userId, round.MachineId);
@@ -623,7 +632,11 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
             CurrentRoundIndex: session.CurrentRoundIndex,
             Noise: noise,
             CardTrail: BuildCardTrail(session),
-            IsLucky5Active: session.IsNoLoseActive);
+            BoardHandRank: session.BoardHandRank,
+            BoardBonusAmount: session.LastBoardBonusAmount,
+            SlotIndex: session.LastResolvedBoardSlotIndex,
+            IsLucky5Active: session.IsNoLoseActive,
+            CurrentBonusAmount: session.BoardBonusTotal);
     }
 
     public async Task<DoubleUpResultDto> SwapDoubleUpCardAsync(Guid userId, Guid roundId, int swapPosition, CancellationToken cancellationToken)
@@ -653,7 +666,11 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
             CurrentRoundIndex: session.CurrentRoundIndex,
             Noise: noise,
             CardTrail: BuildCardTrail(session),
+            BoardHandRank: session.BoardHandRank,
+            BoardBonusAmount: session.LastBoardBonusAmount,
+            SlotIndex: session.LastResolvedBoardSlotIndex,
             IsLucky5Active: session.IsNoLoseActive,
+            CurrentBonusAmount: session.BoardBonusTotal,
             SwapActivePosition: session.SwapActivePosition);
     }
 
@@ -693,7 +710,11 @@ switch (resolution.Outcome)
             CurrentRoundIndex: resolution.Session.CurrentRoundIndex,
             Noise: noise,
             CardTrail: BuildCardTrail(resolution.Session),
-            IsLucky5Active: resolution.Session.IsNoLoseActive);
+            BoardHandRank: resolution.Session.BoardHandRank,
+            BoardBonusAmount: resolution.Session.LastBoardBonusAmount,
+            SlotIndex: resolution.Session.LastResolvedBoardSlotIndex,
+            IsLucky5Active: resolution.Session.IsNoLoseActive,
+            CurrentBonusAmount: resolution.Session.BoardBonusTotal);
         break;
 
     case Lucky5DoubleUpOutcome.SafeFail:
@@ -710,7 +731,11 @@ switch (resolution.Outcome)
             CurrentRoundIndex: resolution.Session.CurrentRoundIndex,
             Noise: noise,
             CardTrail: BuildCardTrail(resolution.Session),
-            IsLucky5Active: false);
+            BoardHandRank: resolution.Session.BoardHandRank,
+            BoardBonusAmount: resolution.Session.LastBoardBonusAmount,
+            SlotIndex: resolution.Session.LastResolvedBoardSlotIndex,
+            IsLucky5Active: false,
+            CurrentBonusAmount: resolution.Session.BoardBonusTotal);
         break;
 
     case Lucky5DoubleUpOutcome.MachineClosed:
@@ -726,7 +751,11 @@ switch (resolution.Outcome)
             CurrentRoundIndex: resolution.Session.CurrentRoundIndex,
             Noise: noise,
             CardTrail: BuildCardTrail(resolution.Session),
-            IsLucky5Active: false);
+            BoardHandRank: resolution.Session.BoardHandRank,
+            BoardBonusAmount: resolution.Session.LastBoardBonusAmount,
+            SlotIndex: resolution.Session.LastResolvedBoardSlotIndex,
+            IsLucky5Active: false,
+            CurrentBonusAmount: resolution.Session.BoardBonusTotal);
         break;
 
     default:
@@ -744,7 +773,11 @@ switch (resolution.Outcome)
             CurrentRoundIndex: resolution.Session.CurrentRoundIndex,
             Noise: noise,
             CardTrail: BuildCardTrail(resolution.Session),
-            IsLucky5Active: false);
+            BoardHandRank: resolution.Session.BoardHandRank,
+            BoardBonusAmount: resolution.Session.LastBoardBonusAmount,
+            SlotIndex: resolution.Session.LastResolvedBoardSlotIndex,
+            IsLucky5Active: false,
+            CurrentBonusAmount: resolution.Session.BoardBonusTotal);
         break;
 }
 InvalidateCaches(userId, round.MachineId);
@@ -870,7 +903,12 @@ return guessResult;
             SwitchesRemaining: switchesRemaining,
             IsNoLoseActive: round.DoubleUpSession?.IsNoLoseActive ?? false,
             CurrentRoundIndex: round.DoubleUpSession?.CurrentRoundIndex ?? 0,
-            Noise: noise);
+            Noise: noise,
+            CardTrail: round.DoubleUpSession is null ? null : BuildCardTrail(round.DoubleUpSession),
+            BoardHandRank: round.DoubleUpSession?.BoardHandRank,
+            BoardBonusAmount: round.DoubleUpSession?.LastBoardBonusAmount ?? 0,
+            SlotIndex: round.DoubleUpSession?.LastResolvedBoardSlotIndex ?? 0,
+            CurrentBonusAmount: round.DoubleUpSession?.BoardBonusTotal);
     }
 
     public async Task<JackpotInfoDto> ChangeJackpotRankAsync(int machineId, int rank, CancellationToken cancellationToken)
@@ -1690,7 +1728,11 @@ return guessResult;
                 LuckyMultiplier: multiplier,
                 CurrentRoundIndex: duSession.CurrentRoundIndex,
                 CardTrail: BuildCardTrail(duSession),
-                IsLucky5Active: duSession.IsNoLoseActive);
+                IsLucky5Active: duSession.IsNoLoseActive,
+                BoardHandRank: duSession.BoardHandRank,
+                BoardBonusAmount: duSession.LastBoardBonusAmount,
+                CurrentBonusAmount: duSession.BoardBonusTotal,
+                SlotIndex: duSession.LastResolvedBoardSlotIndex);
         }
 
         var dto = new ActiveRoundStateDto(
@@ -1952,7 +1994,11 @@ return guessResult;
                 DealerCard: doubleUpSession?.DealerCard is null ? null : ToCabinetCard(doubleUpSession.DealerCard, faceUp: true, held: false),
                 ChallengerCard: null,
                 CardTrail: doubleUpSession?.CardTrail?.Select(card => ToCabinetCard(card, faceUp: true, held: false)).ToArray(),
-                LuckyMultiplier: Math.Max(1, doubleUpSession?.LuckyMultiplier ?? 1)),
+                LuckyMultiplier: Math.Max(1, doubleUpSession?.LuckyMultiplier ?? 1),
+                BoardHandRank: doubleUpSession?.BoardHandRank,
+                BoardBonusAmount: ToDecimalString(doubleUpSession?.BoardBonusAmount ?? 0m),
+                CurrentBonusAmount: ToDecimalString(doubleUpSession?.CurrentBonusAmount ?? 0m),
+                SlotIndex: doubleUpSession?.SlotIndex ?? 0),
             Jackpot: new CabinetJackpotDto(
                 FullHouse: ToDecimalString(jackpot.FullHouse),
                 FullHouseRank: jackpot.FullHouseRank,

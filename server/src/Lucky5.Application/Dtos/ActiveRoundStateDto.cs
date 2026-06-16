@@ -46,4 +46,8 @@ public sealed record DoubleUpStateDto(
     int LuckyMultiplier,
     int CurrentRoundIndex = 0,
     IReadOnlyList<PokerCardDto>? CardTrail = null,
-    bool IsLucky5Active = false);
+    bool IsLucky5Active = false,
+    string? BoardHandRank = null,
+    decimal BoardBonusAmount = 0,
+    decimal CurrentBonusAmount = 0,
+    int SlotIndex = 0);

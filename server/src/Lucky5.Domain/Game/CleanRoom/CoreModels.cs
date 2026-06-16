@@ -249,7 +249,14 @@ public sealed record Lucky5DoubleUpSession(
     Lucky5DoubleUpOutcome? TerminalOutcome = null,
     int CashoutCredits = 0,
     int SwapActivePosition = -1,
-    int[]? PlayedDealerIndexes = null);
+    int[]? PlayedDealerIndexes = null,
+    CleanRoomCard[]? CurrentBoardCards = null,
+    bool CurrentBoardComplete = false,
+    string? BoardHandRank = null,
+    int LastBoardBonusAmount = 0,
+    int BoardBonusTotal = 0,
+    int LastResolvedBoardSlotIndex = 1,
+    int BetAmount = 0);
 
 public sealed record Lucky5DoubleUpResolution(
     BigSmallGuess Guess,

@@ -266,23 +266,24 @@
     text-shadow: 0 1px 0 rgba(0,0,0,0.6);
 }
 
-/* ----- 6. Paytable sizing (fit all 8 rows + FH meter in 15%) */
-/* At 15% of ~1280 board = 192 board-px. 8 rows + FH jackpot footer
-   ~ 9 text lines. 15%/9 = 1.67cqh per line. We leave padding for
-   breathing room and cap rows at 1.55cqh. */
+/* ----- 6. Paytable sizing and FH jackpot placement -----------
+   Keep the paytable legible and in-flow. The FH jackpot belongs with
+   the 2 PAIR row, not as a floating overlay. */
 
 #paytable {
+    position: absolute;
     font-family: var(--v8-btn-font);
 }
 
 #paytable .pay-row {
-    font-size: 1.5cqh !important;
+    font-size: 1.42cqh !important;
     line-height: 1 !important;
-    padding: 0.15cqh 0.6cqh !important;
+    padding: 0.1cqh 0.55cqh !important;
     letter-spacing: 0.08cqh;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    text-shadow: 0 0 0.35cqh rgba(255, 255, 255, 0.08);
 }
 
 #paytable .pay-row .hand-name,
@@ -292,7 +293,9 @@
 }
 
 #paytable .pay-row .pay-amount {
-    color: #e8e8e8;
+    color: #f2f2f2;
+    font-variant-numeric: tabular-nums;
+    min-width: 0;
 }
 
 #paytable .pay-row.active,
@@ -301,58 +304,82 @@
     background: rgba(255,255,255,0.08) !important;
 }
 
-/* FH jackpot meter is anchored to the BOTTOM-RIGHT of the paytable zone
-   so it sits visually:
-     - above the deck (paytable bottom is exactly at 15%, deck starts at 19%)
-     - to the right of the 2 PAIR row (anchored right:0 with width:55%)
-     - out of the pay-row flow so it never overflows and never pushes rows
-   This replaces the old in-flow 9th-row rendering that caused the white
-   "A 20000000" ribbon glitch when rows overflowed their 15% band. */
-#paytable { position: absolute; } /* already absolute in layout css — ensure */
+#paytable .pay-row.tp {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas: "hand amount jackpot";
+    align-items: center;
+    column-gap: 0.22cqh;
+    row-gap: 0;
+    padding-top: 0.04cqh !important;
+    padding-bottom: 0.04cqh !important;
+}
+
+#paytable .pay-row.tp .hand-name {
+    grid-area: hand;
+    align-self: center;
+}
+
+#paytable .pay-row.tp .pay-amount {
+    grid-area: amount;
+    justify-self: end;
+    min-width: auto;
+}
 
 #paytable #jackpot-full-house {
-    position: absolute;
-    right: 0.4cqh;
-    bottom: 0.15cqh;
-    left: auto;
-    width: auto;
-    max-width: 60%;
-    padding: 0.25cqh 0.7cqh;
-    font-family: var(--v8-btn-font);
-    font-size: 1.4cqh;
-    line-height: 1;
-    color: #ffe27a;
-    background: linear-gradient(180deg, rgba(50, 20, 0, 0.72) 0%, rgba(25, 10, 0, 0.85) 100%);
-    border: 1px solid rgba(255, 200, 60, 0.35);
-    border-radius: 0.4cqh 0 0.2cqh 0.2cqh;
-    box-shadow:
-        0 0 0.6cqh rgba(255, 180, 40, 0.25),
-        inset 0 0 0.4cqh rgba(0, 0, 0, 0.6);
-    display: flex;
-    justify-content: flex-end;
-    align-items: baseline;
-    gap: 0.5cqh;
-    z-index: 3;
+    grid-area: jackpot;
+    justify-self: end;
+    min-width: 0;
+    margin-top: 0;
+    padding: 0.08cqh 0.32cqh;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.22cqh;
     pointer-events: none;
+    background: linear-gradient(180deg, #fffdf3 0%, #f1e4bf 100%);
+    border: 0.14cqh solid rgba(120, 64, 18, 0.95);
+    border-radius: 0.18cqh;
+    box-shadow:
+        0 0 0 0.08cqh rgba(255, 242, 194, 0.6),
+        0 0.12cqh 0.25cqh rgba(0, 0, 0, 0.45);
 }
 
 #paytable #jackpot-full-house .jp-meter-label {
-    font-size: 1.15cqh;
-    color: #ffbd2c;
-    letter-spacing: 0.15cqh;
+    font-size: 1.02cqh;
+    color: #25180d;
+    letter-spacing: 0.08cqh;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.08cqh;
+    padding: 0;
+    background: transparent;
+    text-shadow: none;
 }
 
 #paytable #jackpot-full-house #jp-fh-rank {
-    color: #ffffff;
+    color: #8c1b16;
     font-weight: 900;
-    margin-left: 0.15cqh;
+    padding: 0;
+    margin: 0;
+    background: transparent;
+}
+
+#paytable #jackpot-full-house .jp-counter-fh {
+    padding: 0 !important;
+    gap: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: inherit !important;
 }
 
 #paytable #jackpot-full-house .jp-counter-fh .jp-cval {
-    color: #ffe27a;
-    font-size: 1.55cqh;
-    letter-spacing: 0.1cqh;
-    text-shadow: 0 0 0.5cqh rgba(255, 200, 40, 0.65);
+    color: #bb2f18;
+    font-size: 1.08cqh;
+    letter-spacing: 0.06cqh;
+    font-weight: 900;
+    text-shadow: none;
 }
 
 /* 4-of-a-kind star — red, blinking, only visible on the starred slot.
@@ -585,71 +612,11 @@
     #idle-overlay.visible #idle-overlay-text { animation: none; }
 }
 
-/* ----- 12. FH jackpot meter + 2 PAIR coexistence ------------
-   2026-04-20: previous CSS sized the FH pill at ~2.5cqh tall and
-   absolutely positioned it at bottom:0.15cqh — tall enough that it
-   covered the 2 PAIR row entirely, hiding row 8 of the paytable.
-   Fix: shrink FH pill to one-row-tall, align it with the 2 PAIR
-   row, and let the "2 PAIR" label remain visible on the left half
-   while the FH jackpot takes the right half (matching reference
-   art where 2 PAIR text + FH badge share the same baseline). */
-
-#paytable #jackpot-full-house {
-    height: 1.9cqh;
-    bottom: 0.15cqh;
-    right: 0.2cqh;
-    padding: 0.1cqh 0.45cqh;
-    gap: 0.35cqh;
-    background: linear-gradient(180deg, #1a120a 0%, #0c0805 100%);
-    border: 0.15cqh solid #e4b12e;
-    border-radius: 0.35cqh;
-    box-shadow:
-        inset 0 0 0.25cqh rgba(255, 200, 60, 0.35),
-        0 0.1cqh 0.25cqh rgba(0, 0, 0, 0.55);
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    max-width: 48%;
-    overflow: hidden;
-}
-
-/* "FH A" label: bright gold, pixel-block */
-#paytable #jackpot-full-house .jp-meter-label {
-    font-size: 1.1cqh;
-    color: #ffc83d;
-    letter-spacing: 0.12cqh;
-    text-shadow: 0 0 0.2cqh rgba(255, 200, 60, 0.6);
-}
-
-/* FH rank badge ("A" / "2" / ... / "K") in a cream chip so it stands
-   out as the active-target indicator, matching reference art. */
-#paytable #jackpot-full-house #jp-fh-rank {
-    display: inline-block;
-    min-width: 1cqh;
-    padding: 0 0.25cqh;
-    margin: 0 0.25cqh 0 0.1cqh;
-    background: #fff6d8;
-    color: #1a1207;
-    border-radius: 0.15cqh;
-    font-weight: 900;
-}
-
-/* Jackpot value: pale-cyan on black so it reads against the gold frame
-   and doesn't clash with the paytable amounts. */
-#paytable #jackpot-full-house .jp-counter-fh .jp-cval {
-    color: #c4f1ff;
-    font-size: 1.35cqh;
-    letter-spacing: 0.08cqh;
-    font-weight: 900;
-    text-shadow: 0 0 0.3cqh rgba(95, 216, 255, 0.6);
-}
-
-/* Guarantee 2 PAIR row visibility: rows before it stay at the default
-   1.5cqh; we force the last row to remain in flow even under tight
-   viewports by dropping row vertical padding to zero on the last row. */
-#paytable .pay-row.tp {
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
+/* ----- 12. 2 PAIR row guard rail -----------------------------
+   Keep the 2 PAIR row readable when it owns the FH jackpot tag. */
+#paytable .pay-row.tp .pay-amount,
+#paytable .pay-row.tp #jackpot-full-house {
+    white-space: nowrap;
 }
 
 /* ----- 13. Safety fallbacks -------------------------------- */

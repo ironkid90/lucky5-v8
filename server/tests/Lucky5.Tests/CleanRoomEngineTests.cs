@@ -203,6 +203,29 @@ public static class CleanRoomEngineTests
         Assert(failures, "Unlimited chaining should allow multiple consecutive winning guesses", unlimitedChainWin1.Outcome == Lucky5DoubleUpOutcome.Win && unlimitedChainWin2.Outcome == Lucky5DoubleUpOutcome.Win && unlimitedChainWin3.Outcome == Lucky5DoubleUpOutcome.Win);
         Assert(failures, "Unlimited chaining should continue doubling the amount across repeated wins", unlimitedChainWin3.NextAmount == 80 && !unlimitedChainWin3.Session.IsTerminal);
 
+        var boardBonusSession = Lucky5DoubleUpEngine.CreateSessionFromDeck(
+            seedRoot: seed,
+            deck: FiveCardDrawEngine.ParseCards(["2H", "KS", "3D", "KD", "2C"]),
+            openingAmount: 10,
+            boardBetAmount: 5_000);
+        var boardBonusWin1 = Lucky5DoubleUpEngine.ResolveGuess(boardBonusSession, BigSmallGuess.Big);
+        var boardBonusWin2 = Lucky5DoubleUpEngine.ResolveGuess(boardBonusWin1.Session, BigSmallGuess.Small);
+        var boardBonusWin3 = Lucky5DoubleUpEngine.ResolveGuess(boardBonusWin2.Session, BigSmallGuess.Big);
+        var boardBonusWin4 = Lucky5DoubleUpEngine.ResolveGuess(boardBonusWin3.Session, BigSmallGuess.Small);
+        Assert(failures, "A completed 5-card double-up board should evaluate and expose the hand rank when it forms a paying hand",
+            boardBonusWin4.Session.BoardHandRank == HandCategory.TwoPair.ToString());
+        Assert(failures, "A completed 5-card double-up board should add the base paytable bonus to the doubled amount",
+            boardBonusWin4.Session.LastBoardBonusAmount == 10_000 && boardBonusWin4.NextAmount == 10_160);
+        Assert(failures, "Double-up should carry the completed board slot index and cumulative board bonus for the UI contract",
+            boardBonusWin4.Session.LastResolvedBoardSlotIndex == 5 && boardBonusWin4.Session.BoardBonusTotal == 10_000);
+
+        var continuedBoardWin = Lucky5DoubleUpEngine.ResolveGuess(boardBonusWin4.Session, BigSmallGuess.Big);
+        Assert(failures, "Continuing after a completed double-up board should start a fresh board from the carried dealer card",
+            continuedBoardWin.Session.CurrentBoardCards is { Length: 2 } continuedBoard
+            && continuedBoard[0].Code == boardBonusWin4.Session.DealerCard.Code
+            && !continuedBoardWin.Session.CurrentBoardComplete
+            && continuedBoardWin.Session.LastResolvedBoardSlotIndex == 2);
+
         var warmupScale = MachinePolicy.ResolvePayoutScale(
             new MachinePolicyState
             {

@@ -6,11 +6,12 @@ public static class Lucky5DoubleUpEngine
         int openingAmount,
         ulong seedRoot,
         int machineCreditBaseline = 0,
-        Lucky5DoubleUpOptions? options = null)
+        Lucky5DoubleUpOptions? options = null,
+        int boardBetAmount = 0)
     {
         var resolvedOptions = options ?? new Lucky5DoubleUpOptions(MaxCreditLimit: Decimal.ToInt32(EngineConfig.Default.CloseThreshold));
         var deck = FiveCardDrawEngine.ShuffleDeck(seedRoot, "double-up");
-        return CreateSessionFromDeck(seedRoot, deck, openingAmount, machineCreditBaseline, resolvedOptions);
+        return CreateSessionFromDeck(seedRoot, deck, openingAmount, machineCreditBaseline, resolvedOptions, boardBetAmount);
     }
 
     public static Lucky5DoubleUpSession CreateSessionFromDeck(
@@ -18,7 +19,8 @@ public static class Lucky5DoubleUpEngine
         IEnumerable<CleanRoomCard> deck,
         int openingAmount,
         int machineCreditBaseline = 0,
-        Lucky5DoubleUpOptions? options = null)
+        Lucky5DoubleUpOptions? options = null,
+        int boardBetAmount = 0)
     {
         if (openingAmount <= 0)
         {
@@ -48,7 +50,14 @@ public static class Lucky5DoubleUpEngine
             // The opening dealer card and a high/low challenger reveal must not activate it.
             IsNoLoseActive: false,
             Options: resolvedOptions,
-            PlayedDealerIndexes: Array.Empty<int>());
+            PlayedDealerIndexes: Array.Empty<int>(),
+            CurrentBoardCards: [deckArray[0]],
+            CurrentBoardComplete: false,
+            BoardHandRank: null,
+            LastBoardBonusAmount: 0,
+            BoardBonusTotal: 0,
+            LastResolvedBoardSlotIndex: 1,
+            BetAmount: boardBetAmount);
 
         return session;
     }
@@ -56,6 +65,7 @@ public static class Lucky5DoubleUpEngine
     public static Lucky5DoubleUpSession SwitchDealer(Lucky5DoubleUpSession session)
     {
         EnsurePlayable(session);
+        session = RefreshBoardSessionIfNeeded(session);
 
         if (session.SwitchCountInRound >= session.Options.MaxSwitchesPerRound)
         {
@@ -76,6 +86,15 @@ public static class Lucky5DoubleUpEngine
                 ? session.Options.FirstLuckyMultiplier
                 : session.Options.RepeatLuckyMultiplier
             : 1;
+        var board = PrepareBoardForReveal(session);
+        if (board.Length == 0)
+        {
+            board = [dealerCard];
+        }
+        else
+        {
+            board[^1] = dealerCard;
+        }
 
         var switchedSession = session with
         {
@@ -84,7 +103,12 @@ public static class Lucky5DoubleUpEngine
             CurrentAmount = checked(session.CurrentAmount * multiplier),
             SwitchCountInRound = session.SwitchCountInRound + 1,
             LuckyHitCount = luckyHitCount,
-            IsNoLoseActive = session.IsNoLoseActive || isLuckyFive
+            IsNoLoseActive = session.IsNoLoseActive || isLuckyFive,
+            CurrentBoardCards = board,
+            CurrentBoardComplete = false,
+            BoardHandRank = null,
+            LastBoardBonusAmount = 0,
+            LastResolvedBoardSlotIndex = Math.Min(board.Length, 5)
         };
 
         return switchedSession;
@@ -93,6 +117,7 @@ public static class Lucky5DoubleUpEngine
     public static Lucky5DoubleUpSession SwapChallenger(Lucky5DoubleUpSession session, int swapPosition)
     {
         EnsurePlayable(session);
+        session = RefreshBoardSessionIfNeeded(session);
 
         if (swapPosition < 0 || swapPosition >= session.Deck.Length)
         {
@@ -116,6 +141,7 @@ public static class Lucky5DoubleUpEngine
     public static Lucky5DoubleUpResolution ResolveGuess(Lucky5DoubleUpSession session, BigSmallGuess guess)
     {
         EnsurePlayable(session);
+        session = RefreshBoardSessionIfNeeded(session);
 
         var challengerIndex = session.SwapActivePosition >= 0
             ? session.SwapActivePosition
@@ -128,10 +154,16 @@ public static class Lucky5DoubleUpEngine
         var challengerCard = session.Deck[challengerIndex];
         var previousAmount = session.CurrentAmount;
         var playerWins = IsWinningGuess(session.DealerCard, challengerCard, guess, session.Options);
+        var boardBeforeReveal = PrepareBoardForReveal(session);
+        var boardAfterReveal = boardBeforeReveal
+            .Concat([challengerCard])
+            .ToArray();
+        var resolvedSlotIndex = Math.Min(boardAfterReveal.Length, 5);
 
         if (playerWins)
         {
-            var nextAmount = checked(previousAmount * 2);
+            var (boardHandRank, boardBonusAmount) = ResolveBoardBonus(session, boardAfterReveal);
+            var nextAmount = checked(previousAmount * 2 + boardBonusAmount);
             var continuedSession = session with
             {
                 DealerIndex = challengerIndex,
@@ -142,7 +174,13 @@ public static class Lucky5DoubleUpEngine
                 LuckyHitCount = 0,
                 IsNoLoseActive = session.IsNoLoseActive,
                 SwapActivePosition = -1,
-                PlayedDealerIndexes = AppendPlayedDealerIndex(session)
+                PlayedDealerIndexes = AppendPlayedDealerIndex(session),
+                CurrentBoardCards = boardAfterReveal,
+                CurrentBoardComplete = boardAfterReveal.Length >= 5,
+                BoardHandRank = boardHandRank,
+                LastBoardBonusAmount = boardBonusAmount,
+                BoardBonusTotal = checked(session.BoardBonusTotal + boardBonusAmount),
+                LastResolvedBoardSlotIndex = resolvedSlotIndex
             };
 
             var shouldCloseMachine = session.MachineCreditBaseline < session.Options.MaxCreditLimit
@@ -185,7 +223,12 @@ public static class Lucky5DoubleUpEngine
                 IsTerminal = true,
                 TerminalOutcome = Lucky5DoubleUpOutcome.SafeFail,
                 CashoutCredits = previousAmount,
-                PlayedDealerIndexes = AppendPlayedDealerIndex(session)
+                PlayedDealerIndexes = AppendPlayedDealerIndex(session),
+                CurrentBoardCards = boardAfterReveal,
+                CurrentBoardComplete = boardAfterReveal.Length >= 5,
+                BoardHandRank = null,
+                LastBoardBonusAmount = 0,
+                LastResolvedBoardSlotIndex = resolvedSlotIndex
             };
 
             return new Lucky5DoubleUpResolution(
@@ -211,7 +254,12 @@ public static class Lucky5DoubleUpEngine
             IsTerminal = true,
             TerminalOutcome = Lucky5DoubleUpOutcome.Lose,
             CashoutCredits = 0,
-            PlayedDealerIndexes = AppendPlayedDealerIndex(session)
+            PlayedDealerIndexes = AppendPlayedDealerIndex(session),
+            CurrentBoardCards = boardAfterReveal,
+            CurrentBoardComplete = boardAfterReveal.Length >= 5,
+            BoardHandRank = null,
+            LastBoardBonusAmount = 0,
+            LastResolvedBoardSlotIndex = resolvedSlotIndex
         };
 
         return new Lucky5DoubleUpResolution(
@@ -256,6 +304,72 @@ public static class Lucky5DoubleUpEngine
         Array.Copy(source, result, source.Length);
         result[^1] = session.DealerIndex;
         return result;
+    }
+
+    private static CleanRoomCard[] PrepareBoardForReveal(Lucky5DoubleUpSession session)
+    {
+        if (session.CurrentBoardComplete)
+        {
+            return [session.DealerCard];
+        }
+
+        if (session.CurrentBoardCards is { Length: > 0 })
+        {
+            return session.CurrentBoardCards.ToArray();
+        }
+
+        return [session.DealerCard];
+    }
+
+    private static Lucky5DoubleUpSession RefreshBoardSessionIfNeeded(Lucky5DoubleUpSession session)
+    {
+        if (!session.CurrentBoardComplete && session.DealerIndex < session.Deck.Length - 1)
+        {
+            return session;
+        }
+
+        var nextRoundSeed = DeterministicSeed.Derive(session.SeedRoot, "double-up-round", session.CurrentRoundIndex + 1);
+        var continuationDeck = BuildContinuationDeck(session.DealerCard, nextRoundSeed);
+        return session with
+        {
+            RoundSeedToken = nextRoundSeed,
+            Deck = continuationDeck,
+            DealerIndex = 0,
+            SwapActivePosition = -1,
+            CurrentBoardCards = [session.DealerCard],
+            CurrentBoardComplete = false,
+            BoardHandRank = null,
+            LastBoardBonusAmount = 0,
+            LastResolvedBoardSlotIndex = 1
+        };
+    }
+
+    private static CleanRoomCard[] BuildContinuationDeck(CleanRoomCard dealerCard, ulong roundSeed)
+    {
+        var deckTail = FiveCardDrawEngine.ShuffleDeck(
+            roundSeed,
+            "double-up-continuation",
+            FiveCardDrawEngine.BuildStandardDeck().Where(card => card != dealerCard));
+        return [dealerCard, .. deckTail];
+    }
+
+    private static (string? HandRank, int BonusAmount) ResolveBoardBonus(
+        Lucky5DoubleUpSession session,
+        IReadOnlyList<CleanRoomCard> boardCards)
+    {
+        if (boardCards.Count != 5 || session.BetAmount <= 0)
+        {
+            return (null, 0);
+        }
+
+        var evaluation = FiveCardDrawEngine.EvaluateHand(boardCards);
+        var bonusAmount = FiveCardDrawEngine.ResolvePayout(evaluation, session.BetAmount, PaytableProfile.Lebanese);
+        if (bonusAmount <= 0)
+        {
+            return (null, 0);
+        }
+
+        return (evaluation.Category.ToString(), bonusAmount);
     }
 
     private static void EnsurePlayable(Lucky5DoubleUpSession session)
