@@ -128,16 +128,18 @@
     overflow: hidden;
 }
 
-/* Double-up info and info bar remain on cabinet face (no modal/drawer reflow) */
+/* Double-up info panel overlays machine-info-block area when visible.
+   It's hidden (visibility:hidden) by default and only shows during DU mode. */
 #du-info-panel,
 [data-zone="du-info"] {
     position: absolute;
-    top: 47%;
+    top: 42%;
     left: 0;
     width: 100%;
-    height: 5%;
+    height: 11%;
     padding: 1px 8px;
     box-sizing: border-box;
+    z-index: 2;
 }
 
 #info-bar,

@@ -250,33 +250,79 @@
 }
 
 /* DOUBLE-UP LABEL BAND */
-#du-label {
-    color: #ffcc00;
-    font-size: 0.85cqh;
+#du-info-left {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.18cqh;
+    width: 100%;
     text-align: center;
 }
 
-#du-ace-info {
+#du-label {
+    color: #ffcc00;
+    font-size: 1.1cqh;
+    text-align: center;
+    letter-spacing: 0.2cqh;
+}
+
+#du-ace-info,
+#du-guess-info {
     color: #ffffff;
-    font-size: 0.73cqh;
+    font-size: 0.78cqh;
     text-align: center;
 }
 
 #du-lucky-info {
     color: #44ddff;
-    font-size: 0.73cqh;
+    font-size: 0.78cqh;
+    text-align: center;
+}
+
+#du-buying-info {
+    color: #ffffff;
+    font-size: 0.78cqh;
     text-align: center;
 }
 
 #du-info-panel {
-    visibility: hidden;
+    visibility: visible; /* vnext absolute layout; game.css display:none is overridden */
     opacity: 0;
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2cqh;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(1px);
+    -webkit-backdrop-filter: blur(1px);
+    transition: opacity 0.2s ease;
 }
 
 #du-info-panel.visible,
 #du-info-panel.active {
     visibility: visible;
     opacity: 1;
+    display: flex !important;
+    transition: opacity 0.2s ease;
+}
+
+#du-info-panel.lucky5-active #du-ace-info,
+#du-info-panel.lucky5-active #du-guess-info,
+#du-info-panel.lucky5-active #du-lucky-info,
+#du-info-panel.lucky5-active #du-buying-info {
+    color: #9bfaff;
+    text-shadow: 0 0 8px rgba(68, 221, 255, 0.85);
+}
+
+#du-lucky-info.is-active {
+    animation: du-lucky-rule-pulse 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes du-lucky-rule-pulse {
+    from { opacity: 0.7; transform: scale(0.98); }
+    to   { opacity: 1;   transform: scale(1); }
 }
 
 /* ── Full House selector card display (centered, normal card) ─────── */
