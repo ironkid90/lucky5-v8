@@ -8,7 +8,9 @@ using Lucky5.Realtime;
 using Lucky5.Realtime.Services;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiter;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -201,6 +203,7 @@ app.UseStaticFiles();
 
 app.UseRouting();
 app.UseCors();
+app.UseRateLimiter();
 app.MapControllers();
 app.MapHub<CarrePokerGameHub>("/CarrePokerGameHub");
 
