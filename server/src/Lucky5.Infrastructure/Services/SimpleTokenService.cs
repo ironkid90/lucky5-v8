@@ -26,27 +26,25 @@ public sealed class SimpleTokenService : ITokenService
         return Convert.ToBase64String(Encoding.UTF8.GetBytes($"{payload}.{signature}"));
     }
 
-    public async Task<bool> TryValidate(string token, out Guid userId, out string role)
+    public async Task<TokenValidationResult> ValidateTokenAsync(string token)
     {
-        userId = Guid.Empty;
-        role = "player";
         if (string.IsNullOrWhiteSpace(token) || await _revocationStore.IsRevokedAsync(token))
         {
-            return false;
+            return new TokenValidationResult(false, Guid.Empty, "player");
         }
 
         try
         {
             var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(token));
             var parts = decoded.Split('.', 4);
-            if (parts.Length < 3 || !Guid.TryParseExact(parts[0], "N", out userId))
+            if (parts.Length < 3 || !Guid.TryParseExact(parts[0], "N", out var userId))
             {
-                return false;
+                return new TokenValidationResult(false, Guid.Empty, "player");
             }
 
             if (!long.TryParse(parts[1], out var expires) || DateTimeOffset.UtcNow.ToUnixTimeSeconds() > expires)
             {
-                return false;
+                return new TokenValidationResult(false, Guid.Empty, "player");
             }
 
             string payloadRole;
@@ -69,15 +67,14 @@ public sealed class SimpleTokenService : ITokenService
             var expected = Convert.ToBase64String(hmac.ComputeHash(Encoding.UTF8.GetBytes(payload)));
             if (!CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(expected), Encoding.UTF8.GetBytes(signature)))
             {
-                return false;
+                return new TokenValidationResult(false, Guid.Empty, "player");
             }
 
-            role = payloadRole;
-            return true;
+            return new TokenValidationResult(true, userId, payloadRole);
         }
         catch
         {
-            return false;
+            return new TokenValidationResult(false, Guid.Empty, "player");
         }
     }
 

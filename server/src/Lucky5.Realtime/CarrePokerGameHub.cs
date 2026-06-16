@@ -30,6 +30,17 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
     // Seat-occupancy lock: tracks which machine is occupied by which connection
     private static readonly ConcurrentDictionary<int, string> MachineOccupancy = new();
 
+    // Session pause grace period: when a player disconnects, their machine seat is
+    // held for this duration so they can reconnect and continue where they left off.
+    // This simulates the behavior of a physical arcade cabinet — if you walk away,
+    // the machine doesn't instantly reset. Other players see the machine as "busy".
+    private static readonly TimeSpan SessionPauseGracePeriod = TimeSpan.FromMinutes(5);
+
+    // Pending disconnect timers: machineId → (userId, timer).
+    // When a player disconnects, we start a timer. If they don't reconnect within
+    // the grace period, the timer fires and releases the machine lock.
+    private static readonly ConcurrentDictionary<int, (Guid UserId, Timer Timer)> PendingDisconnects = new();
+
     public override Task OnConnectedAsync()
     {
         if (TryGetUserId(out var userId))
@@ -47,16 +58,30 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
         if (TryGetUserId(out var userId))
         {
             registry.Remove(Context.ConnectionId);
-            // Emit UserStatusChanged for lobby presence
+            // Emit UserStatusChanged for lobby presence — "Reconnecting" state
             _ = Clients.All.SendAsync(UserStatusChangedEvent, new { userId = GetMemberId(userId), state = "Reconnecting" }, Context.ConnectionAborted);
         }
 
         if (TryGetCurrentMachineId(out var machineId))
         {
-            // Release seat-occupancy lock on disconnect
-            MachineOccupancy.TryRemove(machineId, out _);
+            // Don't immediately release the machine lock. Instead, start a grace-period
+            // timer. If the same player reconnects within the window, they resume their
+            // session (DU, win settlement, etc.). If the timer expires, the machine
+            // is released for other players.
+            var timer = new Timer(_ =>
+            {
+                // Grace period expired — release the machine lock.
+                PendingDisconnects.TryRemove(machineId, out _);
+                MachineOccupancy.TryRemove(machineId, out _);
+                _ = Clients.All.SendAsync(MachineStatusChangedEvent,
+                    new { machineId, isOccupied = false, playerId = (int?)null, gameId = 0 },
+                    CancellationToken.None);
+            }, null, SessionPauseGracePeriod, Timeout.InfiniteTimeSpan);
 
-            _ = Clients.All.SendAsync(MachineStatusChangedEvent, new { machineId, isOccupied = false, playerId = (int?)null, gameId = 0 }, Context.ConnectionAborted);
+            PendingDisconnects[machineId] = (userId, timer);
+
+            // Machine still appears occupied to other players during the grace period.
+            // The lobby shows "Reconnecting" state.
         }
 
         Context.Items.Remove(CurrentMachineContextKey);
@@ -69,6 +94,13 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
         {
             await EmitErrorAsync("INVALID_MACHINE", "Machine id must be positive.");
             throw new HubException("Machine id must be positive.");
+        }
+
+        // If this machine has a pending disconnect (same user reconnecting within
+        // the grace period), cancel the timer — the player is back.
+        if (PendingDisconnects.TryRemove(machineId, out var pending))
+        {
+            pending.Timer.Dispose();
         }
 
         // Seat-occupancy lock: check if machine is already occupied

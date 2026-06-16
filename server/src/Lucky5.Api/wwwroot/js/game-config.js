@@ -51,74 +51,75 @@ const GAME_CONFIG = Object.freeze({
     // ── 2. TIMING ────────────────────────────────────────────────────────────
     // All durations are in milliseconds.
     //
-    // 2026-04-20 ARCADE CALIBRATION PASS.
-    // Reference: Lebanese Lucky5 cabinets, Italian/Balkan video poker
-    // machines — snappy, punchy, no dead air. The previous values (10-15s
-    // jackpot fills, 3-8s credit drains, 250ms shuffle frames) felt like
-    // a slow web app, not a coin-op. Rule of thumb:
-    //   - Player-press to visible feedback: < 100 ms
-    //   - Card deal full cycle: 400-550 ms
-    //   - Card draw full cycle: 350-500 ms
-    //   - Shuffle flicker: 100-150 ms per frame
-    //   - Credit count-up: 1.2-3.5 s total, ease-out cubic
-    //   - Jackpot fill: 2.5-5.5 s total, ease-out cubic
+    // 2026-06-16 CLASSIC FEEL CALIBRATION.
+    // Reference: Lebanese Lucky5 cabinets, IGT Game King, Aristocrat Reels.
+    // Old mechanical/electromechanical machines had noticeable, deliberate pacing.
+    // Each card tick, each counter increment had physical weight.
+    // Rule of thumb:
+    //   - Player-press to visible feedback: < 150 ms (instant feel)
+    //   - Card deal full cycle: 800-1200 ms (cards drop one at a time, heavy)
+    //   - Card draw full cycle: 600-900 ms (replacement cards flip visibly)
+    //   - Shuffle flicker: 120-180 ms per frame (visible card cycling)
+    //   - Credit count-up: 1.0-65 s total, ease-out cubic (scales with amount)
+    //   - Jackpot fill: 750ms-65s total (same scaling as drain)
     // If you change these, mirror the feel-check in GAME_FEEL_REFERENCE.md.
     timing: Object.freeze({
         // Main-hand deal animation
-        dealBaseMs:           80,   // slight cabinet pause before the first card lands
-        dealStaggerMs:        110,  // left-to-right arcade stagger
-        dealAnimDurationMs:   210,  // slide/flip settle time per card
+        // Cards drop from above one at a time, like a mechanical dealer.
+        // Each card has visible travel + settle time.
+        dealBaseMs:           120,  // pause before first card lands (cabinet "thunk")
+        dealStaggerMs:        180,  // left-to-right stagger — each card drops after the previous settles
+        dealAnimDurationMs:   300,  // slide/flip settle time per card (visible motion)
 
         // Draw animation (re-dealing only non-held cards)
-        drawOutMs:            70,   // fade-out duration on replaced cards
-        drawInMs:             105,  // fade-in / drop-in duration on new cards
-        drawStaggerMs:        60,   // stagger between replaced card slots
-        drawRevealStartMs:    80,   // delay before first replaced card starts dropping
+        // Held cards stay put visibly. Replaced cards flip out, new cards flip in.
+        drawOutMs:            100,  // fade-out / flip-out duration on replaced cards
+        drawInMs:             150,  // fade-in / flip-in duration on new cards
+        drawStaggerMs:        100,  // stagger between replaced card slots
+        drawRevealStartMs:    120,  // delay before first replaced card starts dropping
 
         // Double-up: shuffle animation
-        shuffleFrameMs:       80,   // how often the shuffle swaps to a random card
+        // The active slot cycles through card faces visibly, like a spinning reel.
+        shuffleFrameMs:       130,  // how often the shuffle swaps to a random card
 
         // Double-up: reveal sequence
-        duRevealDelayMs:      150,  // wait after server responds before showing challenger card
-        duWinHoldMs:          650,  // show WIN message before advancing the trail
-        duStaggerPerCardMs:   70,   // stagger between cards on a fresh DU page
+        duRevealDelayMs:      250,  // wait after server responds before showing challenger card
+        duWinHoldMs:          900,  // show WIN message before advancing the trail (player sees the win)
+        duStaggerPerCardMs:   120,  // stagger between cards on a fresh DU page
 
         // Win collection / drain-to-credits
-        //   At 500 k credits/unit: 500 k * 1.4 s / 500 k = 1.4 s (minimum).
-        //   Max capped at 3.5 s so 10 M+ wins don't drag.
-        countUpMinMs:         1400,
-        countUpMaxMs:         3500,
-        creditTickMs:         90,   // digit-flash toggle during count-up (classic tick cadence)
+        //   Duration scales with amount: ~1.5s at 500K, ~60s at 40M.
+        //   Formula in animateDrainToCredits: amount / 1_000_000 * 1500, clamped.
+        //   Min clamped at countUpMinMs (1.0s), max clamped at countUpMaxMs (65s).
+        countUpMinMs:         1000,
+        countUpMaxMs:         65000,
+        creditTickMs:         120,  // digit-flash toggle during count-up (mechanical reel tick cadence)
 
         // Jackpot fill animation (for jackpot-level wins)
-        //   Formula: amount / 500 k * 3000, clamped to [2.8 s, 5.5 s].
-        //   A 5 M jackpot now fills in ~4.5 s instead of the old 15 s.
-        jackpotFillMinMs:     2800,
-        jackpotFillMaxMs:     5500,
+        //   Same scaling as animateDrainToCredits: amount / 1_000_000 * 1500.
+        //   500K → 750ms, 10M → 15s, 40M → 60s.
+        //   Jackpot wins behave like a mini machine-close: everything freezes,
+        //   the jackpot counter drains slowly into credits, then DU page appears.
+        jackpotFillMinMs:     750,
+        jackpotFillMaxMs:     65000,
 
         // Lucky5 safe / machine-closed payout drain
-        drainDelayMs:         700,  // wait before starting the drain animation
+        drainDelayMs:         500,   // brief pause before starting the drain animation
 
         // Double-up exit delays
-        exitDuLoseMs:         750,  // delay before exiting DU after a loss
-        exitDuCatchMs:        1000, // delay before exiting DU after a network error
+        exitDuLoseMs:         1000,  // delay before exiting DU after a loss (no siphon)
+        exitDuCatchMs:        1200,  // delay before exiting DU after a network error
 
-        // Lucky5 flash presentation
-        lucky5FlashDurationMs: 1000,  // 1-second soothing white flash for 5♠ DU hit
-        lucky5ActiveScreenMs: 1000,   // how long .lucky5-active stays on the game screen
-
-        // Post-draw flow
-        drawResultDelayMs:     300,   // delay after draw cards settle before showing result/DU
-        winToDuPromptMs:       800,   // delay before auto-launching DU after a win
-        postLossIdleTitleMs:   1200,  // delay before idle title shows after a loss
+        // Double-up loss siphon: brief pause to show losing card before drain starts
+        duLoseRevealMs:       1500,  // how long the losing card is visible before siphon begins
 
         // Take-half continue delay
-        takeHalfContinueMs:    650,   // delay before re-offering DU after taking half
+        takeHalfContinueMs:   800,   // delay before re-offering DU after taking half
 
         // Idle overlay / attract
-        idleTitleHoldMs:       2200,  // how long the LUCKY 5 title stays up before the FH selector card returns
-        idleOverlayAppearMs:   2200,  // legacy fallback for older idle-title timing paths
-        idleAttractModeMs:     12000, // full arcade attract sequence kicks in after this long
+        idleTitleHoldMs:       2500,  // how long the LUCKY 5 title stays up before the FH selector card returns
+        idleOverlayAppearMs:   2500,  // legacy fallback for older idle-title timing paths
+        idleAttractModeMs:     15000, // full arcade attract sequence kicks in after this long
     }),
 
     // ── 3. API ───────────────────────────────────────────────────────────────

@@ -354,19 +354,39 @@ public sealed record EngineConfig(
     decimal SoftCapHard = 35_000_000m,
     decimal CloseThreshold = 40_000_000m,
 
-    // === Jackpots (Replace Mode) ===
-    decimal JackpotFourOfAKindCap = 1_000_000m,
-    decimal JackpotFullHouseCap = 650_000m,
-    decimal JackpotStraightFlushCap = 7_500_000m,
-    decimal JackpotKentCap = 5_000_000m,
-    int JackpotFourOfAKindContribution = 85,
-    int JackpotFullHouseContribution = 68,
-    int JackpotStraightFlushContribution = 152,
-    int JackpotKentContribution = 200,
-    decimal JackpotFourOfAKindStart = 140_000m,
+    // === Jackpots (Fixed Increment Mode) ===
+    // Jackpots increase by fixed increments each round (not % of bet).
+    // This gives predictable, non-chaotic growth — like a real mechanical counter ticking up.
+    //
+    // 4 OF A KIND: Two separate jackpots (A and B), one per side of the cabinet bottom.
+    //   Only the active slot (marked with red *) increases each round.
+    //   They alternate randomly each round. Max: 99,999. Start: 20,000.
+    //
+    // STRAIGHT FLUSH: Single jackpot. Max: 10,000,000. Start: 850,000.
+    //   Higher cap because SF has more DU potential (rarer, bigger wins).
+    //
+    // FULL HOUSE: Single jackpot, rank-armed. Max scales with rank:
+    //   Ace (rank 14) = 20,000,000 cap. Lower ranks = proportionally lower cap.
+    //   Start: 90,000 regardless of rank.
+    //
+    // ROYAL FLUSH: No jackpot. Pays base paytable only (1000x bet).
+    //   The base payout is already massive — no jackpot needed.
+    //
+    // KENT (5-of-a-kind): No longer a separate jackpot. Royal Flush handles the top tier.
+    //
+    // Contribution increments are fixed amounts per round (not percentages):
+    //   4OAK: +500 per round (active slot only)
+    //   SF:   +800 per round
+    //   FH:   +300 per round
+    decimal JackpotFourOfAKindCap = 99_999m,
+    decimal JackpotFullHouseRank14Cap = 20_000_000m,
+    decimal JackpotStraightFlushCap = 10_000_000m,
+    int JackpotFourOfAKindContribution = 500,
+    int JackpotFullHouseContribution = 300,
+    int JackpotStraightFlushContribution = 800,
+    decimal JackpotFourOfAKindStart = 20_000m,
     decimal JackpotFullHouseStart = 90_000m,
-    decimal JackpotStraightFlushStart = 850_000m,
-    decimal JackpotKentStart = 500_000m
+    decimal JackpotStraightFlushStart = 850_000m
 )
 {
     public static EngineConfig Default { get; } = new();
@@ -375,4 +395,16 @@ public sealed record EngineConfig(
     public decimal TargetJackpotRtp => 0.0325m;
     public decimal TargetScaledBaseRtp => TargetRtp - TargetJackpotRtp - TargetDoubleUpRtp;
     public decimal BoundedHouseEdgeBuffer => Math.Min(1m - TargetRtp, HouseEdgeBufferCap);
+
+    /// <summary>
+    /// Full House jackpot cap scales with the armed rank.
+    /// Ace (rank 14) = full cap. Lower ranks = proportionally lower.
+    /// This means FH of Aces jackpot can grow much larger than FH of Deuces.
+    /// </summary>
+    public decimal GetFullHouseCapForRank(int rank)
+    {
+        // rank 2..14. Linear scale: rank 2 = 2/14 of cap, rank 14 = full cap.
+        var normalizedRank = Math.Clamp(rank, 2, 14);
+        return Math.Round(JackpotFullHouseRank14Cap * normalizedRank / 14m, 0);
+    }
 }

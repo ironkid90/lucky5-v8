@@ -108,12 +108,16 @@ The clone at ai9poker.com is the closest existing playable reference for our tar
 
 ### Gameplay Pace
 
-- Deal animation: cards appear sequentially with ~100ms stagger
-- Draw: non-held cards flip with brief delay
-- Double-up transition: ~1 second after win before auto-entering DU mode
-- Card shuffle in DU: rapid random card images cycling at ~80ms
-- Win collection: animated credit drain from win display into credit counter
+- Deal animation: cards drop sequentially with ~180ms stagger — each card visibly lands before the next one starts, like a mechanical dealer
+- Draw: non-held cards flip out, new cards flip in with ~100ms stagger between slots
+- Double-up transition: ~800ms after win before auto-entering DU mode
+- Card shuffle in DU: random card faces cycling at ~130ms per frame — visible reel-spin effect
+- Win collection: animated credit drain from win display into credit counter — scales with amount (~1.5s at 500K, ~60s at 40M)
+- Losing card display: the losing challenger card is shown for ~1.5s before siphon begins — player always sees what beat them
+- Jackpot drain: freezes everything, jackpot counter drains over ~60s for 40M — player watches their winnings tick in
+- Auto-siphon on machine close: starts immediately, no player input needed — the machine handles it
 - No excessive pauses or modal dialogs — everything flows within the cabinet screen
+- All timing values are centralized in `game-config.js` GAME_CONFIG.timing — single source of truth
 
 ## Interaction Cues
 

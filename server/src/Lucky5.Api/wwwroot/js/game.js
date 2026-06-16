@@ -788,7 +788,14 @@ function refreshIdleMachineState(messageText = null, type = 'win') {
     if (messageText) {
         showMessage(messageText, type);
     } else if (isMachineClosedForUi()) {
-        showMessage(getMachineCloseMessage(), 'win');
+        // Machine is closed — credits are at/above the limit.
+        // Player can still cash out or continue DU if in progress.
+        // No new deals are allowed.
+        if (balance > 0) {
+            showMessage(`MACHINE CLOSED - ${formatNum(balance)} CR - CASH OUT FROM MENU`, 'win');
+        } else {
+            showMessage(getMachineCloseMessage(), 'win');
+        }
     } else if (balance > 0 && machineCanCashOut) {
         showMessage(`CASH OUT AVAILABLE AT ${formatNum(machineCashOutThreshold)}`, 'win');
     } else if (balance > 0) {
@@ -1773,7 +1780,7 @@ async function doDeal() {
                 } else {
                     showMessage('PRESS HOLDS TO KEEP CARD');
                 }
-            }, T.dealBaseMs + ((GAME_CONFIG.meta.handSize - 1) * T.dealStaggerMs) + T.dealAnimDurationMs + 40);
+            }, T.dealBaseMs + ((GAME_CONFIG.meta.handSize - 1) * T.dealStaggerMs) + T.dealAnimDurationMs + 160);
         } catch (e) {
             showMessage(e.message, 'lose');
             gameState = 'idle';
@@ -1839,20 +1846,39 @@ async function doDeal() {
                             if (result.jackpots) updateJackpotDisplay(result.jackpots);
                         }
                         machineSessionClosed = Number(finalMachineCredits) >= MACHINE_CREDIT_LIMIT;
-                        setTimeout(() => {
-                            if (gameState === 'win') {
-                                if (isMachineClosedForUi()) {
-                                    showMessage(getMachineCloseMessage('take-score'), 'win');
-                                    return;
-                                }
-                                if (roundDoubleUpAvailable) {
-                                    startDoubleUpFlow();
-                                } else {
-                                    showWinActionMessage();
-                                    setButtonStates();
-                                }
+                        if (gameState === 'win') {
+                            if (isMachineClosedForUi()) {
+                                // Machine closed by this win — auto-siphon the winnings
+                                // into credits, then auto cash-out to wallet.
+                                showMessage('MACHINE CLOSED — SIPHONING WINNINGS...', 'win');
+                                machineSessionClosed = true;
+                                const siphonAmount = winAmount;
+                                winAmount = 0;
+                                const preSiphonCredits = balance - siphonAmount;
+                                updateWinIndicator(siphonAmount);
+                                updateWinAmountDisplay(siphonAmount, getFourOfAKindSlotTag(handName));
+                                (async () => {
+                                    await animateDrainToCredits(siphonAmount, preSiphonCredits, handName);
+                                    balance = finalMachineCredits;
+                                    updateCredits();
+                                    syncMachineCreditsFromResponse(result);
+                                    try {
+                                        await cashOutMachine();
+                                        await fetchMachineSession();
+                                        refreshIdleMachineState('CASHED OUT — MACHINE READY', 'win');
+                                    } catch (_) {
+                                        showMessage(getMachineCloseMessage(), 'win');
+                                    }
+                                })();
+                                return;
                             }
-                        }, T.winToDuPromptMs);
+                            if (roundDoubleUpAvailable) {
+                                startDoubleUpFlow();
+                            } else {
+                                showWinActionMessage();
+                                setButtonStates();
+                            }
+                        }
                     };
 
                     proceedToDoubleUp();
@@ -2117,6 +2143,9 @@ async function doDoubleUp(guess) {
         const result = await apiCall('POST', GAME_CONFIG.api.duGuess, { roundId, guess });
         const challengerLabel = String(guess || '').trim().toUpperCase();
 
+        // Reveal phase: show the challenger card and outcome.
+        // This delay simulates the physical card flip on old hardware —
+        // the player sees the result before anything else happens.
         setTimeout(() => {
             syncDoubleUpPanelState(result, { preserveMultiplier: true });
             renderDoubleUpCards(duDealerCard, false, result.challengerCard, {
@@ -2133,13 +2162,14 @@ async function doDoubleUp(guess) {
                 if (duHighlightHandRank && duBoardBonusAmount > 0) {
                     showMessage(`${HAND_DISPLAY[duHighlightHandRank] || duHighlightHandRank} +${formatNum(duBoardBonusAmount)} • WIN ${formatNum(winAmount)}`, 'win');
                 } else {
-                    showMessage(`WIN! ${formatNum(winAmount)} - DOUBLE AGAIN?`, 'win');
+                    showMessage(`WIN! ${formatNum(winAmount)} — DOUBLE AGAIN?`, 'win');
                 }
                 gameState = 'doubleup';
 
+                // Hold the revealed card visible for a moment (like a real machine),
+                // then advance to the next shuffle slot.
                 setTimeout(() => {
                     if (gameState === 'doubleup') {
-                        // Add the winning challenger to the trail with the guess label
                         duCardTrail.push({ card: result.challengerCard, label: challengerLabel });
                         duDealerCard = result.dealerCard;
                         duCardTrail = syncDoubleUpTrailFromServer(result.cardTrail, duDealerCard, duCardTrail);
@@ -2177,29 +2207,37 @@ async function doDoubleUp(guess) {
                 roundDoubleUpAvailable = false;
                 const closedAmount = result.currentAmount;
                 const collectHandRank = duHighlightHandRank || currentHandRank;
+                // The backend returns settled machine credits in WalletBalance.
+                // The DU winnings (closedAmount) need to drain from the display into credits.
                 const settledMachineCredits = Number(result.walletBalance ?? balance);
                 balance = settledMachineCredits - closedAmount;
                 updateCredits();
                 updateWinIndicator(closedAmount);
                 updateWinAmountDisplay(closedAmount, getFourOfAKindSlotTag(currentHandRank));
-                showMessage(getMachineCloseMessage('take-score'), 'win');
+                showMessage('MACHINE CLOSED — SIPHONING WINNINGS...', 'win');
                 stopShuffle();
                 hideDuInfo();
                 duSessionStarted = false;
                 resetDoubleUpPanelState();
                 clearLucky5Effects();
-                setTimeout(async () => {
+
+                // Auto-siphon: drain the DU winnings into machine credits.
+                // No player input needed — the machine does this automatically.
+                // After drain completes, auto cash-out to wallet.
+                machineSessionClosed = true;
+                (async () => {
                     await animateDrainToCredits(closedAmount, balance, collectHandRank);
+                    balance = settledMachineCredits;
+                    updateCredits();
                     syncMachineCreditsFromResponse(result);
-                    refreshIdleMachineState(getMachineCloseMessage('cashing-out'), 'win');
                     try {
                         await cashOutMachine();
                         await fetchMachineSession();
-                        refreshIdleMachineState('CASHED OUT - MACHINE READY', 'win');
+                        refreshIdleMachineState('CASHED OUT — MACHINE READY', 'win');
                     } catch (_) {
                         showMessage(getMachineCloseMessage(), 'win');
                     }
-                }, T.drainDelayMs);
+                })();
             } else {
                 roundDoubleUpAvailable = false;
                 const lossAmount = winAmount;
@@ -2213,8 +2251,8 @@ async function doDoubleUp(guess) {
                 resetDoubleUpPanelState();
                 clearLucky5Effects();
 
-                // Siphon: animate the displayed win amount draining back to zero,
-                // then hand control to exitDoubleUp for the full cabinet reset.
+                // Siphon: show the losing card briefly, then animate the displayed
+                // win amount draining back to zero — player watches winnings disappear.
                 if (lossAmount > 0) {
                     updateWinIndicator(lossAmount);
                     updateWinAmountDisplay(lossAmount, getFourOfAKindSlotTag(currentHandRank));
@@ -2227,7 +2265,7 @@ async function doDoubleUp(guess) {
                         updateWinAmountDisplay(0);
                         updatePaytable();
                         exitDoubleUp();
-                    }, 400);
+                    }, T.duLoseRevealMs);
                 } else {
                     updateWinIndicator(0);
                     updateWinAmountDisplay(0);
@@ -2277,7 +2315,9 @@ function exitDoubleUp() {
 
 function animateJackpotFill(amount, startBalance, handName) {
     return new Promise((resolve) => {
-        const duration = Math.min(T.jackpotFillMaxMs, Math.max(T.jackpotFillMinMs, amount / 500000 * 3000));
+        // Jackpot drain: same scaling as animateDrainToCredits.
+        // 40M → ~60s. The player watches the jackpot counter drain into their credits.
+        const duration = Math.min(T.jackpotFillMaxMs, Math.max(T.jackpotFillMinMs, amount / 1_000_000 * 1500));
         const creditsSpan = $('#credits span');
         const winEl = $('#win-indicator');
         const msgEl = $('#game-message');
@@ -2332,7 +2372,10 @@ function animateDrainToCredits(amount, startBalance, handRank = null) {
         takeScoreAnimating = true;
         setButtonStates();
 
-        const totalDuration = Math.min(T.countUpMaxMs, Math.max(T.countUpMinMs, amount / 500000 * 4000));
+        // Duration scales with amount: ~3s at 500K, ~60s at 40M.
+        // Formula: amount / 1_000_000 * 1500, clamped to [countUpMinMs, countUpMaxMs].
+        // 500K → 750ms, 10M → 15s, 40M → 60s.
+        const totalDuration = Math.min(T.countUpMaxMs, Math.max(T.countUpMinMs, amount / 1_000_000 * 1500));
         const creditsEl = $('#credits');
         const creditsSpan = $('#credits span');
         const winEl = $('#win-indicator');
@@ -2469,6 +2512,15 @@ async function mainTakeHalf() {
         takeHalfUsedThisRound = true;
         updateWinIndicator(winAmount);
 
+        // If take-half pushed credits to/above the close threshold, the backend
+        // returns status "MachineClosed". The half is already credited, the
+        // remainder stays in the DU session, and the player must continue DU
+        // or cash out — no new deals are allowed.
+        if (result.status === 'MachineClosed') {
+            machineSessionClosed = true;
+            showMessage(getMachineClosedMessage('take-score'), 'win');
+        }
+
         if (winAmount <= 0) {
             stopShuffle();
             hideDuInfo();
@@ -2481,11 +2533,14 @@ async function mainTakeHalf() {
             updatePaytable();
             updateBonusBar(null);
             updateWinAmountDisplay(0);
-            showMessage('PLACE YOUR BET');
+            showMessage(machineSessionClosed ? getMachineClosedMessage('take-score') : 'PLACE YOUR BET');
             showIdleTitle();
             updateIdleOverlayVisibility();
         } else {
-            showMessage(`${formatNum(winAmount)} REMAINS - DOUBLE UP!`, 'win');
+            const msg = machineSessionClosed
+                ? `${formatNum(winAmount)} REMAINS - MACHINE CLOSED - DOUBLE UP OR CASH OUT`
+                : `${formatNum(winAmount)} REMAINS - DOUBLE UP!`;
+            showMessage(msg, 'win');
             updatePaytable(currentHandRank);
 
             if (wasInDoubleUp && duSessionStarted) {
@@ -2494,16 +2549,18 @@ async function mainTakeHalf() {
             } else {
                 gameState = 'win';
                 setButtonStates();
-                setTimeout(() => {
-                    if (gameState === 'win') {
-                        if (roundDoubleUpAvailable) {
-                            startDoubleUpFlow();
-                        } else {
-                            showWinActionMessage();
-                            setButtonStates();
+                if (!machineSessionClosed) {
+                    setTimeout(() => {
+                        if (gameState === 'win') {
+                            if (roundDoubleUpAvailable) {
+                                startDoubleUpFlow();
+                            } else {
+                                showWinActionMessage();
+                                setButtonStates();
+                            }
                         }
-                    }
-                }, T.takeHalfContinueMs);
+                    }, T.takeHalfContinueMs);
+                }
             }
         }
     } catch (e) {

@@ -20,10 +20,10 @@ window.CabinetPace = (function () {
     function _resolveConfig(overrides) {
         const _cfg = (typeof GAME_CONFIG !== 'undefined') ? GAME_CONFIG.timing : null;
         const next = {
-            countUpMinMs: _cfg ? _cfg.countUpMinMs : 1500,
-            countUpMaxMs: _cfg ? _cfg.countUpMaxMs : 5000,
-            jackpotFillMinMs: _cfg ? _cfg.jackpotFillMinMs : 10000,
-            jackpotFillMaxMs: _cfg ? _cfg.jackpotFillMaxMs : 15000,
+            countUpMinMs: _cfg ? _cfg.countUpMinMs : 1000,
+            countUpMaxMs: _cfg ? _cfg.countUpMaxMs : 65000,
+            jackpotFillMinMs: _cfg ? _cfg.jackpotFillMinMs : 750,
+            jackpotFillMaxMs: _cfg ? _cfg.jackpotFillMaxMs : 65000,
             lucky5ActiveMs: _cfg ? _cfg.lucky5FlashDurationMs : 1000,
             collectDelayMs: 180
         };

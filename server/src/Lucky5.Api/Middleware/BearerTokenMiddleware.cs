@@ -18,15 +18,19 @@ public sealed class BearerTokenMiddleware(RequestDelegate next)
             accessToken = queryToken.ToString();
         }
 
-        if (!string.IsNullOrWhiteSpace(accessToken) && tokenService.TryValidate(accessToken, out var userId, out var role))
+        if (!string.IsNullOrWhiteSpace(accessToken))
         {
-            var claims = new[]
+            var result = await tokenService.ValidateTokenAsync(accessToken);
+            if (result.IsValid)
             {
-                new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
-                new Claim(ClaimTypes.Role, role)
-            };
-            context.User = new ClaimsPrincipal(new ClaimsIdentity(claims, "Lucky5Bearer"));
-            context.Items["access_token"] = accessToken;
+                var claims = new[]
+                {
+                    new Claim(ClaimTypes.NameIdentifier, result.UserId.ToString()),
+                    new Claim(ClaimTypes.Role, result.Role)
+                };
+                context.User = new ClaimsPrincipal(new ClaimsIdentity(claims, "Lucky5Bearer"));
+                context.Items["access_token"] = accessToken;
+            }
         }
 
         await next(context);

@@ -193,20 +193,21 @@ public sealed class AuthService(InMemoryDataStore store, ITokenService tokenServ
 
     public async Task<AuthTokens> RefreshTokenAsync(TokenRefreshRequest request, CancellationToken cancellationToken)
     {
-        if (!await tokenService.TryValidate(request.RefreshToken, out var userId, out var role))
+        var result = await tokenService.ValidateTokenAsync(request.RefreshToken);
+        if (!result.IsValid)
         {
             throw new InvalidOperationException("Invalid or expired refresh token");
         }
 
-        if (!store.Users.TryGetValue(userId, out var user))
+        if (!store.Users.TryGetValue(result.UserId, out var user))
         {
             throw new InvalidOperationException("User not found");
         }
 
         await tokenService.Revoke(request.RefreshToken);
 
-        var access = tokenService.IssueToken(userId, TimeSpan.FromHours(8), role);
-        var refresh = tokenService.IssueToken(userId, TimeSpan.FromDays(30), role);
+        var access = tokenService.IssueToken(result.UserId, TimeSpan.FromHours(8), result.Role);
+        var refresh = tokenService.IssueToken(result.UserId, TimeSpan.FromDays(30), result.Role);
         return new AuthTokens(access, refresh, DateTime.UtcNow.AddHours(8));
     }
 

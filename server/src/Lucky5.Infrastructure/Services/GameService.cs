@@ -455,11 +455,8 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
                 jackpotWon = ledger.JackpotStraightFlush;
                 ledger.JackpotStraightFlush = EngineCfg.JackpotStraightFlushStart;
             }
-            else if (evaluation.Category == HandCategory.FiveOfAKind && ledger.JackpotKent > payout)
-            {
-                jackpotWon = ledger.JackpotKent;
-                ledger.JackpotKent = EngineCfg.JackpotKentStart;
-            }
+            // Note: Royal Flush (FiveOfAKind) pays base paytable only — no jackpot.
+            // The 1000x base payout is already the top-tier win.
 
             if (jackpotWon > 0)
             {
@@ -1898,7 +1895,6 @@ return guessResult;
             ledger.JackpotFourOfAKindB,
             ledger.ActiveFourOfAKindSlot,
             ledger.JackpotStraightFlush,
-            ledger.JackpotKent,
             ledger.MachineSerial,
             ledger.MachineSerie,
             ledger.MachineKent);
@@ -2346,6 +2342,9 @@ return guessResult;
     /// </summary>
     private static void ApplyJackpotContributions(MachineLedgerState ledger, EngineConfig cfg, int activeFourOfAKindSlot)
     {
+        // 4 OF A KIND: Only the active slot (marked with red * on the cabinet) increases.
+        // The two slots (A and B) alternate randomly each round.
+        // Fixed increment of 500 per round, capped at 99,999.
         if (activeFourOfAKindSlot == 0)
         {
             ledger.JackpotFourOfAKindA = Math.Min(ledger.JackpotFourOfAKindA + cfg.JackpotFourOfAKindContribution, cfg.JackpotFourOfAKindCap);
@@ -2354,10 +2353,18 @@ return guessResult;
         {
             ledger.JackpotFourOfAKindB = Math.Min(ledger.JackpotFourOfAKindB + cfg.JackpotFourOfAKindContribution, cfg.JackpotFourOfAKindCap);
         }
-        ledger.JackpotFullHouse = Math.Min(ledger.JackpotFullHouse + cfg.JackpotFullHouseContribution, cfg.JackpotFullHouseCap);
+
+        // FULL HOUSE: Fixed increment of 300 per round.
+        // Cap scales with the armed rank (Aces = 20M, Deuces = ~1.4M).
+        var fhCap = cfg.GetFullHouseCapForRank(ledger.JackpotFullHouseRank);
+        ledger.JackpotFullHouse = Math.Min(ledger.JackpotFullHouse + cfg.JackpotFullHouseContribution, fhCap);
+
+        // STRAIGHT FLUSH: Fixed increment of 800 per round. Capped at 10,000,000.
+        // Higher cap because SF is rarer and has more DU potential.
         ledger.JackpotStraightFlush = Math.Min(ledger.JackpotStraightFlush + cfg.JackpotStraightFlushContribution, cfg.JackpotStraightFlushCap);
-        ledger.JackpotKent = Math.Min(ledger.JackpotKent + cfg.JackpotKentContribution, cfg.JackpotKentCap);
-    }
+
+        // Note: Royal Flush (FiveOfAKind) has no jackpot — base paytable 1000x is sufficient.
+        // Kent pool is no longer used.
 
     private static IReadOnlyList<PokerCardDto> BuildCardTrail(Lucky5DoubleUpSession session)
     {

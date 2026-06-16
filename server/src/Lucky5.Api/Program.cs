@@ -173,12 +173,13 @@ app.Use(async (context, next) =>
     if (!string.IsNullOrWhiteSpace(accessToken))
     {
         var tokenService = context.RequestServices.GetRequiredService<ITokenService>();
-        if (tokenService.TryValidate(accessToken, out var userId, out var role))
+        var result = await tokenService.ValidateTokenAsync(accessToken);
+        if (result.IsValid)
         {
             var claims = new[]
             {
-                new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
-                new Claim(ClaimTypes.Role, role)
+                new Claim(ClaimTypes.NameIdentifier, result.UserId.ToString()),
+                new Claim(ClaimTypes.Role, result.Role)
             };
             context.User = new ClaimsPrincipal(new ClaimsIdentity(claims, "Lucky5Bearer"));
             context.Items["access_token"] = accessToken;

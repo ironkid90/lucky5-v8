@@ -44,7 +44,6 @@ public sealed record AdminMachineDto(
     decimal JackpotFourOfAKindB,
     int ActiveFourOfAKindSlot,
     decimal JackpotStraightFlush,
-    decimal JackpotKent,
     int ActiveRounds,
     int ActivePlayers,
     IReadOnlyList<AdminMachineSessionDto> Sessions);

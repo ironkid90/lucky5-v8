@@ -240,4 +240,19 @@ public class EfCoreDataStore : IDataStore
             .Take(Math.Max(0, maxCount))
             .ToListAsync();
     }
+
+    public Task<TokenRevocationEntry?> GetTokenRevocationAsync(string tokenHash, CancellationToken cancellationToken)
+        => throw new NotImplementedException("Token revocation not implemented for EF Core");
+
+    public Task SaveTokenRevocationAsync(TokenRevocationEntry entry, CancellationToken cancellationToken)
+        => throw new NotImplementedException("Token revocation not implemented for EF Core");
+
+    public Task DeleteTokenRevocationAsync(string tokenHash, CancellationToken cancellationToken)
+        => throw new NotImplementedException("Token revocation not implemented for EF Core");
+
+    public Task RevokeAllUserTokensAsync(Guid userId, CancellationToken cancellationToken)
+        => throw new NotImplementedException("Token revocation not implemented for EF Core");
+
+    public Task CleanupExpiredTokenRevocationsAsync(CancellationToken cancellationToken)
+        => throw new NotImplementedException("Token revocation not implemented for EF Core");
 }

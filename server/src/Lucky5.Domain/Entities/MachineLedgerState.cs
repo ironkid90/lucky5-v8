@@ -23,7 +23,9 @@ public sealed class MachineLedgerState
     public decimal JackpotFourOfAKindB { get; set; } = EngineConfig.Default.JackpotFourOfAKindStart;
     public int ActiveFourOfAKindSlot { get; set; }
     public decimal JackpotStraightFlush { get; set; } = EngineConfig.Default.JackpotStraightFlushStart;
-    public decimal JackpotKent { get; set; } = EngineConfig.Default.JackpotKentStart;
+
+    // Note: JackpotKent kept for backward compatibility with persisted snapshots.
+    // It is no longer used in gameplay — Royal Flush pays base paytable only.
 
     public decimal BaseCapitalOut { get; set; }
     public decimal JackpotCapitalOut { get; set; }
