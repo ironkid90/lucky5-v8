@@ -188,12 +188,12 @@ public sealed class AuthService(InMemoryDataStore store, ITokenService tokenServ
 
     public Task LogoutAsync(string accessToken, CancellationToken cancellationToken)
     {
-        return tokenService.Revoke(accessToken);
+        return tokenService.Revoke(accessToken, cancellationToken);
     }
 
     public async Task<AuthTokens> RefreshTokenAsync(TokenRefreshRequest request, CancellationToken cancellationToken)
     {
-        var result = await tokenService.ValidateTokenAsync(request.RefreshToken);
+        var result = await tokenService.ValidateTokenAsync(request.RefreshToken, cancellationToken);
         if (!result.IsValid)
         {
             throw new InvalidOperationException("Invalid or expired refresh token");
@@ -204,7 +204,7 @@ public sealed class AuthService(InMemoryDataStore store, ITokenService tokenServ
             throw new InvalidOperationException("User not found");
         }
 
-        await tokenService.Revoke(request.RefreshToken);
+        await tokenService.Revoke(request.RefreshToken, cancellationToken);
 
         var access = tokenService.IssueToken(result.UserId, TimeSpan.FromHours(8), result.Role);
         var refresh = tokenService.IssueToken(result.UserId, TimeSpan.FromDays(30), result.Role);

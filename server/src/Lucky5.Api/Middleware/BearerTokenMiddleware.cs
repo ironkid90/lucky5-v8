@@ -20,7 +20,7 @@ public sealed class BearerTokenMiddleware(RequestDelegate next)
 
         if (!string.IsNullOrWhiteSpace(accessToken))
         {
-            var result = await tokenService.ValidateTokenAsync(accessToken);
+            var result = await tokenService.ValidateTokenAsync(accessToken, context.RequestAborted);
             if (result.IsValid)
             {
                 var claims = new[]

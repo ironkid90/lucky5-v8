@@ -228,7 +228,6 @@ public sealed class AdminService(InMemoryDataStore store, PersistenceStore persi
             ledger.JackpotFourOfAKindB = cfg.JackpotFourOfAKindStart;
             ledger.ActiveFourOfAKindSlot = 0;
             ledger.JackpotStraightFlush = cfg.JackpotStraightFlushStart;
-            ledger.JackpotKent = cfg.JackpotKentStart;
 
             foreach (var session in store.MachineSessions.Values.Where(s => s.MachineId == machineId))
             {
@@ -430,7 +429,6 @@ public sealed class AdminService(InMemoryDataStore store, PersistenceStore persi
             ledger?.JackpotFourOfAKindB ?? cfg.JackpotFourOfAKindStart,
             ledger?.ActiveFourOfAKindSlot ?? 0,
             ledger?.JackpotStraightFlush ?? cfg.JackpotStraightFlushStart,
-            ledger?.JackpotKent ?? cfg.JackpotKentStart,
             activeRounds,
             activePlayers,
             sessions);

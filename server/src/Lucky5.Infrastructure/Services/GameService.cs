@@ -455,8 +455,8 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
                 jackpotWon = ledger.JackpotStraightFlush;
                 ledger.JackpotStraightFlush = EngineCfg.JackpotStraightFlushStart;
             }
-            // Note: Royal Flush (FiveOfAKind) pays base paytable only — no jackpot.
-            // The 1000x base payout is already the top-tier win.
+            // Note: Royal Flush pays base paytable only — no jackpot. The 1000x is already massive.
+
 
             if (jackpotWon > 0)
             {
@@ -2360,11 +2360,8 @@ return guessResult;
         ledger.JackpotFullHouse = Math.Min(ledger.JackpotFullHouse + cfg.JackpotFullHouseContribution, fhCap);
 
         // STRAIGHT FLUSH: Fixed increment of 800 per round. Capped at 10,000,000.
-        // Higher cap because SF is rarer and has more DU potential.
         ledger.JackpotStraightFlush = Math.Min(ledger.JackpotStraightFlush + cfg.JackpotStraightFlushContribution, cfg.JackpotStraightFlushCap);
-
-        // Note: Royal Flush (FiveOfAKind) has no jackpot — base paytable 1000x is sufficient.
-        // Kent pool is no longer used.
+    }
 
     private static IReadOnlyList<PokerCardDto> BuildCardTrail(Lucky5DoubleUpSession session)
     {

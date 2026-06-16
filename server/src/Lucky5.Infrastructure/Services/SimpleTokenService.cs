@@ -26,9 +26,9 @@ public sealed class SimpleTokenService : ITokenService
         return Convert.ToBase64String(Encoding.UTF8.GetBytes($"{payload}.{signature}"));
     }
 
-    public async Task<TokenValidationResult> ValidateTokenAsync(string token)
+    public async Task<TokenValidationResult> ValidateTokenAsync(string token, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(token) || await _revocationStore.IsRevokedAsync(token))
+        if (string.IsNullOrWhiteSpace(token) || await _revocationStore.IsRevokedAsync(token, cancellationToken))
         {
             return new TokenValidationResult(false, Guid.Empty, "player");
         }
@@ -78,11 +78,11 @@ public sealed class SimpleTokenService : ITokenService
         }
     }
 
-    public async Task Revoke(string token)
+    public async Task Revoke(string token, CancellationToken cancellationToken = default)
     {
         if (!string.IsNullOrWhiteSpace(token))
         {
-            await _revocationStore.RevokeAsync(token);
+            await _revocationStore.RevokeAsync(token, cancellationToken);
         }
     }
 }

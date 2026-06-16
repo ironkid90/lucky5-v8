@@ -438,3 +438,63 @@ body.v8-win-jackpot #win-amount-value {
         animation: none !important;
     }
 }
+
+/* ----- 12. DU BOARD BONUS POPUP ----------------------------- */
+
+/* When the DU board forms a paying hand (Full House, Flush, etc.),
+   this overlay appears prominently to show the bonus win.
+   It's separate from the DU doubling — pays the base paytable. */
+.du-board-bonus {
+    position: absolute;
+    top: 38%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 80;
+    pointer-events: none;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5cqh;
+    padding: 1.5cqh 3cqh;
+    background: rgba(0, 0, 0, 0.85);
+    border: 0.3cqh solid #ffd700;
+    border-radius: 1cqh;
+    box-shadow:
+        0 0 2cqh rgba(255, 215, 0, 0.6),
+        0 0 4cqh rgba(255, 215, 0, 0.3);
+}
+
+.du-board-bonus.visible {
+    display: flex;
+    animation: du-board-bonus-appear 3s ease-out forwards;
+}
+
+.du-board-bonus .du-board-bonus-hand {
+    font-family: 'Press Start 2P', 'Arcade', monospace;
+    font-size: 2.8cqh;
+    color: #ffd700;
+    text-shadow:
+        0 0 0.5cqh rgba(255, 215, 0, 0.9),
+        0 0 1.5cqh rgba(255, 180, 0, 0.5);
+    letter-spacing: 0.1cqh;
+    text-align: center;
+}
+
+.du-board-bonus .du-board-bonus-amount {
+    font-family: 'Press Start 2P', 'Arcade', monospace;
+    font-size: 3.5cqh;
+    color: #ffffff;
+    text-shadow:
+        0 0 0.5cqh rgba(255, 255, 255, 0.8),
+        0.1cqh 0.1cqh 0 #000;
+    letter-spacing: 0.1cqh;
+}
+
+@keyframes du-board-bonus-appear {
+    0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.7); }
+    15%  { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+    25%  { transform: translate(-50%, -50%) scale(1); }
+    75%  { opacity: 1; }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(0.95); }
+}

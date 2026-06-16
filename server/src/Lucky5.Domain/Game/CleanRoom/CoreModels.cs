@@ -359,34 +359,42 @@ public sealed record EngineConfig(
     // This gives predictable, non-chaotic growth — like a real mechanical counter ticking up.
     //
     // 4 OF A KIND: Two separate jackpots (A and B), one per side of the cabinet bottom.
-    //   Only the active slot (marked with red *) increases each round.
+    //   Only the active slot (marked with red * on the cabinet) increases each round.
     //   They alternate randomly each round. Max: 99,999. Start: 20,000.
     //
     // STRAIGHT FLUSH: Single jackpot. Max: 10,000,000. Start: 850,000.
-    //   Higher cap because SF has more DU potential (rarer, bigger wins).
+    //   Higher cap because SF is rarer and has more DU potential.
     //
     // FULL HOUSE: Single jackpot, rank-armed. Max scales with rank:
     //   Ace (rank 14) = 20,000,000 cap. Lower ranks = proportionally lower cap.
     //   Start: 90,000 regardless of rank.
     //
+    // KENT (Sequential Straight): A straight where all 5 cards are in sequential order
+    //   (e.g., 6-7-8-9-10). Max: 5,000,000. Start: 500,000.
+    //   This is a separate jackpot from the base STRAIGHT payout. A player can win
+    //   both the base straight payout AND the Kent jackpot on the same hand.
+    //   Must hit this jackpot 3 times total to fully "clear" the Kent pool.
+    //
     // ROYAL FLUSH: No jackpot. Pays base paytable only (1000x bet).
     //   The base payout is already massive — no jackpot needed.
-    //
-    // KENT (5-of-a-kind): No longer a separate jackpot. Royal Flush handles the top tier.
     //
     // Contribution increments are fixed amounts per round (not percentages):
     //   4OAK: +500 per round (active slot only)
     //   SF:   +800 per round
     //   FH:   +300 per round
+    //   Kent: +200 per round
     decimal JackpotFourOfAKindCap = 99_999m,
     decimal JackpotFullHouseRank14Cap = 20_000_000m,
     decimal JackpotStraightFlushCap = 10_000_000m,
+    decimal JackpotKentCap = 5_000_000m,
     int JackpotFourOfAKindContribution = 500,
     int JackpotFullHouseContribution = 300,
     int JackpotStraightFlushContribution = 800,
+    int JackpotKentContribution = 200,
     decimal JackpotFourOfAKindStart = 20_000m,
     decimal JackpotFullHouseStart = 90_000m,
-    decimal JackpotStraightFlushStart = 850_000m
+    decimal JackpotStraightFlushStart = 850_000m,
+    decimal JackpotKentStart = 500_000m
 )
 {
     public static EngineConfig Default { get; } = new();
@@ -399,12 +407,17 @@ public sealed record EngineConfig(
     /// <summary>
     /// Full House jackpot cap scales with the armed rank.
     /// Ace (rank 14) = full cap. Lower ranks = proportionally lower.
-    /// This means FH of Aces jackpot can grow much larger than FH of Deuces.
     /// </summary>
     public decimal GetFullHouseCapForRank(int rank)
     {
-        // rank 2..14. Linear scale: rank 2 = 2/14 of cap, rank 14 = full cap.
         var normalizedRank = Math.Clamp(rank, 2, 14);
         return Math.Round(JackpotFullHouseRank14Cap * normalizedRank / 14m, 0);
     }
+
+    /// <summary>
+    /// Kent jackpot cap is fixed — does not scale with rank.
+    /// The Kent jackpot pays when the player gets a sequential straight
+    /// (5 cards in order, e.g., 6-7-8-9-10). Must be hit 3 times to clear the pool.
+    /// </summary>
+    public decimal GetKentCap() => JackpotKentCap;
 }

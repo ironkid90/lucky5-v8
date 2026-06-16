@@ -2159,8 +2159,12 @@ async function doDoubleUp(guess) {
                 updateWinIndicator(winAmount);
                 updateWinAmountDisplay(winAmount, getFourOfAKindSlotTag(currentHandRank));
                 updatePaytable(currentHandRank);
+
+                // Board bonus: if the 5-card DU board forms a paying hand,
+                // it pays the base paytable as a bonus. Show it as a prominent
+                // overlay that drains into credits separately from the DU doubling.
                 if (duHighlightHandRank && duBoardBonusAmount > 0) {
-                    showMessage(`${HAND_DISPLAY[duHighlightHandRank] || duHighlightHandRank} +${formatNum(duBoardBonusAmount)} • WIN ${formatNum(winAmount)}`, 'win');
+                    showBoardBonusPopup(duHighlightHandRank, duBoardBonusAmount, winAmount);
                 } else {
                     showMessage(`WIN! ${formatNum(winAmount)} — DOUBLE AGAIN?`, 'win');
                 }
@@ -2279,6 +2283,68 @@ async function doDoubleUp(guess) {
         showMessage(e.message, 'lose');
         setTimeout(() => exitDoubleUp(), T.exitDuCatchMs);
     }
+}
+
+/// Shows the board bonus popup when the DU board forms a paying hand.
+/// This appears as an overlay after the 5th card lands, showing the bonus
+/// hand and amount, then drains into credits.
+/// The board bonus pays the BASE PAYTABLE (not the DU doubled amount).
+/// It's a separate win on top of the DU doubling.
+function showBoardBonusPopup(handRank, bonusAmount, duWinAmount) {
+    const handName = HAND_DISPLAY[handRank] || handRank;
+
+    // Show the board bonus overlay prominently
+    const bonusEl = document.getElementById('du-board-bonus');
+    if (bonusEl) {
+        bonusEl.querySelector('.du-board-bonus-hand').textContent = `${handName} BONUS!`;
+        bonusEl.querySelector('.du-board-bonus-amount').textContent = `+${formatNum(bonusAmount)}`;
+        bonusEl.classList.add('visible');
+    }
+
+    // Highlight the matching paytable row
+    highlightPaytableDU(handRank, bonusAmount);
+
+    // After the overlay displays, drain the bonus into credits
+    setTimeout(() => {
+        if (bonusEl) bonusEl.classList.remove('visible');
+
+        // Animate the board bonus draining into credits
+        const payRow = document.querySelector(`.pay-row[data-hand="${handRank}"]`);
+        const payAmountEl = payRow ? payRow.querySelector('.pay-amount') : null;
+        const creditsSpan = document.querySelector('#credits span');
+        const msgEl = document.getElementById('game-message');
+
+        const duration = Math.min(3000, Math.max(800, bonusAmount / 500000 * 2000));
+        let startTime = null;
+
+        function frame(ts) {
+            if (!startTime) startTime = ts;
+            const elapsed = ts - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const ease = 1 - Math.pow(1 - progress, 3);
+            const credited = Math.floor(bonusAmount * ease);
+            const remaining = bonusAmount - credited;
+
+            balance = balance - bonusAmount + credited;
+            if (creditsSpan) creditsSpan.textContent = formatNum(balance);
+            if (payAmountEl) payAmountEl.textContent = remaining > 0 ? formatNum(remaining) : '0';
+            if (msgEl) {
+                msgEl.textContent = `BOARD BONUS: ${formatNum(credited)} / ${formatNum(bonusAmount)}`;
+                msgEl.className = 'win';
+            }
+
+            if (progress < 1) {
+                requestAnimationFrame(frame);
+            } else {
+                syncMachineCreditsFromResponse({ machineCredits: balance });
+                updateWinIndicator(duWinAmount);
+                updateWinAmountDisplay(duWinAmount, getFourOfAKindSlotTag(currentHandRank));
+                showMessage(`WIN ${formatNum(duWinAmount)} + ${formatNum(bonusAmount)} BOARD BONUS`, 'win');
+            }
+        }
+
+        requestAnimationFrame(frame);
+    }, 2500);
 }
 
 function exitDoubleUp() {

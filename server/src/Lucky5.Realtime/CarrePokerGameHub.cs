@@ -71,8 +71,8 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
             var timer = new Timer(_ =>
             {
                 // Grace period expired — release the machine lock.
-                PendingDisconnects.TryRemove(machineId, out _);
-                MachineOccupancy.TryRemove(machineId, out _);
+                PendingDisconnects.TryRemove(machineId, out var _);
+                MachineOccupancy.TryRemove(machineId, out var _);
                 _ = Clients.All.SendAsync(MachineStatusChangedEvent,
                     new { machineId, isOccupied = false, playerId = (int?)null, gameId = 0 },
                     CancellationToken.None);

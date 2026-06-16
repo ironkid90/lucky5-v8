@@ -173,7 +173,7 @@ app.Use(async (context, next) =>
     if (!string.IsNullOrWhiteSpace(accessToken))
     {
         var tokenService = context.RequestServices.GetRequiredService<ITokenService>();
-        var result = await tokenService.ValidateTokenAsync(accessToken);
+        var result = await tokenService.ValidateTokenAsync(accessToken, context.RequestAborted);
         if (result.IsValid)
         {
             var claims = new[]

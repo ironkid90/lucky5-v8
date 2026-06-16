@@ -208,7 +208,7 @@ SimulationResult RunSimulation(int rounds, PlayerBehavior behavior, int sampleIn
 
             ledger.CooldownRoundsRemaining = MachinePolicy.ComputeCooldownLength(evaluation.Category, seed);
 
-            var jackpotWon = ResolveJackpot(ref ledger, evaluation, scaledBasePayout);
+            var jackpotWon = ResolveJackpot(ref ledger, evaluation, scaledBasePayout, hand);
             if (jackpotWon.TotalPayout > 0)
             {
                 jackpotOverlay = jackpotWon.TotalPayout - scaledBasePayout;
@@ -307,7 +307,7 @@ static MachinePolicyState BuildPolicyState(MachineLedgerState ledger) => new()
     RoundsSinceLucky5Hit = ledger.RoundsSinceLucky5Hit
 };
 
-JackpotResolution ResolveJackpot(ref MachineLedgerState ledger, HandEvaluation evaluation, int scaledBasePayout)
+JackpotResolution ResolveJackpot(ref MachineLedgerState ledger, HandEvaluation evaluation, int scaledBasePayout, IReadOnlyList<CleanRoomCard> initialHand)
 {
     if (evaluation.Category == HandCategory.FullHouse
         && evaluation.Tiebreak[0] == ledger.JackpotFullHouseRank
@@ -340,14 +340,27 @@ JackpotResolution ResolveJackpot(ref MachineLedgerState ledger, HandEvaluation e
         return new JackpotResolution(jackpot, JackpotHitKind.StraightFlush);
     }
 
-    if (evaluation.Category == HandCategory.FiveOfAKind && ledger.JackpotKent > scaledBasePayout)
+    // Note: Royal Flush (FiveOfAKind) pays base paytable only — no jackpot.
+    // The 1000x base payout is already the top-tier win.
+
+    // Kent jackpot: sequential straight on the initial dealt cards.
+    // The 5 cards must be in sequential positional order (ascending or descending).
+    // Pays in addition to the base STRAIGHT payout.
+    if (evaluation.Category == HandCategory.Straight
+        && FiveCardDrawEngine.IsSequentialBoard(initialHand)
+        && ledger.JackpotKent > 0)
     {
-        var jackpot = ledger.JackpotKent;
+        var kentJackpot = ledger.JackpotKent;
         ledger.JackpotKent = cfg.JackpotKentStart;
-        return new JackpotResolution(jackpot, JackpotHitKind.Kent);
+        if (jackpot == 0)
+        {
+            jackpot = kentJackpot;
+            return new JackpotResolution(jackpot, JackpotHitKind.Kent);
+        }
+    }
     }
 
-    return new JackpotResolution(0m, JackpotHitKind.None);
+    return new JackpotResolution(jackpot, JackpotHitKind.None);
 }
 
 DoubleUpChainResult PlayDoubleUpChain(
@@ -826,6 +839,8 @@ void ApplyJackpotContributions(MachineLedgerState ledger)
     }
     ledger.JackpotFullHouse = Math.Min(ledger.JackpotFullHouse + cfg.JackpotFullHouseContribution, cfg.JackpotFullHouseCap);
     ledger.JackpotStraightFlush = Math.Min(ledger.JackpotStraightFlush + cfg.JackpotStraightFlushContribution, cfg.JackpotStraightFlushCap);
+    // Kent jackpot: fixed increment per round, capped at 5M.
+    // Pays when the player gets a sequential straight (cards in positional order).
     ledger.JackpotKent = Math.Min(ledger.JackpotKent + cfg.JackpotKentContribution, cfg.JackpotKentCap);
 }
 

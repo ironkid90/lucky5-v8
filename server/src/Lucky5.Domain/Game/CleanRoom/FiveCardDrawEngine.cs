@@ -309,6 +309,43 @@ public static class FiveCardDrawEngine
         return [];
     }
 
+    /// <summary>
+    /// Detects a "Kent" — a straight where all 5 cards are in sequential positional
+    /// order in their slots (ascending OR descending). For example:
+    ///   Ascending:  slot 1=6, slot 2=7, slot 3=8, slot 4=9, slot 5=10
+    ///   Descending: slot 1=10, slot 2=9, slot 3=8, slot 4=7, slot 5=6
+    /// This is evaluated on the initial dealt 5 cards (before any hold/draw).
+    /// The Kent jackpot pays in addition to the base STRAIGHT payout.
+    /// </summary>
+    public static bool IsSequentialBoard(IReadOnlyList<CleanRoomCard> cards)
+    {
+        if (cards.Count != 5) return false;
+
+        // Check ascending: each slot's rank is exactly 1 more than the previous
+        bool ascending = true;
+        for (var i = 1; i < 5; i++)
+        {
+            if (cards[i].Rank != cards[i - 1].Rank + 1)
+            {
+                ascending = false;
+                break;
+            }
+        }
+        if (ascending) return true;
+
+        // Check descending: each slot's rank is exactly 1 less than the previous
+        bool descending = true;
+        for (var i = 1; i < 5; i++)
+        {
+            if (cards[i].Rank != cards[i - 1].Rank - 1)
+            {
+                descending = false;
+                break;
+            }
+        }
+        return descending;
+    }
+
     private static (bool IsStraight, int HighCard) DetectStraight(IEnumerable<int> ranks)
     {
         var uniqueRanks = ranks
