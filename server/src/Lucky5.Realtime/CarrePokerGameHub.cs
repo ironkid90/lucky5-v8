@@ -2,6 +2,7 @@ namespace Lucky5.Realtime;
 
 using System.Security.Claims;
 using System.Collections.Concurrent;
+using System.Threading;
 using Lucky5.Application.Contracts;
 using Lucky5.Application.Requests;
 using Lucky5.Realtime.Services;
