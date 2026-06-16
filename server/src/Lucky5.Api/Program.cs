@@ -66,7 +66,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddLucky5Infrastructure(builder.Configuration);
 
 builder.Services.AddHealthChecks()
-    .AddCheck("live", () => new HealthCheckResult(HealthStatus.Healthy, "Application is running"));
+    .AddCheck("live", () => HealthCheckResult.Healthy("Application is running"));
 
 var app = builder.Build();
 
@@ -163,19 +163,10 @@ app.UseCors();
 app.MapControllers();
 app.MapHub<CarrePokerGameHub>("/CarrePokerGameHub");
 
-app.MapHealthChecks("/health/live", new HealthCheckOptions
-{
-    Predicate = check => check.Name == "live"
-});
+app.MapHealthChecks("/health/live");
 app.MapHealthChecks("/health/ready");
-app.MapHealthChecks("/health/simple", new HealthCheckOptions
-{
-    Predicate = _ => false
-});
-app.MapHealthChecks("/health/fallback", new HealthCheckOptions
-{
-    Predicate = _ => false
-});
+app.MapHealthChecks("/health/simple");
+app.MapHealthChecks("/health/fallback");
 
 app.MapFallbackToFile("index.html");
 

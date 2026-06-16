@@ -1,8 +1,10 @@
 namespace Lucky5.Tests;
 
 using System.Text.RegularExpressions;
+using Lucky5.Application.Contracts;
 using Lucky5.Application.Requests;
 using Lucky5.Domain.Entities;
+using Lucky5.Infrastructure.Data.Repositories;
 using Lucky5.Infrastructure.Services;
 using Microsoft.Extensions.Configuration;
 
@@ -170,7 +172,10 @@ public static class AuthSecurityRegressionTests
             .AddInMemoryCollection(new Dictionary<string, string?> { ["JWT:SIGNING_KEY"] = "test-signing-key" })
             .Build();
 
-        return new AuthService(store, new SimpleTokenService(configuration));
+        var dataStoreAdapter = new InMemoryDataStoreAdapter(store);
+        var tokenRevocationStore = new PersistentTokenRevocationStore(dataStoreAdapter);
+        var tokenService = new SimpleTokenService(configuration, tokenRevocationStore);
+        return new AuthService(store, tokenService);
     }
 
     private static void SeedUser(InMemoryDataStore store, Guid userId, string username, string passwordHash, bool isOtpVerified)
