@@ -38,4 +38,11 @@ public interface IDataStore
     Task<CabinetStateCursor> AdvanceCabinetStateCursorAsync(Guid userId, int machineId);
     Task SaveCabinetEventRecordAsync(CabinetEventRecord record);
     Task<IReadOnlyList<CabinetEventRecord>> GetCabinetEventRecordsAfterAsync(Guid userId, int machineId, long sequenceNumber, int maxCount);
+
+    // Token revocation
+    Task<TokenRevocationEntry?> GetTokenRevocationAsync(string tokenHash, CancellationToken cancellationToken);
+    Task SaveTokenRevocationAsync(TokenRevocationEntry entry, CancellationToken cancellationToken);
+    Task DeleteTokenRevocationAsync(string tokenHash, CancellationToken cancellationToken);
+    Task RevokeAllUserTokensAsync(Guid userId, CancellationToken cancellationToken);
+    Task CleanupExpiredTokenRevocationsAsync(CancellationToken cancellationToken);
 }

@@ -15,16 +15,16 @@
 /* PAYTABLE */
 #paytable .pay-row {
     border-radius: 0;
-    line-height: 1.45;
-    font-size: 0.85cqh;
-    letter-spacing: 0.025cqh;
-    padding: 0 0.2cqh;
+    line-height: 1.5;
+    font-size: 1.35cqh;
+    letter-spacing: 0.04cqh;
+    padding: 0.15cqh 0.3cqh;
 }
 
 #paytable .pay-amount {
     text-align: right;
     min-width: 6cqh;
-    font-size: 0.85cqh;
+    font-size: 1.35cqh;
 }
 
 #paytable .pay-row.rf,
@@ -102,7 +102,7 @@
 #lucky5-banner.active {
     visibility: visible;
     opacity: 1;
-    animation: lucky5-banner-flicker 0.18s steps(2, end) 7, neon-blink 1.5s ease-in-out 0.7s infinite;
+    /* Clean steady glow — no flicker. Handled by cabinet-v8-realism.css */
 }
 
 /* WIN AMOUNT */
@@ -202,34 +202,59 @@
     50%, 100% { opacity: 0; }
 }
 
-/* FH meter + rank: black text on white container */
+/* FH meter + rank: standalone white tag below 2 PAIR */
 #jackpot-full-house {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 6px;
+    justify-content: flex-end;
+    gap: 0.22cqh;
+    padding: 0.08cqh 0.55cqh;
+    background: linear-gradient(180deg, #fffdf3 0%, #f1e4bf 100%);
+    border: 0.14cqh solid rgba(120, 64, 18, 0.95);
+    border-radius: 0.18cqh;
+    box-shadow:
+        0 0 0 0.08cqh rgba(255, 242, 194, 0.6),
+        0 0.12cqh 0.25cqh rgba(0, 0, 0, 0.45);
+    width: 100%;
+    box-sizing: border-box;
 }
 
 #jackpot-full-house .jp-meter-label {
-    color: #111111;
-    background: #ffffff;
-    padding: 2px 6px;
+    color: #25180d;
+    font-size: 1.02cqh;
+    letter-spacing: 0.08cqh;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.08cqh;
+    padding: 0;
+    background: transparent;
+    text-shadow: none;
 }
 
 #jp-fh-rank {
-    color: #111111;
-    background: #ffffff;
-    padding: 0 2px;
+    color: #8c1b16;
+    font-weight: 900;
+    padding: 0;
+    margin: 0;
+    background: transparent;
 }
 
 #jp-counter-fh {
-    color: #111111;
-    background: #ffffff;
-    padding: 2px 6px;
+    padding: 0 !important;
+    gap: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: inherit !important;
 }
 
 #jp-counter-fh .jp-cval {
-    color: #111111;
+    color: #bb2f18;
+    font-size: 1.08cqh;
+    letter-spacing: 0.06cqh;
+    font-weight: 900;
+    text-shadow: none;
 }
 
 #bonus-hand-text {

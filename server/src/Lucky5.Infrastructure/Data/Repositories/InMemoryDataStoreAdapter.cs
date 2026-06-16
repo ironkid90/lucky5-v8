@@ -266,6 +266,55 @@ public class InMemoryDataStoreAdapter : IDataStore
         return Task.FromResult<IReadOnlyList<CabinetEventRecord>>(records);
     }
 
+    public Task<TokenRevocationEntry?> GetTokenRevocationAsync(string tokenHash, CancellationToken cancellationToken)
+    {
+        _store.TokenRevocationEntries.TryGetValue(tokenHash, out var entry);
+        return Task.FromResult(entry);
+    }
+
+    public Task SaveTokenRevocationAsync(TokenRevocationEntry entry, CancellationToken cancellationToken)
+    {
+        _store.TokenRevocationEntries[entry.TokenHash] = entry;
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteTokenRevocationAsync(string tokenHash, CancellationToken cancellationToken)
+    {
+        _store.TokenRevocationEntries.TryRemove(tokenHash, out _);
+        return Task.CompletedTask;
+    }
+
+    public Task RevokeAllUserTokensAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var keysToRemove = _store.TokenRevocationEntries
+            .Where(kvp => kvp.Value.UserId == userId)
+            .Select(kvp => kvp.Key)
+            .ToList();
+
+        foreach (var key in keysToRemove)
+        {
+            _store.TokenRevocationEntries.TryRemove(key, out _);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task CleanupExpiredTokenRevocationsAsync(CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+        var keysToRemove = _store.TokenRevocationEntries
+            .Where(kvp => kvp.Value.ExpiresUtc < now)
+            .Select(kvp => kvp.Key)
+            .ToList();
+
+        foreach (var key in keysToRemove)
+        {
+            _store.TokenRevocationEntries.TryRemove(key, out _);
+        }
+
+        return Task.CompletedTask;
+    }
+
     private static string BuildCommandKey(Guid userId, Guid commandId, string idempotencyKey)
         => $"{userId:N}:{commandId:N}:{idempotencyKey}";
 

@@ -134,15 +134,21 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
         await RequireMachineAsync(machineId);
         var session = await RequireMachineSessionAsync(userId, machineId, createIfMissing: true);
 
-        if (amount < CashInUnit || amount > MaxSessionCashIn || amount % CashInUnit != 0)
-            throw new InvalidOperationException("Cash in must be in 200,000 increments up to 1,000,000");
+        if (amount <= 0)
+            throw new InvalidOperationException("Cash in amount must be positive");
         if (session.IsMachineClosed)
             throw new InvalidOperationException("Machine is closed - cash out to wallet before continuing");
-        if (session.TotalCashIn + amount > MaxSessionCashIn)
-            throw new InvalidOperationException("Maximum session cash-in is 1,000,000");
         var totalAvailable = profile.WalletBalance + profile.Credit;
-        if (totalAvailable < amount)
+        if (totalAvailable <= 0)
             throw new InvalidOperationException("Insufficient wallet balance");
+        // Allow any positive amount up to the player's total available balance.
+        // If the player has less than the standard increment, deposit whatever they have.
+        if (amount > totalAvailable)
+            throw new InvalidOperationException("Insufficient wallet balance");
+        // Only enforce session cap if it would not prevent the player from depositing
+        // their entire remaining balance (last-deposit allowance).
+        if (session.TotalCashIn + amount > MaxSessionCashIn && amount < totalAvailable)
+            throw new InvalidOperationException("Maximum session cash-in is 1,000,000");
 
         var fromCredit = Math.Min(profile.Credit, amount);
         var fromBalance = amount - fromCredit;

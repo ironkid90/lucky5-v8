@@ -112,24 +112,9 @@ body {
     letter-spacing: 2px;
 }
 
-@keyframes cardGlow {
-    0%, 100% { filter: drop-shadow(0 0 12px rgba(255,215,0,0.25)); }
-    50% { filter: drop-shadow(0 0 24px rgba(255,215,0,0.45)); }
-}
-@keyframes borderShimmer {
-    0% { border-color: #8B6914; }
-    50% { border-color: #c9a227; }
-    100% { border-color: #8B6914; }
-}
 @keyframes cabinetGlow {
     0%, 100% { opacity: 0.35; }
     50% { opacity: 0.50; }
-}
-@keyframes screenFlicker {
-    0%, 100% { opacity: 1; }
-    92% { opacity: 1; }
-    93% { opacity: 0.85; }
-    94% { opacity: 1; }
 }
 
 #auth-screen {
@@ -164,7 +149,6 @@ body {
 #auth-screen .logo {
     width: 160px;
     image-rendering: pixelated;
-    animation: cardGlow 3s ease-in-out infinite;
     margin-bottom: -6px;
     position: relative;
     z-index: 2;
@@ -184,7 +168,6 @@ body {
         0 0 100px rgba(0,0,0,0.7),
         0 20px 60px rgba(0,0,0,0.5),
         inset 0 1px 0 rgba(255,215,0,0.12);
-    animation: borderShimmer 4s ease-in-out infinite;
 }
 
 .auth-box-inset {
@@ -346,7 +329,6 @@ body {
     border: 3px solid #8B6914;
     border-radius: 4px;
     overflow: hidden;
-    animation: screenFlicker 8s ease-in-out infinite;
     box-shadow: 0 0 30px rgba(139,105,20,0.15), inset 0 0 40px rgba(0,0,0,0.5);
 }
 
@@ -507,72 +489,7 @@ body {
 }
 
 #game-screen.lucky5-active {
-    animation: lucky5-cabinet-pulse 0.22s steps(2, end) 6;
-}
-
-@keyframes lucky5-cabinet-pulse {
-    0%, 100% {
-        filter: none;
-        transform: translateZ(0);
-    }
-    25% {
-        filter: brightness(1.18) saturate(1.22);
-    }
-    50% {
-        filter: brightness(0.96) saturate(1.35) hue-rotate(10deg);
-    }
-    75% {
-        filter: brightness(1.24) saturate(1.1);
-    }
-}
-
-#paytable {
-    padding: 4px 10px 0;
-    flex-shrink: 0;
-}
-
-.pay-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0px 4px;
-    font-size: 10px;
-    line-height: 1.6;
-    letter-spacing: 0.5px;
-    border-radius: 3px;
-    transition: background 0.2s;
-    position: relative;
-    border: 2px solid transparent;
-}
-
-.pay-row .hand-name { font-weight: bold; }
-.pay-row .pay-amount { text-align: right; min-width: 70px; }
-
-.pay-row.rf { color: #ffd84d; }
-.pay-row.rf .pay-amount { color: #ffd84d; }
-.pay-row.sf { color: #ff3333; }
-.pay-row.sf .pay-amount { color: #ff3333; }
-.pay-row.foak { color: #00bb00; }
-.pay-row.foak .pay-amount { color: #00bb00; }
-.pay-row.fh { color: #7fd7ff; }
-.pay-row.fh .pay-amount { color: #7fd7ff; }
-.pay-row.fl { color: #ff3333; }
-.pay-row.fl .pay-amount { color: #ff3333; }
-.pay-row.st { color: #ffffff; }
-.pay-row.st .pay-amount { color: #ffffff; }
-.pay-row.tok { color: #00ffff; }
-.pay-row.tok .pay-amount { color: #00ffff; }
-.pay-row.tp { color: #ffffff; }
-.pay-row.tp .pay-amount { color: #ffffff; }
-
-.pay-row.active {
-    background: rgba(0, 255, 255, 0.15);
-    animation: pay-row-active-pulse 0.7s ease-in-out infinite;
-}
-
-@keyframes pay-row-active-pulse {
-    0%, 100% { background: rgba(0, 255, 255, 0.1); }
-    50% { background: rgba(0, 255, 255, 0.25); }
+    /* Handled by cabinet-v8-realism.css — no shake here */
 }
 
 .pay-row.active .hand-name,
@@ -602,7 +519,6 @@ body {
 
 .pay-row.du-highlight {
     background: rgba(0, 255, 0, 0.12);
-    animation: du-row-pulse 0.8s ease-in-out infinite;
 }
 
 .pay-row.du-highlight .hand-name { color: #0f0; }
@@ -663,13 +579,7 @@ body {
 }
 
 #win-indicator.growing {
-    animation: win-grow 0.5s ease-in-out;
-}
-
-@keyframes win-grow {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.3); color: #fff; }
-    100% { transform: scale(1); }
+    /* Mechanical feedback only — no scale pulse */
 }
 
 .credit-val {

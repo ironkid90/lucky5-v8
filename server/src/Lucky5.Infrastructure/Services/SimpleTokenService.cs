@@ -7,13 +7,14 @@ using Microsoft.Extensions.Configuration;
 
 public sealed class SimpleTokenService : ITokenService
 {
-    private readonly HashSet<string> _revoked = [];
+    private readonly ITokenRevocationStore _revocationStore;
     private readonly byte[] _secret;
 
-    public SimpleTokenService(IConfiguration configuration)
+    public SimpleTokenService(IConfiguration configuration, ITokenRevocationStore revocationStore)
     {
         var raw = configuration["JWT:SIGNING_KEY"] ?? "dev-signing-key-change-me";
         _secret = Encoding.UTF8.GetBytes(raw);
+        _revocationStore = revocationStore;
     }
 
     public string IssueToken(Guid userId, TimeSpan lifetime, string role = "player")
@@ -25,11 +26,11 @@ public sealed class SimpleTokenService : ITokenService
         return Convert.ToBase64String(Encoding.UTF8.GetBytes($"{payload}.{signature}"));
     }
 
-    public bool TryValidate(string token, out Guid userId, out string role)
+    public async Task<bool> TryValidate(string token, out Guid userId, out string role)
     {
         userId = Guid.Empty;
         role = "player";
-        if (string.IsNullOrWhiteSpace(token) || _revoked.Contains(token))
+        if (string.IsNullOrWhiteSpace(token) || await _revocationStore.IsRevokedAsync(token))
         {
             return false;
         }
@@ -80,11 +81,11 @@ public sealed class SimpleTokenService : ITokenService
         }
     }
 
-    public void Revoke(string token)
+    public async Task Revoke(string token)
     {
         if (!string.IsNullOrWhiteSpace(token))
         {
-            _revoked.Add(token);
+            await _revocationStore.RevokeAsync(token);
         }
     }
 }

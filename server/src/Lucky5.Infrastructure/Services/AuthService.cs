@@ -188,13 +188,12 @@ public sealed class AuthService(InMemoryDataStore store, ITokenService tokenServ
 
     public Task LogoutAsync(string accessToken, CancellationToken cancellationToken)
     {
-        tokenService.Revoke(accessToken);
-        return Task.CompletedTask;
+        return tokenService.Revoke(accessToken);
     }
 
-    public Task<AuthTokens> RefreshTokenAsync(TokenRefreshRequest request, CancellationToken cancellationToken)
+    public async Task<AuthTokens> RefreshTokenAsync(TokenRefreshRequest request, CancellationToken cancellationToken)
     {
-        if (!tokenService.TryValidate(request.RefreshToken, out var userId, out var role))
+        if (!await tokenService.TryValidate(request.RefreshToken, out var userId, out var role))
         {
             throw new InvalidOperationException("Invalid or expired refresh token");
         }
@@ -204,11 +203,11 @@ public sealed class AuthService(InMemoryDataStore store, ITokenService tokenServ
             throw new InvalidOperationException("User not found");
         }
 
-        tokenService.Revoke(request.RefreshToken);
+        await tokenService.Revoke(request.RefreshToken);
 
         var access = tokenService.IssueToken(userId, TimeSpan.FromHours(8), role);
         var refresh = tokenService.IssueToken(userId, TimeSpan.FromDays(30), role);
-        return Task.FromResult(new AuthTokens(access, refresh, DateTime.UtcNow.AddHours(8)));
+        return new AuthTokens(access, refresh, DateTime.UtcNow.AddHours(8));
     }
 
     private static PendingOtpChallengeDto CreateOtpChallenge()

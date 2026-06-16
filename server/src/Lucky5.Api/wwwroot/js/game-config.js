@@ -104,13 +104,13 @@ const GAME_CONFIG = Object.freeze({
         exitDuCatchMs:        1000, // delay before exiting DU after a network error
 
         // Lucky5 flash presentation
-        lucky5FlashDurationMs: 500,   // CSS animation duration
-        lucky5ActiveScreenMs:  1300,  // how long .lucky5-active stays on the game screen
+        lucky5FlashDurationMs: 1000,  // 1-second soothing white flash for 5♠ DU hit
+        lucky5ActiveScreenMs: 1000,   // how long .lucky5-active stays on the game screen
 
         // Post-draw flow
-        drawResultDelayMs:     400,   // delay after draw cards settle before showing result/DU
-        winToDuPromptMs:       950,   // delay before auto-launching DU after a win
-        postLossIdleTitleMs:   1400,  // delay before idle title shows after a loss
+        drawResultDelayMs:     300,   // delay after draw cards settle before showing result/DU
+        winToDuPromptMs:       800,   // delay before auto-launching DU after a win
+        postLossIdleTitleMs:   1200,  // delay before idle title shows after a loss
 
         // Take-half continue delay
         takeHalfContinueMs:    650,   // delay before re-offering DU after taking half

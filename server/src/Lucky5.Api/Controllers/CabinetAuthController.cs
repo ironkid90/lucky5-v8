@@ -5,12 +5,14 @@ using Lucky5.Application.Contracts;
 using Lucky5.Application.Dtos;
 using Lucky5.Application.Requests;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 [ApiController]
 [Route("api/[controller]")]
 public sealed class CabinetAuthController(ICabinetDeviceAuthService cabinetDeviceAuthService) : ControllerBase
 {
     [HttpPost("login")]
+    [EnableRateLimiting("auth-strict")]
     public async Task<ActionResult<ApiResponse<CabinetDeviceAuthResultDto>>> Login([FromBody] CabinetDeviceAuthRequest request, CancellationToken cancellationToken)
     {
         var result = await cabinetDeviceAuthService.AuthenticateAsync(request, cancellationToken);

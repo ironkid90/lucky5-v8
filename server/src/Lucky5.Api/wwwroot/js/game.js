@@ -749,6 +749,7 @@ async function cashOutMachine() {
 
 function syncMachineCreditsFromResponse(source) {
     const rawCredits = source?.machineCredits
+        ?? source?.machineCreditsAfterRound
         ?? source?.walletBalanceAfterBet
         ?? source?.walletBalanceAfterRound
         ?? source?.walletBalance;
@@ -1354,14 +1355,23 @@ function setButtonStates() {
     }
 
     const machineClosed = isMachineClosedForUi();
+    const isDoubleUp = gameState === 'doubleup';
 
-    betBtn.disabled = !(gameState === 'idle' || gameState === 'doubleup') || machineClosed;
+    // BET button doubles as SWITCH during Double Up
+    if (isDoubleUp) {
+        betBtn.disabled = duSwitchesRemaining <= 0 || machineClosed;
+        betBtn.classList.add('is-switch');
+    } else {
+        betBtn.disabled = gameState !== 'idle' || machineClosed;
+        betBtn.classList.remove('is-switch');
+    }
+
     dealBtn.disabled = !(gameState === 'idle' || gameState === 'hold') || machineClosed;
     cancelBtn.disabled = gameState !== 'hold';
-    bigBtn.disabled = !(gameState === 'doubleup' || canStartDoubleUpFromWin());
-    smallBtn.disabled = !(gameState === 'doubleup' || canStartDoubleUpFromWin());
-    takeScoreBtn.disabled = !(gameState === 'win' || gameState === 'doubleup');
-    takeHalfBtn.disabled = !(gameState === 'win' || gameState === 'doubleup') || takeHalfUsedThisRound;
+    bigBtn.disabled = !(isDoubleUp || canStartDoubleUpFromWin());
+    smallBtn.disabled = !(isDoubleUp || canStartDoubleUpFromWin());
+    takeScoreBtn.disabled = !(gameState === 'win' || isDoubleUp);
+    takeHalfBtn.disabled = !(gameState === 'win' || isDoubleUp) || takeHalfUsedThisRound;
 
     holdBtns.forEach((btn, i) => {
         if (i === 0 && canAdjustJackpotRank()) {
@@ -1479,7 +1489,7 @@ function triggerLucky5Flash() {
         lucky5FlashResetTimer = setTimeout(() => {
             screen.classList.remove('lucky5-active');
             lucky5FlashResetTimer = null;
-        }, T.lucky5ActiveScreenMs);
+        }, T.lucky5FlashDurationMs);
     }
 }
 
@@ -1763,7 +1773,7 @@ async function doDeal() {
                 } else {
                     showMessage('PRESS HOLDS TO KEEP CARD');
                 }
-            }, T.dealBaseMs + ((GAME_CONFIG.meta.handSize - 1) * T.dealStaggerMs) + T.dealAnimDurationMs + 120);
+            }, T.dealBaseMs + ((GAME_CONFIG.meta.handSize - 1) * T.dealStaggerMs) + T.dealAnimDurationMs + 40);
         } catch (e) {
             showMessage(e.message, 'lose');
             gameState = 'idle';
@@ -2192,14 +2202,38 @@ async function doDoubleUp(guess) {
                 }, T.drainDelayMs);
             } else {
                 roundDoubleUpAvailable = false;
+                const lossAmount = winAmount;
                 winAmount = 0;
                 syncMachineCreditsFromResponse(result);
-                updateWinIndicator(0);
-                updateWinAmountDisplay(0);
                 resetDoubleUpAwardState();
-                updatePaytable();
                 showMessage('YOU LOSE!', 'lose');
-                setTimeout(() => exitDoubleUp(), T.exitDuLoseMs);
+                stopShuffle();
+                hideDuInfo();
+                duSessionStarted = false;
+                resetDoubleUpPanelState();
+                clearLucky5Effects();
+
+                // Siphon: animate the displayed win amount draining back to zero,
+                // then hand control to exitDoubleUp for the full cabinet reset.
+                if (lossAmount > 0) {
+                    updateWinIndicator(lossAmount);
+                    updateWinAmountDisplay(lossAmount, getFourOfAKindSlotTag(currentHandRank));
+                    const collectHandRank = duHighlightHandRank || currentHandRank;
+                    const preLossCredits = Math.max(0, balance);
+                    updatePaytable(collectHandRank);
+                    setTimeout(async () => {
+                        await animateDrainToCredits(lossAmount, preLossCredits, collectHandRank);
+                        updateWinIndicator(0);
+                        updateWinAmountDisplay(0);
+                        updatePaytable();
+                        exitDoubleUp();
+                    }, 400);
+                } else {
+                    updateWinIndicator(0);
+                    updateWinAmountDisplay(0);
+                    updatePaytable();
+                    setTimeout(() => exitDoubleUp(), T.exitDuLoseMs);
+                }
             }
             setButtonStates();
         }, T.duRevealDelayMs);
@@ -3294,9 +3328,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (cashInBtn) cashInBtn.addEventListener('click', async () => {
             try {
                 if (gameState !== 'idle') throw new Error('Finish the current round first');
-                const raw = prompt('Cash in amount (200000 to 1000000, increments of 200000):', '200000');
+                const maxIn = walletBalance;
+                if (maxIn <= 0) throw new Error('No wallet balance to deposit');
+                const raw = prompt(`Cash in amount (up to ${formatNum(maxIn)}):`, formatNum(Math.min(200000, maxIn)));
                 if (!raw) return;
-                const amount = Number(raw);
+                const amount = Number(raw.replace(/,/g, ''));
+                if (!amount || amount <= 0) throw new Error('Invalid amount');
+                if (amount > maxIn) throw new Error('Amount exceeds wallet balance');
                 const session = await cashInMachine(amount);
                 await fetchMachineSession();
                 refreshIdleMachineState(`CASHED IN ${formatNum(amount)} - MACHINE ${formatNum(session.machineCredits)}`, 'win');

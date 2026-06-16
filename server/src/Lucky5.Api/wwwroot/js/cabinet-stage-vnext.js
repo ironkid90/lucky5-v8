@@ -29,7 +29,7 @@ window.CabinetStage = (function () {
             drawStaggerMs: Number(timing.drawStaggerMs) || 45,
             drawRevealStartMs: Number(timing.drawRevealStartMs) || 70,
             shuffleFrameMs: Number(timing.shuffleFrameMs) || 130,
-            lucky5ActiveMs: Number(timing.lucky5ActiveScreenMs) || 1300
+            lucky5ActiveMs: Number(timing.lucky5FlashDurationMs) || 1000
         };
 
         if (overrides && typeof overrides === 'object') {

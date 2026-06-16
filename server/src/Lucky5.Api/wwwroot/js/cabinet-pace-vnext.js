@@ -24,7 +24,7 @@ window.CabinetPace = (function () {
             countUpMaxMs: _cfg ? _cfg.countUpMaxMs : 5000,
             jackpotFillMinMs: _cfg ? _cfg.jackpotFillMinMs : 10000,
             jackpotFillMaxMs: _cfg ? _cfg.jackpotFillMaxMs : 15000,
-            lucky5ActiveMs: _cfg ? _cfg.lucky5ActiveScreenMs : 1400,
+            lucky5ActiveMs: _cfg ? _cfg.lucky5FlashDurationMs : 1000,
             collectDelayMs: 180
         };
         if (overrides && typeof overrides === 'object') {

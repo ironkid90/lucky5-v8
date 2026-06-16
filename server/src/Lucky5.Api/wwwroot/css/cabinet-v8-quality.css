@@ -238,7 +238,22 @@
 }
 .cab-btn.cab-bet::before { content: 'BET'; font-size: 2cqh; }
 
-/* ----- 5. MENU (round) button ------------------------------- */
+/* BET button as SWITCH during Double Up */
+.cab-btn.cab-bet.is-switch {
+    background: linear-gradient(180deg,
+        var(--v8-orange-1) 0%,
+        var(--v8-orange-2) 55%,
+        var(--v8-orange-3) 100%) !important;
+    border-color: #5a2500 !important;
+}
+.cab-btn.cab-bet.is-switch::before {
+    content: 'SWITCH';
+    font-size: 1.65cqh;
+}
+
+.cab-btn.cab-bet.is-switch:disabled {
+    filter: grayscale(0.55) brightness(0.5);
+}
 
 .cab-btn.cab-menu {
     background: radial-gradient(circle at 50% 42%, #5a5a5a 0%, #2a2a2a 68%, #0e0e0e 100%) !important;
@@ -267,8 +282,8 @@
 }
 
 /* ----- 6. Paytable sizing and FH jackpot placement -----------
-   Keep the paytable legible and in-flow. The FH jackpot belongs with
-   the 2 PAIR row, not as a floating overlay. */
+   Keep the paytable legible and in-flow. The FH jackpot belongs
+   directly below the 2 PAIR row as a standalone white-marked tag. */
 
 #paytable {
     position: absolute;
@@ -304,44 +319,22 @@
     background: rgba(255,255,255,0.08) !important;
 }
 
-#paytable .pay-row.tp {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
-    grid-template-areas: "hand amount jackpot";
-    align-items: center;
-    column-gap: 0.22cqh;
-    row-gap: 0;
-    padding-top: 0.04cqh !important;
-    padding-bottom: 0.04cqh !important;
-}
-
-#paytable .pay-row.tp .hand-name {
-    grid-area: hand;
-    align-self: center;
-}
-
-#paytable .pay-row.tp .pay-amount {
-    grid-area: amount;
-    justify-self: end;
-    min-width: auto;
-}
-
+/* FH jackpot tag: standalone white row directly below 2 PAIR */
 #paytable #jackpot-full-house {
-    grid-area: jackpot;
-    justify-self: end;
-    min-width: 0;
-    margin-top: 0;
-    padding: 0.08cqh 0.32cqh;
-    display: inline-flex;
+    display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: 0.22cqh;
-    pointer-events: none;
+    padding: 0.08cqh 0.55cqh;
+    margin: 0;
     background: linear-gradient(180deg, #fffdf3 0%, #f1e4bf 100%);
     border: 0.14cqh solid rgba(120, 64, 18, 0.95);
     border-radius: 0.18cqh;
     box-shadow:
         0 0 0 0.08cqh rgba(255, 242, 194, 0.6),
         0 0.12cqh 0.25cqh rgba(0, 0, 0, 0.45);
+    width: 100%;
+    box-sizing: border-box;
 }
 
 #paytable #jackpot-full-house .jp-meter-label {
