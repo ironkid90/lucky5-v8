@@ -66,6 +66,10 @@ let duSessionStarted = false;
 let duDealerCard = null;
 let duCardTrail = [];
 let duLastRenderedTrailLength = 0;
+let duHighlightHandRank = null;
+let duBoardBonusAmount = 0;
+let duCurrentBonusAmount = 0;
+let duSlotIndex = 0;
 let roundDoubleUpAvailable = false;
 let takeHalfUsedThisRound = false;
 let jackpots = null;
@@ -830,6 +834,22 @@ function normalizeLuckyMultiplier(value, fallback = 1) {
     return fallback;
 }
 
+function normalizeHandRank(value) {
+    const text = String(value || '').trim();
+    if (!text || text === 'Nothing' || text === 'None') {
+        return null;
+    }
+
+    return text.replace(/\s+/g, '');
+}
+
+function resetDoubleUpAwardState() {
+    duHighlightHandRank = null;
+    duBoardBonusAmount = 0;
+    duCurrentBonusAmount = 0;
+    duSlotIndex = 0;
+}
+
 function applyDoubleUpInfoCopy() {
     const labelEl = document.getElementById('du-label');
     const aceEl = document.getElementById('du-ace-info');
@@ -871,6 +891,10 @@ function updateDoubleUpInfoPanel() {
 function syncDoubleUpPanelState(source, { preserveMultiplier = false } = {}) {
     duSwitchesRemaining = Number(source?.switchesRemaining || 0);
     duIsNoLoseActive = Boolean(source?.isLucky5Active || source?.isNoLoseActive);
+    duHighlightHandRank = normalizeHandRank(source?.boardHandRank);
+    duBoardBonusAmount = Number(source?.boardBonusAmount || 0);
+    duCurrentBonusAmount = Number(source?.currentBonusAmount || 0);
+    duSlotIndex = Number(source?.slotIndex || 0);
 
     if (duIsNoLoseActive) {
         const fallbackMultiplier = preserveMultiplier ? duLuckyMultiplier : 1;
@@ -886,6 +910,7 @@ function resetDoubleUpPanelState() {
     duSwitchesRemaining = 0;
     duIsNoLoseActive = false;
     duLuckyMultiplier = 1;
+    resetDoubleUpAwardState();
     updateDoubleUpInfoPanel();
 }
 
@@ -930,25 +955,31 @@ function updateWinIndicator(amount) {
 }
 
 function updatePaytable(activeHand) {
+    const highlightHand = gameState === 'doubleup'
+        ? (duHighlightHandRank || normalizeHandRank(activeHand) || currentHandRank)
+        : normalizeHandRank(activeHand);
+    const highlightAmount = gameState === 'doubleup'
+        ? (winAmount > 0 ? winAmount : duBoardBonusAmount)
+        : (gameState === 'win' && winAmount > 0 ? winAmount : 0);
+    const highlightClass = gameState === 'doubleup' ? 'du-highlight' : 'active';
+
     $$('.pay-row').forEach(row => {
         const hand = row.dataset.hand;
         const mult = parseInt(row.querySelector('.pay-amount').dataset.mult) || 0;
         row.querySelector('.pay-amount').textContent = formatNum(mult * currentBet);
         row.classList.remove('active', 'du-highlight');
-        if (activeHand && hand === activeHand) {
-            row.classList.add('active');
+        if (highlightHand && hand === highlightHand) {
+            row.classList.add(highlightClass);
+            if (highlightAmount > 0) {
+                row.querySelector('.pay-amount').textContent = formatNum(highlightAmount);
+            }
         }
     });
 }
 
 function highlightPaytableDU(handRank, amount) {
-    $$('.pay-row').forEach(row => {
-        row.classList.remove('active', 'du-highlight');
-        if (handRank && row.dataset.hand === handRank) {
-            row.classList.add('du-highlight');
-            row.querySelector('.pay-amount').textContent = formatNum(amount);
-        }
-    });
+    duHighlightHandRank = normalizeHandRank(handRank);
+    updatePaytable(currentHandRank);
 }
 
 // ── 8. JACKPOT & PAYTABLE ───────────────────────────────────────────────
@@ -1123,6 +1154,13 @@ function canAdjustJackpotRank() {
 let idleOverlayTimer = null;
 let idleOverlayVisible = false;
 
+function clearIdleOverlayTimer() {
+    if (idleOverlayTimer) {
+        clearTimeout(idleOverlayTimer);
+        idleOverlayTimer = null;
+    }
+}
+
 function showIdleOverlay() {
     const overlay = $('#idle-overlay');
     if (overlay && !idleOverlayVisible) {
@@ -1139,35 +1177,28 @@ function hideIdleOverlay() {
     }
 }
 
-function resetIdleOverlayTimer() {
-    // Clear existing timer
-    if (idleOverlayTimer) {
-        clearTimeout(idleOverlayTimer);
-        idleOverlayTimer = null;
-    }
-    
-    // Hide overlay immediately if visible
-    hideIdleOverlay();
-    
-    // Show overlay after the configured quiet period (arcade default 2.2 s).
+function scheduleIdleSelectorReveal(onReveal) {
+    clearIdleOverlayTimer();
+
+    const holdMs = Math.max(
+        0,
+        Number(T.idleTitleHoldMs ?? T.idleOverlayAppearMs ?? 2200) || 0
+    );
+
     idleOverlayTimer = setTimeout(() => {
         if (gameState === 'idle' && holdIndexes.size === 0 && !isDoubleUpMode()) {
-            showIdleOverlay();
+            hideIdleOverlay();
+            if (typeof onReveal === 'function') {
+                onReveal();
+            }
         }
-    }, T.idleOverlayAppearMs || 2200);
+    }, holdMs);
 }
 
 function updateIdleOverlayVisibility() {
-    // Hide overlay immediately if not idle or cards are held or in DU mode
     if (gameState !== 'idle' || holdIndexes.size > 0 || isDoubleUpMode()) {
         hideIdleOverlay();
-        if (idleOverlayTimer) {
-            clearTimeout(idleOverlayTimer);
-            idleOverlayTimer = null;
-        }
-    } else {
-        // Reset timer to potentially show overlay after delay
-        resetIdleOverlayTimer();
+        clearIdleOverlayTimer();
     }
 }
 
@@ -1183,15 +1214,32 @@ function showIdleTitle(animateSelector = false) {
     card.innerHTML = `<img src="/assets/images/cards/${fullHouseSelectorCode()}.png" alt="full house selector">`;
     selector.appendChild(card);
     area.appendChild(selector);
-    // Reset idle overlay timer when showing idle title
-    resetIdleOverlayTimer();
+
+    if (animateSelector) {
+        hideIdleOverlay();
+        clearIdleOverlayTimer();
+        return;
+    }
+
+    selector.style.visibility = 'hidden';
+    showIdleOverlay();
+    scheduleIdleSelectorReveal(() => {
+        if (!area.contains(selector)) {
+            return;
+        }
+
+        selector.style.visibility = 'visible';
+        card.classList.remove('is-flipping');
+        void card.offsetWidth;
+        card.classList.add('is-flipping');
+    });
 }
 
 function hideIdleTitle() {
     const area = $('#card-area');
     area.innerHTML = '';
-    // Reset idle overlay timer when hiding idle title
-    resetIdleOverlayTimer();
+    hideIdleOverlay();
+    clearIdleOverlayTimer();
 }
 
 // ── 6. RENDERING ─────────────────────────────────────────────────────────
@@ -1355,17 +1403,6 @@ async function doBet() {
     updatePaytable();
     updateBonusHandText();
     setButtonStates();
-    showIdleTitle(true);
-
-    // Arcade convention: the BET button ALSO advances the Full House target
-    // rank on every idle press (like the classic cabinet where BET cycles
-    // the FH selector between 2-3-...-K-A). We fire-and-forget so the bet
-    // UX stays instant; the server reconciles the new rank on its own rhythm.
-    // Gated on jackpotRankArmed so it only fires in true idle state, never
-    // mid-round.
-    if (jackpotRankArmed) {
-        try { cycleJackpotRank(); } catch (err) { /* non-fatal */ }
-    }
 }
 
 async function doSwitchDealer() {
@@ -1390,6 +1427,7 @@ async function doSwitchDealer() {
         }
 
         renderDoubleUpCards(duDealerCard, true, null, { pending: true });
+        updatePaytable(currentHandRank);
         if (isLucky5) {
             showMessage(`${getLuckyActiveBannerText()}! WIN: ${formatNum(result.currentAmount)}`, 'win');
         } else {
@@ -1636,6 +1674,7 @@ function restoreRoundFromSnapshot(snapshot) {
         renderDoubleUpCards(duDealerCard, true, null, { pending: true });
         updateWinIndicator(winAmount);
         updateWinAmountDisplay(winAmount, getFourOfAKindSlotTag(currentHandRank));
+        updatePaytable(currentHandRank);
         if (duIsNoLoseActive) {
             triggerLucky5Flash();
             showMessage(`${getLuckyActiveBannerText()}! DOUBLE UP: ${formatNum(winAmount)}`, 'win');
@@ -1724,7 +1763,7 @@ async function doDeal() {
                 } else {
                     showMessage('PRESS HOLDS TO KEEP CARD');
                 }
-            }, 80 + 5 * 100 + 150);
+            }, T.dealBaseMs + ((GAME_CONFIG.meta.handSize - 1) * T.dealStaggerMs) + T.dealAnimDurationMs + 120);
         } catch (e) {
             showMessage(e.message, 'lose');
             gameState = 'idle';
@@ -1809,6 +1848,7 @@ async function doDeal() {
                     proceedToDoubleUp();
                 } else {
                     showMessage(HAND_DISPLAY[handName] || 'NO WIN', 'lose');
+                    resetDoubleUpAwardState();
                     gameState = 'idle';
                     setButtonStates();
                     updatePaytable();
@@ -2034,7 +2074,7 @@ async function startDoubleUpFlow() {
         }
         updateWinAmountDisplay(result.currentAmount, getFourOfAKindSlotTag(currentHandRank));
         updateWinIndicator(result.currentAmount);
-        if (currentHandRank) highlightPaytableDU(currentHandRank, result.currentAmount);
+        updatePaytable(currentHandRank);
         renderDoubleUpCards(duDealerCard, true, null, { pending: true });
         setButtonStates();
     } catch (e) {
@@ -2068,6 +2108,7 @@ async function doDoubleUp(guess) {
         const challengerLabel = String(guess || '').trim().toUpperCase();
 
         setTimeout(() => {
+            syncDoubleUpPanelState(result, { preserveMultiplier: true });
             renderDoubleUpCards(duDealerCard, false, result.challengerCard, {
                 challengerLabel,
                 outcome: result.status
@@ -2078,8 +2119,12 @@ async function doDoubleUp(guess) {
                 updateCredits();
                 updateWinIndicator(winAmount);
                 updateWinAmountDisplay(winAmount, getFourOfAKindSlotTag(currentHandRank));
-                if (currentHandRank) highlightPaytableDU(currentHandRank, winAmount);
-                showMessage(`WIN! ${formatNum(winAmount)} - DOUBLE AGAIN?`, 'win');
+                updatePaytable(currentHandRank);
+                if (duHighlightHandRank && duBoardBonusAmount > 0) {
+                    showMessage(`${HAND_DISPLAY[duHighlightHandRank] || duHighlightHandRank} +${formatNum(duBoardBonusAmount)} • WIN ${formatNum(winAmount)}`, 'win');
+                } else {
+                    showMessage(`WIN! ${formatNum(winAmount)} - DOUBLE AGAIN?`, 'win');
+                }
                 gameState = 'doubleup';
 
                 setTimeout(() => {
@@ -2090,6 +2135,7 @@ async function doDoubleUp(guess) {
                         duCardTrail = syncDoubleUpTrailFromServer(result.cardTrail, duDealerCard, duCardTrail);
                         renderDoubleUpCards(duDealerCard, true, null, { pending: true });
                         syncDoubleUpPanelState(result, { preserveMultiplier: true });
+                        updatePaytable(currentHandRank);
                         setButtonStates();
                     }
                 }, T.duWinHoldMs);
@@ -2097,6 +2143,7 @@ async function doDoubleUp(guess) {
                 roundDoubleUpAvailable = false;
                 triggerLucky5Flash();
                 const safeAmount = result.currentAmount;
+                const collectHandRank = duHighlightHandRank || currentHandRank;
                 // Credits are already settled server-side via FinalizeDoubleUp.
                 // Show the protected amount, then animate drain to credits.
                 const settledMachineCredits = Number(result.walletBalance ?? balance);
@@ -2111,7 +2158,7 @@ async function doDoubleUp(guess) {
                 resetDoubleUpPanelState();
                 clearLucky5Effects();
                 setTimeout(async () => {
-                    await animateDrainToCredits(safeAmount, balance);
+                    await animateDrainToCredits(safeAmount, balance, collectHandRank);
                     syncMachineCreditsFromResponse(result);
                     await fetchMachineSession();
                     refreshIdleMachineState();
@@ -2119,6 +2166,7 @@ async function doDoubleUp(guess) {
             } else if (result.status === 'MachineClosed') {
                 roundDoubleUpAvailable = false;
                 const closedAmount = result.currentAmount;
+                const collectHandRank = duHighlightHandRank || currentHandRank;
                 const settledMachineCredits = Number(result.walletBalance ?? balance);
                 balance = settledMachineCredits - closedAmount;
                 updateCredits();
@@ -2131,7 +2179,7 @@ async function doDoubleUp(guess) {
                 resetDoubleUpPanelState();
                 clearLucky5Effects();
                 setTimeout(async () => {
-                    await animateDrainToCredits(closedAmount, balance);
+                    await animateDrainToCredits(closedAmount, balance, collectHandRank);
                     syncMachineCreditsFromResponse(result);
                     refreshIdleMachineState(getMachineCloseMessage('cashing-out'), 'win');
                     try {
@@ -2148,6 +2196,8 @@ async function doDoubleUp(guess) {
                 syncMachineCreditsFromResponse(result);
                 updateWinIndicator(0);
                 updateWinAmountDisplay(0);
+                resetDoubleUpAwardState();
+                updatePaytable();
                 showMessage('YOU LOSE!', 'lose');
                 setTimeout(() => exitDoubleUp(), T.exitDuLoseMs);
             }
@@ -2173,6 +2223,7 @@ function exitDoubleUp() {
 
     if (winAmount > 0) {
         gameState = 'win';
+        updatePaytable(currentHandRank);
         setButtonStates();
         showWinActionMessage();
         showIdleTitle();
@@ -2242,7 +2293,7 @@ function animateJackpotFill(amount, startBalance, handName) {
     });
 }
 
-function animateDrainToCredits(amount, startBalance) {
+function animateDrainToCredits(amount, startBalance, handRank = null) {
     return new Promise((resolve) => {
         takeScoreAnimating = true;
         setButtonStates();
@@ -2253,8 +2304,15 @@ function animateDrainToCredits(amount, startBalance) {
         const winEl = $('#win-indicator');
         const winAmountEl = $('#win-amount-value');
         const msgEl = $('#game-message');
+        const payRow = handRank ? document.querySelector(`.pay-row[data-hand="${handRank}"]`) : null;
+        const payAmountEl = payRow ? payRow.querySelector('.pay-amount') : null;
         let startTime = null;
         let lastTickToggle = 0;
+
+        if (payRow) {
+            payRow.classList.remove('active');
+            payRow.classList.add('du-highlight');
+        }
 
         function frame(ts) {
             if (!startTime) startTime = ts;
@@ -2271,6 +2329,7 @@ function animateDrainToCredits(amount, startBalance) {
 
             // Win amount drains DOWN simultaneously
             if (winAmountEl) winAmountEl.textContent = remaining > 0 ? formatNum(remaining) : '';
+            if (payAmountEl) payAmountEl.textContent = remaining > 0 ? formatNum(remaining) : '0';
 
             if (ts - lastTickToggle > T.creditTickMs) {
                 lastTickToggle = ts;
@@ -2297,6 +2356,7 @@ function animateDrainToCredits(amount, startBalance) {
                 if (winAmountEl) winAmountEl.textContent = '';
                 creditsEl.classList.remove('credit-ticking');
                 takeScoreAnimating = false;
+                updatePaytable();
                 resolve();
             }
         }
@@ -2309,6 +2369,9 @@ async function mainTakeScore() {
     if (!(gameState === 'win' || gameState === 'doubleup') || takeScoreAnimating) return;
     playPress();
     stopShuffle();
+    const collectHandRank = gameState === 'doubleup'
+        ? (duHighlightHandRank || currentHandRank)
+        : currentHandRank;
     hideDuInfo();
     duSessionStarted = false;
     roundDoubleUpAvailable = false;
@@ -2333,7 +2396,7 @@ async function mainTakeScore() {
         const result = await apiCall('POST', GAME_CONFIG.api.duCashout, { roundId });
         const cashoutAmount = result.currentAmount;
 
-        await animateDrainToCredits(cashoutAmount, balance);
+        await animateDrainToCredits(cashoutAmount, balance, collectHandRank);
         syncMachineCreditsFromResponse(result);
 
         if (result.status === 'MachineClosed') {
@@ -2389,7 +2452,7 @@ async function mainTakeHalf() {
             updateIdleOverlayVisibility();
         } else {
             showMessage(`${formatNum(winAmount)} REMAINS - DOUBLE UP!`, 'win');
-            if (currentHandRank) highlightPaytableDU(currentHandRank, winAmount);
+            updatePaytable(currentHandRank);
 
             if (wasInDoubleUp && duSessionStarted) {
                 gameState = 'doubleup';

@@ -21,11 +21,13 @@ window.CabinetStage = (function () {
         // GAME_CONFIG.timing so variants can retune the feel centrally.
         const next = {
             cardBack: assets.cardBack || '/assets/images/cards/bside.png',
+            dealBaseMs: Number(timing.dealBaseMs) || 80,
             dealStaggerMs: Number(timing.dealStaggerMs) || 70,
             dealDurationMs: Number(timing.dealAnimDurationMs) || 180,
             drawOutMs: Number(timing.drawOutMs) || 55,
             drawInMs: Number(timing.drawInMs) || 75,
             drawStaggerMs: Number(timing.drawStaggerMs) || 45,
+            drawRevealStartMs: Number(timing.drawRevealStartMs) || 70,
             shuffleFrameMs: Number(timing.shuffleFrameMs) || 130,
             lucky5ActiveMs: Number(timing.lucky5ActiveScreenMs) || 1300
         };
@@ -176,6 +178,23 @@ window.CabinetStage = (function () {
             : [];
     }
 
+    function _pickShuffleCode(codes, previousCode) {
+        if (!Array.isArray(codes) || codes.length === 0) {
+            return '';
+        }
+
+        if (codes.length === 1) {
+            return codes[0];
+        }
+
+        let nextCode = previousCode;
+        while (nextCode === previousCode) {
+            nextCode = codes[Math.floor(Math.random() * codes.length)];
+        }
+
+        return nextCode;
+    }
+
     function _slot(index) {
         return document.querySelector(`.card-slot[data-slot="${index}"]`);
     }
@@ -316,7 +335,7 @@ window.CabinetStage = (function () {
 
             slotEl.classList.remove('du-trail-card', 'du-shuffling', 'du-chall-in', 'du-challenger-card', 'lucky5-active');
             _setFaceDiagnostic(slotEl, false, '');
-            frame.classList.remove('dealer-card', 'lucky5-glow');
+            frame.classList.remove('dealer-card', 'lucky5-glow', 'du-flip-in', 'du-flip-out');
             label.textContent = '';
             img.src = _config.cardBack;
             img.alt = 'Card back';
@@ -393,6 +412,8 @@ window.CabinetStage = (function () {
 
             if (!slotEl || !frame || !label || !img) continue;
 
+            frame.classList.remove('du-flip-in', 'du-flip-out');
+
             if (card) {
                 _applyCardFace(slotEl, img, card, { requireFace: true });
             } else {
@@ -441,12 +462,26 @@ window.CabinetStage = (function () {
         slotEl.classList.add('du-shuffling');
 
         const frameMs = Math.max(60, Number(_config.shuffleFrameMs) || 80);
-        let cursor = 0;
+        const frameEl = _duFrame(slotEl);
+        let lastCode = '';
         _shuffleInterval = setInterval(() => {
-            const code = codes[cursor % codes.length];
-            cursor++;
-            img.src = resolveCardFaceSrc(code);
-            img.alt = `${code} shuffle`;
+            const code = _pickShuffleCode(codes, lastCode);
+            lastCode = code;
+
+            if (frameEl) {
+                frameEl.classList.remove('du-flip-in');
+                frameEl.classList.add('du-flip-out');
+            }
+
+            setTimeout(() => {
+                img.src = resolveCardFaceSrc(code);
+                img.alt = `${code} shuffle`;
+
+                if (frameEl) {
+                    frameEl.classList.remove('du-flip-out');
+                    frameEl.classList.add('du-flip-in');
+                }
+            }, Math.min(60, Math.max(30, Math.round(frameMs * 0.45))));
         }, frameMs);
     }
 
@@ -458,11 +493,13 @@ window.CabinetStage = (function () {
     function getConfig() {
         return {
             cardBack: _config.cardBack,
+            dealBaseMs: _config.dealBaseMs,
             dealStaggerMs: _config.dealStaggerMs,
             dealDurationMs: _config.dealDurationMs,
             drawOutMs: _config.drawOutMs,
             drawInMs: _config.drawInMs,
             drawStaggerMs: _config.drawStaggerMs,
+            drawRevealStartMs: _config.drawRevealStartMs,
             shuffleFrameMs: _config.shuffleFrameMs,
             lucky5ActiveMs: _config.lucky5ActiveMs
         };
@@ -533,6 +570,7 @@ window.CabinetStage = (function () {
         clearAllHolds();
 
         const cards = Array.isArray(cardArray) ? cardArray.map(_asCard) : [];
+        const baseDelay = Math.max(0, Number(_config.dealBaseMs) || 0);
         const stagger = Math.max(40, Number(_config.dealStaggerMs) || 100);
         const duration = Math.max(80, Number(_config.dealDurationMs) || 120);
 
@@ -546,7 +584,7 @@ window.CabinetStage = (function () {
             slotEl.style.transform = 'translateY(-60px)';
         });
 
-        requestAnimationFrame(() => {
+        setTimeout(() => requestAnimationFrame(() => {
             cards.forEach((card, i) => {
                 setTimeout(() => {
                     const slotEl = _slot(i);
@@ -560,7 +598,7 @@ window.CabinetStage = (function () {
                     }
                 }, i * stagger);
             });
-        });
+        }), baseDelay);
     }
 
     function drawCards(newCardArray, heldIndexes, onComplete) {
@@ -575,6 +613,7 @@ window.CabinetStage = (function () {
         const outMs = Math.max(40, Number(_config.drawOutMs) || 60);
         const inMs = Math.max(60, Number(_config.drawInMs) || 80);
         const staggerMs = Math.max(20, Number(_config.drawStaggerMs) || 40);
+        const revealStartMs = Math.max(0, Number(_config.drawRevealStartMs) || 0);
 
         cards.forEach((card, i) => {
             const slotEl = _slot(i);
@@ -615,7 +654,7 @@ window.CabinetStage = (function () {
                         onComplete();
                     }
                 }, outMs);
-            }, i * staggerMs);
+            }, revealStartMs + (i * staggerMs));
         });
 
         if (pending === 0 && onComplete) {

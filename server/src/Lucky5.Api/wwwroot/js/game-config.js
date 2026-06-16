@@ -65,23 +65,23 @@ const GAME_CONFIG = Object.freeze({
     // If you change these, mirror the feel-check in GAME_FEEL_REFERENCE.md.
     timing: Object.freeze({
         // Main-hand deal animation
-        dealBaseMs:           50,   // delay before the first card starts dropping
-        dealStaggerMs:        90,   // extra delay per subsequent card (left → right)
-        dealAnimDurationMs:   180,  // CSS transition length for the drop itself
+        dealBaseMs:           80,   // slight cabinet pause before the first card lands
+        dealStaggerMs:        110,  // left-to-right arcade stagger
+        dealAnimDurationMs:   210,  // slide/flip settle time per card
 
         // Draw animation (re-dealing only non-held cards)
-        drawOutMs:            55,   // fade-out duration on replaced cards
-        drawInMs:             75,   // fade-in / drop-in duration on new cards
-        drawStaggerMs:        45,   // stagger between replaced card slots
-        drawRevealStartMs:    50,   // delay before first replaced card starts dropping
+        drawOutMs:            70,   // fade-out duration on replaced cards
+        drawInMs:             105,  // fade-in / drop-in duration on new cards
+        drawStaggerMs:        60,   // stagger between replaced card slots
+        drawRevealStartMs:    80,   // delay before first replaced card starts dropping
 
         // Double-up: shuffle animation
-        shuffleFrameMs:       90,   // how often the shuffle swaps to a random card
+        shuffleFrameMs:       80,   // how often the shuffle swaps to a random card
 
         // Double-up: reveal sequence
-        duRevealDelayMs:      120,  // wait after server responds before showing challenger card
-        duWinHoldMs:          550,  // show WIN message this long before advancing the trail
-        duStaggerPerCardMs:   65,   // stagger between cards on a fresh DU page
+        duRevealDelayMs:      150,  // wait after server responds before showing challenger card
+        duWinHoldMs:          650,  // show WIN message before advancing the trail
+        duStaggerPerCardMs:   70,   // stagger between cards on a fresh DU page
 
         // Win collection / drain-to-credits
         //   At 500 k credits/unit: 500 k * 1.4 s / 500 k = 1.4 s (minimum).
@@ -108,15 +108,16 @@ const GAME_CONFIG = Object.freeze({
         lucky5ActiveScreenMs:  1300,  // how long .lucky5-active stays on the game screen
 
         // Post-draw flow
-        drawResultDelayMs:     350,   // delay after draw cards settle before showing result/DU
-        winToDuPromptMs:       400,   // delay before auto-launching DU after a win
+        drawResultDelayMs:     400,   // delay after draw cards settle before showing result/DU
+        winToDuPromptMs:       950,   // delay before auto-launching DU after a win
         postLossIdleTitleMs:   1400,  // delay before idle title shows after a loss
 
         // Take-half continue delay
-        takeHalfContinueMs:    550,   // delay before re-offering DU after taking half
+        takeHalfContinueMs:    650,   // delay before re-offering DU after taking half
 
         // Idle overlay / attract
-        idleOverlayAppearMs:   2200,  // quiet period before the LUCKY 5 POKER overlay appears
+        idleTitleHoldMs:       2200,  // how long the LUCKY 5 title stays up before the FH selector card returns
+        idleOverlayAppearMs:   2200,  // legacy fallback for older idle-title timing paths
         idleAttractModeMs:     12000, // full arcade attract sequence kicks in after this long
     }),
 

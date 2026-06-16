@@ -482,6 +482,15 @@ public static class GameServiceRegressionTests
             deck: FiveCardDrawEngine.ParseCards(["9H", "AS", "4C", "2D"]),
             openingAmount: 10_000,
             machineCreditBaseline: 500_000);
+        duSession = duSession with
+        {
+            CurrentBoardCards = FiveCardDrawEngine.ParseCards(["2H", "KS", "3D", "KD", "2C"]),
+            CurrentBoardComplete = true,
+            BoardHandRank = HandCategory.TwoPair.ToString(),
+            LastBoardBonusAmount = 10_000,
+            BoardBonusTotal = 10_000,
+            LastResolvedBoardSlotIndex = 5
+        };
 
         var round = new GameRound
         {
@@ -522,6 +531,14 @@ public static class GameServiceRegressionTests
             failures,
             "Reconnect hydration should preserve the current double-up amount.",
             active.DoubleUpSession is not null && active.DoubleUpSession.CurrentAmount == duSession.CurrentAmount);
+        Assert(
+            failures,
+            "Reconnect hydration should preserve the current double-up board bonus state for paytable highlighting.",
+            active.DoubleUpSession is not null
+            && active.DoubleUpSession.BoardHandRank == HandCategory.TwoPair.ToString()
+            && active.DoubleUpSession.BoardBonusAmount == 10_000m
+            && active.DoubleUpSession.CurrentBonusAmount == 10_000m
+            && active.DoubleUpSession.SlotIndex == 5);
     }
 
     private static async Task StartDoubleUpUsesAlreadyAceMultipliedWinAmountAsync(List<string> failures)
