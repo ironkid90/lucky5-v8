@@ -66,7 +66,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddLucky5Infrastructure(builder.Configuration);
 
 builder.Services.AddHealthChecks()
-    .AddCheck("live", () => HealthCheckResult.Healthy("Application is running"));
+    .AddCheck("live", () => new HealthCheckResult(HealthStatus.Healthy, "Application is running"));
 
 var app = builder.Build();
 
