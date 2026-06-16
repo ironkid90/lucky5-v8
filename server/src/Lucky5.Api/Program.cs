@@ -6,8 +6,8 @@ using Lucky5.Application.Dtos;
 using Lucky5.Infrastructure.Services;
 using Lucky5.Realtime;
 using Lucky5.Realtime.Services;
-using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
