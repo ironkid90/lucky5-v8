@@ -8,61 +8,15 @@ using Lucky5.Realtime;
 using Lucky5.Realtime.Services;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.AspNetCore.RateLimiter;
-using Microsoft.Extensions.Diagnostics.HealthChecks;
-using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Configuration.AddEnvironmentVariables();
 
-// Rate limiting configuration
-builder.Services.AddRateLimiter(options =>
-{
-    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = 100,
-                Window = TimeSpan.FromMinutes(1),
-                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                QueueLimit = 10
-            }));
-
-    options.AddFixedWindowLimiter("auth-strict", limiterOptions =>
-    {
-        limiterOptions.PermitLimit = 5;
-        limiterOptions.Window = TimeSpan.FromMinutes(1);
-        limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-        limiterOptions.QueueLimit = 2;
-    });
-
-    options.AddFixedWindowLimiter("auth-moderate", limiterOptions =>
-    {
-        limiterOptions.PermitLimit = 20;
-        limiterOptions.Window = TimeSpan.FromMinutes(1);
-        limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-        limiterOptions.QueueLimit = 5;
-    });
-
-    options.AddFixedWindowLimiter("api-general", limiterOptions =>
-    {
-        limiterOptions.PermitLimit = 60;
-        limiterOptions.Window = TimeSpan.FromMinutes(1);
-        limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-        limiterOptions.QueueLimit = 20;
-    });
-
-    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    options.OnRejected = async (context, token) =>
-    {
-        context.HttpContext.Response.ContentType = "application/json";
-        await context.HttpContext.Response.WriteAsync(
-            $"{{\"success\":false,\"message\":\"Too many requests. Please try again later.\",\"traceId\":\"{context.HttpContext.TraceIdentifier}\"}}",
-            cancellationToken: token);
-    };
-});
+// NOTE: Rate limiting disabled for .NET 10 compatibility.
+// Re-enable when Microsoft.AspNetCore.RateLimiter has a stable .NET 10/11 build.
+// builder.Services.AddRateLimiter(...) ...
+// app.UseRateLimiter();
 
 var portValue = Environment.GetEnvironmentVariable("PORT")
     ?? Environment.GetEnvironmentVariable("WEBSITES_PORT")
@@ -204,7 +158,8 @@ app.UseStaticFiles();
 
 app.UseRouting();
 app.UseCors();
-app.UseRateLimiter();
+// NOTE: Rate limiting disabled for .NET 10 compatibility - re-enable when stable
+// app.UseRateLimiter();
 app.MapControllers();
 app.MapHub<CarrePokerGameHub>("/CarrePokerGameHub");
 

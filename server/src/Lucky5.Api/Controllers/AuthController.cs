@@ -5,14 +5,16 @@ using Lucky5.Application.Contracts;
 using Lucky5.Application.Dtos;
 using Lucky5.Application.Requests;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.RateLimiting;
+
+// NOTE: Rate limiting disabled for .NET 10 compatibility - re-enable when stable
+// using Microsoft.AspNetCore.RateLimiting;
 
 [ApiController]
 [Route("api/[controller]")]
 public sealed class AuthController(IAuthService authService, IHostEnvironment environment, IConfiguration configuration) : ControllerBase
 {
     [HttpPost("login")]
-    [EnableRateLimiting("auth-strict")]
+    // [EnableRateLimiting("auth-strict")]
     public async Task<ActionResult<ApiResponse<object>>> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
     {
         var (tokens, profile) = await authService.LoginAsync(request, cancellationToken);
@@ -20,7 +22,7 @@ public sealed class AuthController(IAuthService authService, IHostEnvironment en
     }
 
     [HttpPost("signup")]
-    [EnableRateLimiting("auth-strict")]
+    // [EnableRateLimiting("auth-strict")]
     public async Task<ActionResult<ApiResponse<object>>> Signup([FromBody] SignupRequest request, CancellationToken cancellationToken)
     {
         var (profile, challenge) = await authService.SignupAsync(request, cancellationToken);
@@ -35,7 +37,7 @@ public sealed class AuthController(IAuthService authService, IHostEnvironment en
     }
 
     [HttpPost("verify-otp")]
-    [EnableRateLimiting("auth-strict")]
+    // [EnableRateLimiting("auth-strict")]
     public async Task<ActionResult<ApiResponse<object>>> VerifyOtp([FromBody] VerifyOtpRequest request, CancellationToken cancellationToken)
     {
         var ok = await authService.VerifyOtpAsync(request, cancellationToken);
@@ -44,7 +46,7 @@ public sealed class AuthController(IAuthService authService, IHostEnvironment en
     }
 
     [HttpPost("resend-otp")]
-    [EnableRateLimiting("auth-strict")]
+    // [EnableRateLimiting("auth-strict")]
     public async Task<ActionResult<ApiResponse<object>>> ResendOtp([FromBody] ResendOtpRequest request, CancellationToken cancellationToken)
     {
         var challenge = await authService.ResendOtpAsync(request, cancellationToken);
@@ -124,7 +126,7 @@ public sealed class AuthController(IAuthService authService, IHostEnvironment en
     }
 
     [HttpPost("refresh-token")]
-    [EnableRateLimiting("auth-moderate")]
+    // [EnableRateLimiting("auth-moderate")]
     public async Task<ActionResult<ApiResponse<object>>> RefreshToken([FromBody] TokenRefreshRequest request, CancellationToken cancellationToken)
     {
         try
