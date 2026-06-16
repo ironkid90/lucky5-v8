@@ -11,6 +11,7 @@
     <ProjectReference Include="..\Lucky5.Domain\Lucky5.Domain.csproj" />
     <ProjectReference Include="..\Lucky5.Infrastructure\Lucky5.Infrastructure.csproj" />
     <ProjectReference Include="..\Lucky5.Realtime\Lucky5.Realtime.csproj" />
+    <PackageReference Include="Microsoft.AspNetCore.RateLimiting" Version="9.0.0" />
   </ItemGroup>
 
 </Project>
