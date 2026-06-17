@@ -524,11 +524,6 @@ body {
 .pay-row.du-highlight .hand-name { color: #0f0; }
 .pay-row.du-highlight .pay-amount { color: #0f0; font-size: 12px; }
 
-@keyframes du-row-pulse {
-    0%, 100% { background: rgba(0, 255, 0, 0.08); }
-    50% { background: rgba(0, 255, 0, 0.22); }
-}
-
 #lucky5-banner {
     text-align: center;
     font-size: 9px;
@@ -546,17 +541,7 @@ body {
 #lucky5-banner.active {
     visibility: visible;
     opacity: 1;
-    animation: lucky5-banner-flicker 0.18s steps(2, end) 7, neon-blink 1.5s ease-in-out 0.7s infinite;
-}
-
-@keyframes lucky5-banner-flicker {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.22; transform: scale(1.03); }
-}
-
-@keyframes neon-blink {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.3; }
+    /* Clean steady glow — no flicker */
 }
 
 #credit-stake-bar {

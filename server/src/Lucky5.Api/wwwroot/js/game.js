@@ -2264,7 +2264,7 @@ async function doDoubleUp(guess) {
                     const preLossCredits = Math.max(0, balance);
                     updatePaytable(collectHandRank);
                     setTimeout(async () => {
-                        await animateDrainToCredits(lossAmount, preLossCredits, collectHandRank);
+                        await animateReverseDrain(lossAmount, preLossCredits, collectHandRank);
                         updateWinIndicator(0);
                         updateWinAmountDisplay(0);
                         updatePaytable();
@@ -2438,9 +2438,8 @@ function animateDrainToCredits(amount, startBalance, handRank = null) {
         takeScoreAnimating = true;
         setButtonStates();
 
-        // Duration scales with amount: ~3s at 500K, ~60s at 40M.
+        // Duration scales with amount: ~1.5s at 500K, ~60s at 40M.
         // Formula: amount / 1_000_000 * 1500, clamped to [countUpMinMs, countUpMaxMs].
-        // 500K → 750ms, 10M → 15s, 40M → 60s.
         const totalDuration = Math.min(T.countUpMaxMs, Math.max(T.countUpMinMs, amount / 1_000_000 * 1500));
         const creditsEl = $('#credits');
         const creditsSpan = $('#credits span');
@@ -2463,14 +2462,14 @@ function animateDrainToCredits(amount, startBalance, handRank = null) {
             const rawProgress = Math.min(elapsed / totalDuration, 1);
             // ease-out cubic so the drain starts fast and slows as it finishes
             const ease = 1 - Math.pow(1 - rawProgress, 3);
-            const credited = Math.floor(amount * ease);
-            const remaining = amount - credited;
+            const drained = Math.floor(amount * ease);
+            const remaining = amount - drained;
 
-            // Credits count UP
-            balance = startBalance + credited;
-            creditsSpan.textContent = formatNum(balance);
+            // Credits count UP (collecting winnings into balance)
+            balance = startBalance + drained;
+            if (creditsSpan) creditsSpan.textContent = formatNum(balance);
 
-            // Win amount drains DOWN simultaneously
+            // Win amount display counts DOWN
             if (winAmountEl) winAmountEl.textContent = remaining > 0 ? formatNum(remaining) : '';
             if (payAmountEl) payAmountEl.textContent = remaining > 0 ? formatNum(remaining) : '0';
 
@@ -2480,9 +2479,9 @@ function animateDrainToCredits(amount, startBalance, handRank = null) {
             }
 
             if (remaining > 0) {
-                winEl.textContent = `WIN ${formatNum(remaining)}`;
+                if (winEl) winEl.textContent = `WIN ${formatNum(remaining)}`;
             } else {
-                winEl.textContent = '';
+                if (winEl) winEl.textContent = '';
             }
 
             if (msgEl) {
@@ -2495,7 +2494,82 @@ function animateDrainToCredits(amount, startBalance, handRank = null) {
             } else {
                 balance = startBalance + amount;
                 updateCredits();
-                winEl.textContent = '';
+                if (winEl) winEl.textContent = '';
+                if (winAmountEl) winAmountEl.textContent = '';
+                creditsEl.classList.remove('credit-ticking');
+                takeScoreAnimating = false;
+                updatePaytable();
+                resolve();
+            }
+        }
+
+        requestAnimationFrame(frame);
+    });
+}
+
+/// Reverse drain: siphons displayed win amount back to zero.
+/// Credits count DOWN (win amount drained away), win display counts DOWN.
+/// Used for DU loss siphon — the player watches their winnings disappear.
+function animateReverseDrain(amount, startBalance, handRank = null) {
+    return new Promise((resolve) => {
+        takeScoreAnimating = true;
+        setButtonStates();
+
+        // Same duration formula as animateDrainToCredits
+        const totalDuration = Math.min(T.countUpMaxMs, Math.max(T.countUpMinMs, amount / 1_000_000 * 1500));
+        const creditsEl = $('#credits');
+        const creditsSpan = $('#credits span');
+        const winEl = $('#win-indicator');
+        const winAmountEl = $('#win-amount-value');
+        const msgEl = $('#game-message');
+        const payRow = handRank ? document.querySelector(`.pay-row[data-hand="${handRank}"]`) : null;
+        const payAmountEl = payRow ? payRow.querySelector('.pay-amount') : null;
+        let startTime = null;
+        let lastTickToggle = 0;
+
+        if (payRow) {
+            payRow.classList.remove('active');
+            payRow.classList.add('du-highlight');
+        }
+
+        function frame(ts) {
+            if (!startTime) startTime = ts;
+            const elapsed = ts - startTime;
+            const rawProgress = Math.min(elapsed / totalDuration, 1);
+            const ease = 1 - Math.pow(1 - rawProgress, 3);
+            const drained = Math.floor(amount * ease);
+            const remaining = amount - drained;
+
+            // Credits count DOWN (win amount siphoned away from balance)
+            balance = startBalance - drained;
+            if (creditsSpan) creditsSpan.textContent = formatNum(Math.max(0, balance));
+
+            // Win amount display counts DOWN simultaneously
+            if (winAmountEl) winAmountEl.textContent = remaining > 0 ? formatNum(remaining) : '';
+            if (payAmountEl) payAmountEl.textContent = remaining > 0 ? formatNum(remaining) : '0';
+
+            if (ts - lastTickToggle > T.creditTickMs) {
+                lastTickToggle = ts;
+                creditsEl.classList.toggle('credit-ticking');
+            }
+
+            if (remaining > 0) {
+                if (winEl) winEl.textContent = `LOSE ${formatNum(remaining)}`;
+            } else {
+                if (winEl) winEl.textContent = '';
+            }
+
+            if (msgEl) {
+                msgEl.textContent = `SIPHONING...`;
+                msgEl.className = 'lose';
+            }
+
+            if (rawProgress < 1) {
+                requestAnimationFrame(frame);
+            } else {
+                balance = Math.max(0, startBalance - amount);
+                updateCredits();
+                if (winEl) winEl.textContent = '';
                 if (winAmountEl) winAmountEl.textContent = '';
                 creditsEl.classList.remove('credit-ticking');
                 takeScoreAnimating = false;
