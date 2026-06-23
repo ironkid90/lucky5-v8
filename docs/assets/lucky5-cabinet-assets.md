@@ -6,12 +6,9 @@ Source of truth: `docs/LUCKY5_AUTHORITATIVE_GAMEPLAY_REFERENCE.md`. This spec do
 
 Historical note: this file was written during the earlier split-frontend phase. Any `src/web/...` paths in this document are archival references, not active v8 source locations.
 
-## Web asset pipeline
+## Web asset pipeline (Deprecated)
 
-- Generator: `src/web/scripts/generate-lucky5-assets.mjs`
-- Smoke check: `src/web/scripts/smoke-lucky5-assets.mjs`
-- Static output root: `src/web/public/assets/lucky5/cards/`
-- Runtime URL root: `/assets/lucky5/cards/`
+*Note: The asset generation scripts for SVG cards are no longer used in v8. All cards are rendered procedurally via `_renderDomCard()` in JavaScript and styled via `cabinet-v8-quality.css`.*
 - Cabinet integration: `src/web/components/lucky5-cabinet.tsx`
 - Button normal/pressed states: `src/web/app/globals.css`
 
@@ -23,18 +20,13 @@ npm run assets:smoke
 
 The smoke command regenerates the assets and verifies the cabinet references, CSS button-state hooks, and this handoff spec.
 
-## Card deck deliverables
+## Card deck deliverables (DOM/CSS Based)
 
-The generated custom 52-card deck uses vector SVG for responsive/retina display while retaining a hard-edged arcade look. The SVGs intentionally use the existing `Lucky5Arcade` font stack so `ARCADE.ttf` remains the cabinet type identity.
+The custom 52-card deck is rendered as DOM elements styled with CSS. The HTML structure intentionally uses the existing `Lucky5Arcade` font stack so `ARCADE.ttf` remains the cabinet type identity. No SVG or PNG files are loaded.
 
-Naming convention:
-
+Naming convention (Legacy paths, no longer used):
 - Faces: `<rank><suit>.svg`
-- Ranks: `A K Q J 10 9 8 7 6 5 4 3 2`
-- Suits: `S H D C`
-- Examples: `AS.svg`, `KS.svg`, `10D.svg`, `5S.svg`
 - Back: `bside.svg`
-- Held/back variant: `hold-bside.svg`
 
 Visual requirements preserved:
 
@@ -71,8 +63,7 @@ Render card DTOs from the backend only. The web client must not compute hand tru
 
 ## Regression checklist
 
-- `cardImgSrc` returns `/assets/lucky5/cards/<code>.svg`, not an empty placeholder.
-- Empty card slots render `bside.svg`.
+- Empty card slots render the CSS `bside` equivalent.
 - Rotating Full House idle card stays in slot 3 after the delayed idle reveal, matching the authoritative reference.
 - `KENT /3`, `S/N`, `4 OF A KIND WINS BONUS`, and the double-up `5 ♠ NEVER LOSE` text remain presentation elements only.
-- Responsive/retina rendering stays crisp because cards are SVG and `.card-img` avoids global pixelated raster degradation.
+- Responsive/retina rendering stays crisp because cards are pure CSS/DOM and avoid global pixelated raster degradation.

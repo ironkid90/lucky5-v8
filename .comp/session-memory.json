@@ -23,7 +23,7 @@
             "repositoryguide-important-read-before-search.md"
           ],
           "tokens": 2474,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782214924775
         },
         {
@@ -621,7 +621,7 @@
             "server/src/Lucky5.Api/wwwroot/js/cabinet-shell-vnext.js"
           ],
           "tokens": 4172,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782233512008
         }
       ]

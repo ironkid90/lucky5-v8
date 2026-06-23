@@ -41,7 +41,7 @@ The clone at ai9poker.com is the closest existing playable reference for our tar
    - During normal play: 5 cards across
    - During double-up: **one visible five-slot deck row** with the current dealer/revealed trail in the left slots, the active reveal slot shuffling/asking `BIG / SMALL ?`, and unused slots dimmed as backs
    - During idle: black CRT field shows the `LUCKY 5` title first; after the idle delay, show only the armed Full House rank card in the middle slot
-   - Card art is crisp, white background with standard suit/rank imagery
+   - Card art is procedurally rendered via DOM/CSS (ivory background, gold inner rings, pixelated font for suits/ranks). There are no external PNG images used.
 
 4. **Paytable Win Drain** — No separate winnings HUD
    - Active winnings appear on the matching paytable row, then drain from that row into the credit counter

@@ -21,7 +21,7 @@ This file is the canonical reference for:
 - The **Kent counter** mechanic (sequentially-ordered straights → progressive jackpot).
 - The **"4 OF A KIND WINS BONUS"** banner and the **background "Lucky 5"** print that anchor the Lebanese arcade identity.
 - The **Lucky 5 / 5♠ never-lose** state visualization.
-- Asset mapping from the decompiled reference APK at `ai9poker/root/assets/flutter_assets/`.
+- Asset mapping reference (Deprecated: we now use DOM/CSS instead of PNG assets).
 
 ---
 
@@ -295,7 +295,7 @@ SlotIndex : int,                     // ← which slot just filled (1..5)
 Noise : ...                          // existing pacing hint
 ```
 
-`CardTrail` is the source-of-truth for the 5-slot rendering. Godot reads it and lays out cards left-to-right.
+`CardTrail` is the source-of-truth for the 5-slot rendering. The frontend client reads it and lays out cards left-to-right.
 
 ---
 
@@ -333,7 +333,7 @@ The defining feel of the double-up:
 | Resolve                          | t=X+150 → X+400  | Win: cyan glow + chime. Lose: red flash + buzzer. SafeFail: yellow flash. |
 | Settle                           | t=X+500           | Card stays in slot, becomes new dealer, shuffle restarts on next slot     |
 
-**Important:** the shuffle is **visual only**. The actual challenger card is determined server-side at `BIG`/`SMALL` press time using `RoundEntropySeed + sequence`. The shuffle stops on the server-determined card, regardless of which frame the visual cycle was on. Godot must use the `Noise` field from `DoubleUpResultDto` to deterministically replay the same shuffle sequence (for fairness audit / replay tests).
+**Important:** the shuffle is **visual only**. The actual challenger card is determined server-side at `BIG`/`SMALL` press time using `RoundEntropySeed + sequence`. The shuffle stops on the server-determined card, regardless of which frame the visual cycle was on. The frontend client must use the `Noise` field from `DoubleUpResultDto` to deterministically replay the same shuffle sequence (for fairness audit / replay tests).
 
 ### 7.4 Win celebration
 
@@ -364,51 +364,23 @@ The defining "feel" of the cabinet at settlement is that the win value visibly *
 
 ---
 
-## 8. Asset Inventory (Decompiled Reference)
+## 8. Asset Inventory (Legacy Decompiled Reference)
 
-Path: `c:\Users\Gabi.WIN-CD45QMUUPFF\Documents\GitHub\Lucky5-v7\ai9poker\root\assets\flutter_assets\assets\`
+*Note: The following image-based assets (PNG/SVG) were part of the decompiled APK reference but are now **deprecated** in v8. We achieve visual parity entirely through CSS gradients, box-shadows, and DOM manipulation (e.g., cards are pure HTML/CSS, buttons are CSS gradients).*
 
-### 8.1 Card assets — `images/cards/`
+Path (Historical): `c:\Users\Gabi.WIN-CD45QMUUPFF\Documents\GitHub\Lucky5-v7\ai9poker\root\assets\flutter_assets\assets\`
 
-All 52 cards as `{rank}{suit}.png`:
+### 8.1 Card assets (Deprecated)
+We no longer use `{rank}{suit}.png`. All cards are rendered procedurally via `_renderDomCard()` with ivory backgrounds and CSS pixel-font symbols.
 
-- Ranks: `2 3 4 5 6 7 8 9 10 J Q K A`
-- Suits: `C D H S` (Clubs, Diamonds, Hearts, Spades)
-- Card back: `bside.png` (uniform back)
-- Held card back variant: `holdbside.png`
+### 8.2 UI buttons (Deprecated)
+All buttons (DEAL DRAW, BET, HOLD, etc.) are now rendered via pure CSS using warm brown, red, and green linear gradients and `box-shadow` for the 3D bevel effect.
 
-Sizes: face cards (J/Q/K) ~110-141 KB (high detail), pip cards ~10-30 KB. Direct drop into Godot `/skins/classic/cards/`.
+### 8.3 Cabinet chrome (Deprecated)
+The wood-grain panel is now a CSS linear gradient on `.deck-background`.
 
-### 8.2 UI buttons — `images/`
-
-| Asset                                        | Pair           | Use                   |
-| -------------------------------------------- | -------------- | --------------------- |
-| `bet.png` / `bet_on.png`                 | normal/pressed | `BET` button        |
-| `big.png` / `big_on.png`                 | normal/pressed | `BIG` (double-up)   |
-| `small.png` / `small_on.png`             | normal/pressed | `SMALL` (double-up) |
-| `cancel_hold.png` / `cancel_hold_on.png` | normal/pressed | `CANCEL HOLD`       |
-| `deal_draw.png` / `deal_draw_on.png`     | normal/pressed | `DEAL DRAW`         |
-| `hold_off.png` / `hold_on.png`           | unheld/held    | `HOLD` per-card     |
-| `take_half.png` / `take_half_on.png`     | normal/pressed | `TAKE HALF`         |
-| `take_score.png` / `take_score_on.png`   | normal/pressed | `TAKE SCORE`        |
-| `menu.png`                                 | static         | `MENU` icon         |
-
-### 8.3 Cabinet chrome — `images/`
-
-| Asset                                | Use                                       |
-| ------------------------------------ | ----------------------------------------- |
-| `board.png`                        | Wood-grain button panel background        |
-| `machine2.png` / `machine21.png` | Machine chassis frame                     |
-| `bonus.png`                        | Bonus indicator light                     |
-| `free.png`                         | Free-game indicator light                 |
-| `coin.png`                         | Credit/coin icon                          |
-| `splash.png`                       | Boot/splash screen                        |
-| `lucky5.png`                       | "Lucky 5" wordmark (background watermark) |
-| `logo2.png`                        | Cabinet logo                              |
-
-### 8.4 Suit glyphs — `images/`
-
-`club.svg`, `diamond.svg`, `heart.svg`, `spade.svg` — vector glyphs for paytable rows and rule text (e.g., the `5 ♠` in the never-lose rule).
+### 8.4 Suit glyphs (Deprecated)
+We use HTML unicode character glyphs and the pixel font instead of SVGs.
 
 ### 8.5 Fonts — `fonts/`
 
@@ -450,7 +422,7 @@ The Lebanese arcade cabinet identity must be preserved. **Reject any of the foll
 - ❌ Replacing the `KENT /3` counter with a modern progress bar.
 - ❌ Using particle effects, parallax, or 3D card flips.
 
-**Allowed modernization (Godot quality upgrades):**
+**Allowed modernization (Client quality upgrades):**
 
 - ✅ Higher-resolution rendering of the same assets (point-filtering preserved for pixel font).
 - ✅ Smooth interpolation of counter rollups (still using `ARCADE.ttf` and same color palette).
@@ -460,7 +432,7 @@ The Lebanese arcade cabinet identity must be preserved. **Reject any of the foll
 
 ---
 
-## 10. Godot Scene Tree (Required Structure)
+## 10. Client DOM Tree (Required Structure)
 
 ```
 res://scenes/cabinet/CabinetMain.tscn
@@ -559,9 +531,9 @@ A: It signals the currently armed Full House rank to the player (e.g., *"Full Ho
 
 ---
 
-## 13. Acceptance Checklist — Godot Cabinet Parity
+## 13. Acceptance Checklist — Client Cabinet Parity
 
-A Godot scene migration is considered visually correct only when **all** of the following are true:
+The HTML/CSS migration is considered visually correct only when **all** of the following are true:
 
 - [ ] Idle state shows rotating FH face-up card in middle slot (slot index 2).
 - [ ] All other idle slots show `bside.png`.
@@ -609,7 +581,7 @@ Update this file when:
 
 - A new mechanic is observed in the live reference cabinet that is not described here.
 - The clean-room engine adds a new field that affects visual rendering.
-- A Godot scene is migrated and discovers a parity gap.
+- A frontend view is implemented and discovers a parity gap.
 - A previously-incorrect understanding is corrected.
 
 **Do not delete sections without leaving a redirection note.** Other agents rely on this as the authoritative reference.
