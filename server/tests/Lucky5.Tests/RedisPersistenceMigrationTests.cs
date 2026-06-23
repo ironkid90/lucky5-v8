@@ -46,8 +46,8 @@ public sealed class RedisPersistenceMigrationTests
         var snapshot = CreateTestSnapshot();
         var serializedSnapshot = JsonSerializer.Serialize(snapshot, new JsonSerializerOptions(JsonSerializerDefaults.Web));
 
-        mockCache.Setup(x => x.GetStringAsync(options.Value.SnapshotKey, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(serializedSnapshot);
+        mockCache.Setup(x => x.GetAsync(options.Value.SnapshotKey, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(System.Text.Encoding.UTF8.GetBytes(serializedSnapshot));
 
         // Act
         await store.SaveAsync(snapshot, CancellationToken.None);
@@ -68,8 +68,8 @@ public sealed class RedisPersistenceMigrationTests
         var invalidSnapshot = new PersistentStateSnapshot { SchemaVersion = 1 }; // Old version
         var serializedSnapshot = JsonSerializer.Serialize(invalidSnapshot, new JsonSerializerOptions(JsonSerializerDefaults.Web));
 
-        mockCache.Setup(x => x.GetStringAsync(options.Value.SnapshotKey, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(serializedSnapshot);
+        mockCache.Setup(x => x.GetAsync(options.Value.SnapshotKey, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(System.Text.Encoding.UTF8.GetBytes(serializedSnapshot));
 
         // Act & Assert
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(
@@ -83,8 +83,8 @@ public sealed class RedisPersistenceMigrationTests
     {
         // Arrange
         var store = new RedisPersistentStateStore(mockCache.Object, options, mockLogger.Object);
-        mockCache.Setup(x => x.GetStringAsync(options.Value.SnapshotKey, It.IsAny<CancellationToken>()))
-            .ReturnsAsync("test");
+        mockCache.Setup(x => x.GetAsync(options.Value.SnapshotKey, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(System.Text.Encoding.UTF8.GetBytes("test"));
 
         // Act
         var health = await store.GetHealthAsync(CancellationToken.None);
@@ -100,7 +100,7 @@ public sealed class RedisPersistenceMigrationTests
     {
         // Arrange
         var store = new RedisPersistentStateStore(mockCache.Object, options, mockLogger.Object);
-        mockCache.Setup(x => x.GetStringAsync(options.Value.SnapshotKey, It.IsAny<CancellationToken>()))
+        mockCache.Setup(x => x.GetAsync(options.Value.SnapshotKey, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Redis unavailable"));
 
         // Act
@@ -130,16 +130,16 @@ public sealed class RedisPersistenceMigrationTests
 
         // Act - simulate a few checkpoint cycles
         var cts = new CancellationTokenSource();
-        cts.CancelAfter(TimeSpan.FromMilliseconds(100)); // Short delay for test
-
-        await Assert.ThrowsAsync<OperationCanceledException>(
-            () => service.StartAsync(cts.Token));
+        await service.StartAsync(cts.Token);
+        await Task.Delay(50);
+        await service.StopAsync(CancellationToken.None);
 
         // Assert
         mockCoordinator.Verify(x => x.CaptureAsync(It.IsAny<CancellationToken>()), Times.AtLeastOnce());
-        mockCache.Verify(x => x.SetStringAsync(
+        mockCache.Verify(x => x.SetAsync(
             options.Value.SnapshotKey,
-            It.IsAny<string>(),
+            It.IsAny<byte[]>(),
+            It.IsAny<DistributedCacheEntryOptions>(),
             It.IsAny<CancellationToken>()), Times.AtLeastOnce());
     }
 
@@ -182,8 +182,8 @@ public sealed class RedisPersistenceMigrationTests
         const int machineId = 7;
         const string payload = "{\"machineSerial\":123,\"machineSerie\":45,\"machineKent\":6}";
 
-        mockCache.Setup(x => x.GetStringAsync($"{DisplaySnapshotKeyPrefix}{machineId}", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(payload);
+        mockCache.Setup(x => x.GetAsync($"{DisplaySnapshotKeyPrefix}{machineId}", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(System.Text.Encoding.UTF8.GetBytes(payload));
 
         // Act
         await store.SaveDisplaySnapshotAsync(machineId, payload, CancellationToken.None);
@@ -199,7 +199,7 @@ public sealed class RedisPersistenceMigrationTests
         // Arrange
         var store = new RedisPersistentStateStore(mockCache.Object, options, mockLogger.Object);
 
-        mockCache.Setup(x => x.GetStringAsync($"{DisplaySnapshotKeyPrefix}11", It.IsAny<CancellationToken>()))
+        mockCache.Setup(x => x.GetAsync($"{DisplaySnapshotKeyPrefix}11", It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("display snapshot unavailable"));
 
         // Act

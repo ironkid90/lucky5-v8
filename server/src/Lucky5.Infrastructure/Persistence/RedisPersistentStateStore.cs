@@ -28,7 +28,7 @@ public sealed class RedisPersistentStateStore(
         {
             payload = await cache.GetStringAsync(SnapshotKeyName(), cancellationToken).ConfigureAwait(false);
         }
-        catch (RedisConnectionException ex)
+        catch (Exception ex)
         {
             logger.LogWarning(ex, "Redis state snapshot load unavailable; continuing without recovery.");
             return null;
@@ -62,7 +62,7 @@ public sealed class RedisPersistentStateStore(
             await cache.SetStringAsync(SnapshotKeyName(), payload, CacheOptions(), cancellationToken).ConfigureAwait(false);
             lastSuccessfulCheckpointUtc = DateTimeOffset.UtcNow;
         }
-        catch (RedisConnectionException ex)
+        catch (Exception ex)
         {
             logger.LogWarning(ex, "Redis state snapshot save unavailable; checkpoint skipped.");
         }
@@ -74,7 +74,7 @@ public sealed class RedisPersistentStateStore(
         {
             return await cache.GetStringAsync(BuildDisplaySnapshotKey(machineId), cancellationToken).ConfigureAwait(false);
         }
-        catch (RedisConnectionException ex)
+        catch (Exception ex)
         {
             logger.LogWarning(ex, "Redis cabinet display snapshot load unavailable for machine {MachineId}.", machineId);
             return null;
@@ -87,21 +87,33 @@ public sealed class RedisPersistentStateStore(
         {
             await cache.SetStringAsync(BuildDisplaySnapshotKey(machineId), payload, CacheOptions(), cancellationToken).ConfigureAwait(false);
         }
-        catch (RedisConnectionException ex)
+        catch (Exception ex)
         {
             logger.LogWarning(ex, "Redis cabinet display snapshot save unavailable for machine {MachineId}.", machineId);
         }
     }
 
-    public Task<PersistentStoreHealth> GetHealthAsync(CancellationToken cancellationToken)
+    public async Task<PersistentStoreHealth> GetHealthAsync(CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(new PersistentStoreHealth(
-            IsReady: true,
-            IsDegraded: false,
-            Description: "Distributed cache persistent state store is configured.",
-            LastSuccessfulCheckpointUtc: lastSuccessfulCheckpointUtc,
-            LastError: null));
+        try
+        {
+            await cache.GetAsync(SnapshotKeyName(), cancellationToken).ConfigureAwait(false);
+            return new PersistentStoreHealth(
+                IsReady: true,
+                IsDegraded: false,
+                Description: "Redis snapshot store reachable.",
+                LastSuccessfulCheckpointUtc: lastSuccessfulCheckpointUtc,
+                LastError: null);
+        }
+        catch (Exception ex)
+        {
+            return new PersistentStoreHealth(
+                IsReady: false,
+                IsDegraded: true,
+                Description: "Redis snapshot store is unavailable.",
+                LastSuccessfulCheckpointUtc: lastSuccessfulCheckpointUtc,
+                LastError: ex.Message);
+        }
     }
 
     private DistributedCacheEntryOptions CacheOptions()

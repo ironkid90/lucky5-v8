@@ -332,54 +332,54 @@
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 0.22cqh;
-    padding: 0.08cqh 0.55cqh;
-    margin: 0;
-    background: linear-gradient(180deg, #fffdf3 0%, #f1e4bf 100%);
-    border: 0.14cqh solid rgba(120, 64, 18, 0.95);
-    border-radius: 0.18cqh;
-    box-shadow:
-        0 0 0 0.08cqh rgba(255, 242, 194, 0.6),
-        0 0.12cqh 0.25cqh rgba(0, 0, 0, 0.45);
-    width: 100%;
+    gap: 0.6cqh;
+    padding: 0.2cqh 0.55cqh 0 0;
+    margin: 0.2cqh 0 0 auto;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    width: fit-content;
     box-sizing: border-box;
 }
 
 #paytable #jackpot-full-house .jp-meter-label {
-    font-size: 1.02cqh;
-    color: #25180d;
-    letter-spacing: 0.08cqh;
     display: inline-flex;
     align-items: center;
-    gap: 0.08cqh;
-    padding: 0;
-    background: transparent;
+    justify-content: center;
+    background: #ffffff;
+    border-radius: 0.15cqh;
+    padding: 0.2cqh 0.6cqh;
+    font-size: 1.2cqh;
+    font-weight: 700;
+    color: #000000;
     text-shadow: none;
+    letter-spacing: 0.08cqh;
 }
 
 #paytable #jackpot-full-house #jp-fh-rank {
-    color: #8c1b16;
-    font-weight: 900;
-    padding: 0;
-    margin: 0;
+    color: #000000;
+    font-weight: 700;
     background: transparent;
 }
 
 #paytable #jackpot-full-house .jp-counter-fh {
-    padding: 0 !important;
-    gap: 0 !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    background: transparent !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff !important;
+    color: #000000 !important;
+    border-radius: 0.15cqh !important;
+    padding: 0.2cqh 0.6cqh !important;
+    text-shadow: none !important;
     box-shadow: none !important;
-    color: inherit !important;
+    border: none !important;
+    margin: 0 !important;
 }
 
 #paytable #jackpot-full-house .jp-counter-fh .jp-cval {
-    color: #bb2f18;
-    font-size: 1.08cqh;
-    letter-spacing: 0.06cqh;
-    font-weight: 900;
+    color: #000000;
+    font-size: 1.2cqh;
+    font-weight: 700;
     text-shadow: none;
 }
 
@@ -498,7 +498,7 @@
     display: block;
     background: #fff;
     image-rendering: -webkit-optimize-contrast;
-    image-rendering: crisp-edges;
+    image-rendering: pixelated;
 }
 
 /* Diagnostic marker: if JS flags a card as face-load-error. */
