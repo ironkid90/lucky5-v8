@@ -249,20 +249,26 @@ function hasCabinetStage() {
     return Boolean(window.CabinetStage) && Boolean(window.GAME_CONFIG?.features?.enableCabinetStage);
 }
 
-function renderDealStage(cardData) {
+function renderDealStage(cardData, onComplete) {
     if (hasCabinetStage()) {
-        CabinetStage.dealCards(cardData);
+        CabinetStage.dealCards(cardData, onComplete);
         return;
     }
     renderCards(cardData, true);
+    if (onComplete) {
+        setTimeout(onComplete, T.dealBaseMs + (4 * T.dealStaggerMs) + T.dealAnimDurationMs + 160);
+    }
 }
 
-function renderDrawStage(cardData, held) {
+function renderDrawStage(cardData, held, onComplete) {
     if (hasCabinetStage()) {
-        CabinetStage.drawCards(cardData, held);
+        CabinetStage.drawCards(cardData, held, onComplete);
         return;
     }
     renderCards(cardData, false);
+    if (onComplete) {
+        setTimeout(onComplete, 400);
+    }
 }
 
 function normalizeDoubleUpTrailEntry(entry) {
@@ -1711,11 +1717,24 @@ function restoreRoundFromSnapshot(snapshot) {
     duDealerCard = null;
     duCardTrail = [];
     duLastRenderedTrailLength = 0;
-    gameState = 'win';
-    renderCards(cards, false);
-    updateWinIndicator(winAmount);
-    updateWinAmountDisplay(winAmount, getFourOfAKindSlotTag(currentHandRank));
-    showWinActionMessage();
+    
+    if (winAmount > 0) {
+        gameState = 'win';
+        renderCards(cards, false);
+        updateWinIndicator(winAmount);
+        updateWinAmountDisplay(winAmount, getFourOfAKindSlotTag(currentHandRank));
+        showWinActionMessage();
+    } else {
+        gameState = 'idle';
+        renderCards(cards, false);
+        updateWinIndicator(0);
+        updateWinAmountDisplay(0);
+        showMessage('PLACE YOUR BET');
+        setTimeout(() => {
+            if (gameState === 'idle') showIdleTitle();
+        }, T.postLossIdleTitleMs || 2500);
+    }
+    
     setButtonStates();
 }
 
@@ -1765,13 +1784,12 @@ async function doDeal() {
             if (result.jackpots) updateJackpotDisplay(result.jackpots);
             updateWinAmountDisplay(0);
             holdIndexes.clear();
-            renderDealStage(cards);
             $$('.cab-hold').forEach(btn => btn.classList.remove('active'));
             gameState = 'hold';
 
             const serverHolds = result.advisedHolds;
 
-            setTimeout(() => {
+            renderDealStage(cards, () => {
                 if (serverHolds && serverHolds.length > 0) {
                     applyServerAdvisedHolds(serverHolds);
                 } else {
@@ -1783,7 +1801,7 @@ async function doDeal() {
                 } else {
                     showMessage('PRESS HOLDS TO KEEP CARD');
                 }
-            }, T.dealBaseMs + ((GAME_CONFIG.meta.handSize - 1) * T.dealStaggerMs) + T.dealAnimDurationMs + 160);
+            });
         } catch (e) {
             showMessage(e.message, 'lose');
             gameState = 'idle';
@@ -1815,9 +1833,7 @@ async function doDeal() {
             syncMachineCreditsFromResponse(result);
             if (result.jackpots) updateJackpotDisplay(result.jackpots);
 
-            renderDrawStage(cards, holdIndexes);
-
-            setTimeout(() => {
+            renderDrawStage(cards, holdIndexes, () => {
                 const handName = result.handRank || 'Nothing';
                 currentHandRank = handName !== 'Nothing' ? handName : null;
                 roundDoubleUpAvailable = Boolean(result.doubleUpAvailable);
@@ -1894,9 +1910,9 @@ async function doDeal() {
                     updateWinAmountDisplay(0);
                     setTimeout(() => {
                         if (gameState === 'idle') showIdleTitle();
-                    }, T.postLossIdleTitleMs);
+                    }, T.postLossIdleTitleMs || 2500);
                 }
-            }, T.drawResultDelayMs);
+            });
         } catch (e) {
             showMessage(e.message, 'lose');
             gameState = 'idle';
@@ -2489,6 +2505,9 @@ function animateDrainToCredits(amount, startBalance, handRank = null) {
             if (ts - lastTickToggle > T.creditTickMs) {
                 lastTickToggle = ts;
                 creditsEl.classList.toggle('credit-ticking');
+                if (payRow) {
+                    payRow.classList.toggle('du-highlight');
+                }
             }
 
             if (remaining > 0) {
@@ -2510,6 +2529,7 @@ function animateDrainToCredits(amount, startBalance, handRank = null) {
                 if (winEl) winEl.textContent = '';
                 if (winAmountEl) winAmountEl.textContent = '';
                 creditsEl.classList.remove('credit-ticking');
+                if (payRow) payRow.classList.remove('du-highlight');
                 takeScoreAnimating = false;
                 updatePaytable();
                 resolve();
