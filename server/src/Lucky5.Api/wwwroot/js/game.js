@@ -1778,7 +1778,7 @@ async function doDeal() {
                 if (holdIndexes.size > 0) {
                     showMessage('AUTO HOLD');
                 } else {
-                    showMessage('PRESS HOLDS TO KEEP CARDS');
+                    showMessage('PRESS HOLDS TO KEEP CARD');
                 }
             }, T.dealBaseMs + ((GAME_CONFIG.meta.handSize - 1) * T.dealStaggerMs) + T.dealAnimDurationMs + 160);
         } catch (e) {
