@@ -19,20 +19,26 @@
 /* Uses dvh (dynamic viewport height) with vh fallback for mobile browsers.  */
 /* container-type:size lets child rules use cqh/cqw units that track the     */
 /* cabinet's actual rendered height, so all type and spacing scale together.  */
-#game-screen,
-#game-screen[data-zone="game-screen"],
-#game-screen.active {
+#cabinet-viewport {
     position: relative;
-    display: block;          /* override game.css flex */
-    flex-direction: unset;
-    overflow: hidden;
     /* Fixed logical viewport for pixel-perfect scaling */
     width: 720px;
     height: 1280px;
-    transform-origin: top center;
+    transform-origin: center center;
     /* Enable container query units for all descendants */
     container-type: size;
     container-name: cabinet;
+    overflow: hidden;
+}
+
+#game-screen,
+#game-screen[data-zone="game-screen"],
+#game-screen.active {
+    position: absolute;
+    inset: 0;
+    display: block;          /* override game.css flex */
+    flex-direction: unset;
+    overflow: hidden;
 }
 
 /* Top band 0%-15%: paytable left (65%) + credit/stake right (35%) */

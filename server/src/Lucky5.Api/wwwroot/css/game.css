@@ -1239,7 +1239,7 @@ body {
 }
 
 .menu-panel {
-    position: fixed;
+    position: absolute;
     inset: 0;
     display: none;
     justify-content: center;
@@ -1424,7 +1424,7 @@ body {
 
 #lobby-screen {
     display: none;
-    position: fixed;
+    position: absolute;
     inset: 0;
     background: #0a0a0a;
     z-index: 95;
@@ -1761,7 +1761,7 @@ body {
 
 #wallet-screen {
     display: none;
-    position: fixed;
+    position: absolute;
     inset: 0;
     background: #0a0a0a;
     z-index: 96;
@@ -2038,7 +2038,7 @@ body {
 
 #admin-screen {
     display: none;
-    position: fixed;
+    position: absolute;
     inset: 0;
     background: #0a0a0a;
     z-index: 96;

@@ -217,23 +217,25 @@ const GAME_CONFIG = Object.freeze({
     }),
 
     // ── 6. ASSETS ────────────────────────────────────────────────────────────
+    // Card and button images live in /assets/images/, sounds also there (fallback for /assets/sounds/)
     assets: Object.freeze({
         cardBack:   '/assets/images/cards/bside.png',
         boardImage: '/assets/images/board.png',
-        pressSound: '/assets/sounds/press.mp3',
+        pressSound: '/assets/images/press.mp3',
     }),
 
     // ── 6b. AUDIO ──────────────────────────────────────────────────────────
+    // Audio files live alongside images at /assets/images/*.mp3 (fallback for missing sounds dir)
     audio: Object.freeze({
         events: Object.freeze({
-            press:        Object.freeze({ src: '/assets/sounds/press.mp3', volume: 0.30, priority: 'normal' }),
-            invalid:      Object.freeze({ src: '/assets/sounds/press.mp3', volume: 0.18, priority: 'high' }),
-            deal:         Object.freeze({ src: '/assets/sounds/press.mp3', volume: 0.24, priority: 'normal' }),
-            draw:         Object.freeze({ src: '/assets/sounds/press.mp3', volume: 0.24, priority: 'normal' }),
-            doubleup:     Object.freeze({ src: '/assets/sounds/press.mp3', volume: 0.22, priority: 'normal' }),
-            collect:      Object.freeze({ src: '/assets/sounds/press.mp3', volume: 0.20, priority: 'low' }),
-            lucky5:       Object.freeze({ src: '/assets/sounds/press.mp3', volume: 0.40, priority: 'high' }),
-            machineClose: Object.freeze({ src: '/assets/sounds/press.mp3', volume: 0.40, priority: 'high' })
+            press:        Object.freeze({ src: '/assets/images/press.mp3', volume: 0.30, priority: 'normal' }),
+            invalid:      Object.freeze({ src: '/assets/images/press.mp3', volume: 0.18, priority: 'high' }),
+            deal:         Object.freeze({ src: '/assets/images/press.mp3', volume: 0.24, priority: 'normal' }),
+            draw:         Object.freeze({ src: '/assets/images/press.mp3', volume: 0.24, priority: 'normal' }),
+            doubleup:     Object.freeze({ src: '/assets/images/press.mp3', volume: 0.22, priority: 'normal' }),
+            collect:      Object.freeze({ src: '/assets/images/press.mp3', volume: 0.20, priority: 'low' }),
+            lucky5:       Object.freeze({ src: '/assets/images/press.mp3', volume: 0.40, priority: 'high' }),
+            machineClose: Object.freeze({ src: '/assets/images/press.mp3', volume: 0.40, priority: 'high' })
         })
     }),
 

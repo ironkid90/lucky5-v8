@@ -138,13 +138,17 @@ function preloadAllAssets() {
         // Card images are no longer preloaded as they are now DOM-based
         allPaths.push(CARD_BACK_SRC);
 
-        const buttonFiles = [
-            'bet.png', 'bet_on.png', 'big.png', 'big_on.png',
-            'small.png', 'small_on.png', 'deal_draw.png', 'deal_draw_on.png',
-            'cancel_hold.png', 'cancel_hold_on.png', 'hold_off.png', 'hold_on.png',
-            'take_half.png', 'take_half_on.png', 'take_score.png', 'take_score_on.png'
-        ];
-        buttonFiles.forEach(f => allPaths.push(`/assets/images/buttons/${f}`));
+const buttonFiles = [
+             'bet.png', 'bet_on.png',
+             'big.png', 'big_on.png',
+             'small.png', 'small_on.png',
+             'deal_draw.png', 'deal_draw_on.png',
+             'cancel_hold.png', 'cancel_hold_on.png',
+             'hold_off.png', 'hold_on.png',
+             'take_half.png', 'take_half_on.png',
+             'take_score.png', 'take_score_on.png'
+         ];
+         buttonFiles.forEach(f => allPaths.push(`/assets/images/${f}`));
 
         allPaths.push('/assets/images/board.png');
         allPaths.push('/assets/images/lucky5.png');
@@ -812,13 +816,13 @@ function refreshIdleMachineState(messageText = null, type = 'win') {
 }
 
 function playPress() {
-    if (!pressSound) {
-        pressSound = new Audio('/assets/sounds/press.mp3');
-        pressSound.volume = 0.3;
-    }
-    pressSound.currentTime = 0;
-    pressSound.play().catch(() => {});
-}
+     if (!pressSound) {
+         pressSound = new Audio('/assets/images/press.mp3');
+         pressSound.volume = 0.3;
+     }
+     pressSound.currentTime = 0;
+     pressSound.play().catch(() => {});
+ }
 
 function formatNum(n) {
     return Math.floor(n).toLocaleString();
@@ -3676,7 +3680,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function scaleCabinet() {
-    const screen = document.getElementById('game-screen');
+    const screen = document.getElementById('cabinet-viewport');
     if (!screen) return;
     
     const logicalWidth = 720;

@@ -616,7 +616,7 @@
 /* ----- 12. 2 PAIR row guard rail -----------------------------
    Keep the 2 PAIR row readable when it owns the FH jackpot tag. */
 #paytable .pay-row.tp .pay-amount,
-#paytable .pay-row.tp #jackpot-full-house {
+#paytable #jackpot-full-house {
     white-space: nowrap;
 }
 
