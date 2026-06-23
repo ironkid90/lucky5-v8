@@ -422,7 +422,7 @@
             "server/src/Lucky5.Api/wwwroot/js/game-config.js"
           ],
           "tokens": 7359,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782232192389
         },
         {
@@ -468,7 +468,7 @@
             "server/tests/Lucky5.Tests/RedisPersistenceMigrationTests.cs"
           ],
           "tokens": 7097,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782233005096
         },
         {
@@ -537,7 +537,7 @@
             "server/tests/Lucky5.Tests/RedisPersistenceMigrationTests.cs"
           ],
           "tokens": 7235,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782233021531
         },
         {
@@ -567,7 +567,7 @@
             "server/tests/Lucky5.Tests/RedisPersistenceMigrationTests.cs"
           ],
           "tokens": 6135,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782233097124
         }
       ]

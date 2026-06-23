@@ -120,6 +120,8 @@ const GAME_CONFIG = Object.freeze({
         idleTitleHoldMs:       2500,  // how long the LUCKY 5 title stays up before the FH selector card returns
         idleOverlayAppearMs:   2500,  // legacy fallback for older idle-title timing paths
         idleAttractModeMs:     15000, // full arcade attract sequence kicks in after this long
+
+        lucky5FlashDurationMs: 1000,  // 1-second full-screen white flash when landing 5S
     }),
 
     // ── 3. API ───────────────────────────────────────────────────────────────
