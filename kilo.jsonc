@@ -1,24 +1,24 @@
 {
-  "mcp": {
-    "contextstream": {
-      "headers": {
-        "X-ContextStream-API-Key": "cbiq_cHM_istk9fdm4tDnzsNVK89-VlpDeMPF1QLqM67TbYM",
-        "X-ContextStream-Auto-Hide-Integrations": "true",
-        "X-ContextStream-Consolidated": "true",
-        "X-ContextStream-Context-Pack-Enabled": "true",
-        "X-ContextStream-Hook-Transcripts-Enabled": "true",
-        "X-ContextStream-Output-Format": "compact",
-        "X-ContextStream-Progressive-Mode": "false",
-        "X-ContextStream-Project-Id": "8e1f6af1-cbdb-4dca-8cee-67c211cfe57c",
-        "X-ContextStream-Router-Mode": "false",
-        "X-ContextStream-Search-Limit": "15",
-        "X-ContextStream-Search-Max-Chars": "2400",
-        "X-ContextStream-Toolset": "complete",
-        "X-ContextStream-Transcripts-Enabled": "true",
-        "X-ContextStream-Workspace-Id": "2b060a86-82d8-4919-9ad2-ed9f8b639022"
-      },
-      "type": "http",
-      "url": "https://mcp.contextstream.io/mcp?default_context_mode=fast"
-    }
-  }
+    "mcp": {
+        "contextstream": {
+            "headers": {
+                "X-ContextStream-API-Key": "cbiq_cHM_istk9fdm4tDnzsNVK89-VlpDeMPF1QLqM67TbYM",
+                "X-ContextStream-Auto-Hide-Integrations": "true",
+                "X-ContextStream-Consolidated": "true",
+                "X-ContextStream-Context-Pack-Enabled": "true",
+                "X-ContextStream-Hook-Transcripts-Enabled": "true",
+                "X-ContextStream-Output-Format": "compact",
+                "X-ContextStream-Progressive-Mode": "false",
+                "X-ContextStream-Project-Id": "8e1f6af1-cbdb-4dca-8cee-67c211cfe57c",
+                "X-ContextStream-Router-Mode": "false",
+                "X-ContextStream-Search-Limit": "15",
+                "X-ContextStream-Search-Max-Chars": "2400",
+                "X-ContextStream-Toolset": "complete",
+                "X-ContextStream-Transcripts-Enabled": "true",
+                "X-ContextStream-Workspace-Id": "2b060a86-82d8-4919-9ad2-ed9f8b639022",
+            },
+            "type": "http",
+            "url": "https://mcp.contextstream.io/mcp?default_context_mode=fast",
+        },
+    },
 }

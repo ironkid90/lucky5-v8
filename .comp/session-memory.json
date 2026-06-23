@@ -1,0 +1,61 @@
+{
+  "sessions": [
+    {
+      "id": "1782214446109",
+      "timestamp": 1782214924775,
+      "calls": [
+        {
+          "query": "fix invalid mcp.contextstream configuration in kilo.jsonc",
+          "symbols": [
+            "$2$suffixIcon$suffixIconConstraints",
+            "$35$alignLabelWithHint$border$constraints$contentPadding$counterStyle$disabledBorder$enabledBorder$errorBorder$errorMaxLines$errorStyle$fillColor$filled$floatingLabelAlignment$floatingLabelBehavior$floatingLabelStyle$focusColor$focusedBorder$focusedErrorBorder$helperMaxLines$helperStyle$hintFadeDuration$hintMaxLines$hintStyle$hoverColor$iconColor$isCollapsed$isDense$labelStyle$prefixIconColor$prefixIconConstraints$prefixStyle$suffixIconColor$suffixIconConstraints$suffixStyle$visualDensity",
+            "Available MCP tools",
+            "getTagFixed",
+            "prototypeForTagFixed"
+          ],
+          "files": [
+            "AGENTS.md",
+            "GEMINI.md",
+            "ai9/ai9-download/install/main.dart.js",
+            "ai9/main.dart.js",
+            "docs/LUCKY5_AUTHORITATIVE_GAMEPLAY_REFERENCE.md",
+            "luck5-v8/GEMINI.md",
+            "repositoryguide-important-read-before-search.md"
+          ],
+          "tokens": 2474,
+          "stale": false,
+          "timestamp": 1782214924775
+        },
+        {
+          "query": "find other references to kilo.jsonc or contextstream schema",
+          "symbols": [
+            "$1$findFirstFocus",
+            "$schema",
+            "14. References",
+            "Other records in this file",
+            "Primary References",
+            "findStraight4"
+          ],
+          "files": [
+            "AGENTS.md",
+            "GEMINI.md",
+            "ai9/ai9-download/install/main.dart.js",
+            "ai9/main.dart.js",
+            "docs/LUCKY5_AUTHORITATIVE_GAMEPLAY_REFERENCE.md",
+            "docs/MACHINE_BEHAVIOR_REFERENCE.md",
+            "docs/README.md",
+            "docs/WEB_NATIVE_STRATEGY.md",
+            "docs/assets/lucky5-cabinet-assets.md",
+            "luck5-v8/GEMINI.md",
+            "repositoryguide-important-read-before-search.md",
+            "server/src/Lucky5.Api/Properties/launchSettings.json",
+            "server/src/Lucky5.Api/wwwroot/js/game.js"
+          ],
+          "tokens": 5410,
+          "stale": false,
+          "timestamp": 1782214997343
+        }
+      ]
+    }
+  ]
+}
