@@ -67,16 +67,16 @@ const GAME_CONFIG = Object.freeze({
         // Main-hand deal animation
         // Cards drop from above one at a time, like a mechanical dealer.
         // Each card has visible travel + settle time.
-        dealBaseMs:           120,  // pause before first card lands (cabinet "thunk")
-        dealStaggerMs:        180,  // left-to-right stagger — each card drops after the previous settles
-        dealAnimDurationMs:   300,  // slide/flip settle time per card (visible motion)
+        dealBaseMs:           80,  // pause before first card lands (cabinet "thunk")
+        dealStaggerMs:        80,  // left-to-right stagger — each card drops after the previous settles
+        dealAnimDurationMs:   150,  // slide/flip settle time per card (visible motion)
 
         // Draw animation (re-dealing only non-held cards)
         // Held cards stay put visibly. Replaced cards flip out, new cards flip in.
-        drawOutMs:            100,  // fade-out / flip-out duration on replaced cards
-        drawInMs:             150,  // fade-in / flip-in duration on new cards
-        drawStaggerMs:        100,  // stagger between replaced card slots
-        drawRevealStartMs:    120,  // delay before first replaced card starts dropping
+        drawOutMs:            80,  // fade-out / flip-out duration on replaced cards
+        drawInMs:             100,  // fade-in / flip-in duration on new cards
+        drawStaggerMs:        60,  // stagger between replaced card slots
+        drawRevealStartMs:    80,  // delay before first replaced card starts dropping
 
         // Double-up: shuffle animation
         // The active slot cycles through card faces visibly, like a spinning reel.

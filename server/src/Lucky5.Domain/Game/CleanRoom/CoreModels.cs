@@ -150,13 +150,13 @@ public sealed record PaytableProfile(
         new Dictionary<HandCategory, int>
         {
             [HandCategory.RoyalFlush] = 1000,
-            [HandCategory.StraightFlush] = 75,
-            [HandCategory.FourOfAKind] = 15,
-            [HandCategory.FullHouse] = 12,
-            [HandCategory.Flush] = 10,
-            [HandCategory.Straight] = 8,
-            [HandCategory.ThreeOfAKind] = 3,
-            [HandCategory.TwoPair] = 2
+            [HandCategory.StraightFlush] = 300,
+            [HandCategory.FourOfAKind] = 120,
+            [HandCategory.FullHouse] = 20,
+            [HandCategory.Flush] = 14,
+            [HandCategory.Straight] = 10,
+            [HandCategory.ThreeOfAKind] = 6,
+            [HandCategory.TwoPair] = 4
         },
         int.MaxValue,
         MaxCoinBet: 5,

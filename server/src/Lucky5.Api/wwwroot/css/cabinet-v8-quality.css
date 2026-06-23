@@ -172,7 +172,6 @@
 
 .cab-btn.cab-big,
 .cab-btn.cab-small,
-.cab-btn.cab-takehalf,
 .cab-btn.cab-takescore {
     background: linear-gradient(180deg,
         var(--v8-orange-1) 0%,
@@ -180,6 +179,15 @@
         var(--v8-orange-3) 100%) !important;
     color: #fff !important;
     border: 0.25cqh solid #5a2500 !important;
+}
+
+.cab-btn.cab-takehalf {
+    background: linear-gradient(180deg,
+        var(--v8-red-1) 0%,
+        var(--v8-red-2) 55%,
+        var(--v8-red-3) 100%) !important;
+    color: #fff !important;
+    border: 0.25cqh solid #4a0403 !important;
 }
 
 .cab-btn.cab-big::before    { content: 'BIG';   font-size: 2cqh; }
