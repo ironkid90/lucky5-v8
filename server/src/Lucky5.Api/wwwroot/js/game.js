@@ -135,9 +135,7 @@ function preloadAllAssets() {
     return new Promise((resolve) => {
         const allPaths = [];
 
-        ALL_CARD_CODES.forEach(code => {
-            allPaths.push(`/assets/images/cards/${code}.png`);
-        });
+        // Card images are no longer preloaded as they are now DOM-based
         allPaths.push(CARD_BACK_SRC);
 
         const buttonFiles = [

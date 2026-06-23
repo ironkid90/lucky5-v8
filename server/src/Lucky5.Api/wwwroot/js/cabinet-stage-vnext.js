@@ -159,34 +159,56 @@ window.CabinetStage = (function () {
         return resolveCardFaceSrc(code);
     }
 
-    function _applyCardFace(slotEl, img, cardLike, options) {
+    const SUIT_SYMBOLS = {
+        'H': '♥',
+        'D': '♦',
+        'C': '♣',
+        'S': '♠'
+    };
+
+    function _renderDomCard(card) {
+        if (!card || !card.code) {
+            return '<div class="card-back-pattern"><div>LUCKY 5 ♠</div></div>';
+        }
+        
+        const isRed = card.suit === 'H' || card.suit === 'D';
+        const colorClass = isRed ? 'card-red' : 'card-black';
+        const symbol = SUIT_SYMBOLS[card.suit] || card.suit;
+        const rank = card.rank === '10' ? '10' : card.rank;
+        
+        return `
+            <div class="card-front ${colorClass}">
+                <div class="card-corner top-left">
+                    <span class="card-rank">${rank}</span>
+                    <span class="card-suit">${symbol}</span>
+                </div>
+                <div class="card-center">
+                    <span class="card-suit-large">${symbol}</span>
+                </div>
+                <div class="card-corner bottom-right">
+                    <span class="card-rank">${rank}</span>
+                    <span class="card-suit">${symbol}</span>
+                </div>
+            </div>
+        `;
+    }
+
+    function _applyCardFace(slotEl, faceContainer, cardLike, options) {
         const card = _asCard(cardLike);
         const requireFace = Boolean(options && options.requireFace);
 
-        if (!slotEl || !img) {
+        if (!slotEl || !faceContainer) {
             return null;
         }
 
-        img.onerror = null;
-        img.onload = null;
-
         if (!card || !card.code) {
-            img.src = _config.cardBack;
-            img.alt = requireFace ? 'Missing card face' : 'Card back';
+            faceContainer.innerHTML = _renderDomCard(null);
             _setFaceDiagnostic(slotEl, requireFace, requireFace ? 'missing-card-code' : '');
             return null;
         }
 
         _setFaceDiagnostic(slotEl, false, '');
-        img.onload = function handleFaceLoad() {
-            _setFaceDiagnostic(slotEl, false, '');
-        };
-        img.onerror = function handleFaceError() {
-            _setFaceDiagnostic(slotEl, true, `missing-face:${card.code}`);
-            img.alt = `${card.code} missing face`;
-        };
-        img.src = resolveCardFaceSrc(card);
-        img.alt = card.code;
+        faceContainer.innerHTML = _renderDomCard(card);
         return card;
     }
 
@@ -218,7 +240,7 @@ window.CabinetStage = (function () {
     }
 
     function _cardImg(slotEl) {
-        return slotEl ? slotEl.querySelector('.card-face img') : null;
+        return slotEl ? slotEl.querySelector('.card-face') : null;
     }
 
     function _holdBtn(index) {
@@ -234,7 +256,7 @@ window.CabinetStage = (function () {
     }
 
     function _duImg(slotEl) {
-        return slotEl ? slotEl.querySelector('img') : null;
+        return slotEl ? slotEl.querySelector('.du-card-frame') : null;
     }
 
     function _duLabel(slotEl) {
@@ -315,12 +337,8 @@ window.CabinetStage = (function () {
 
                 const frame = document.createElement('div');
                 frame.className = 'du-card-frame';
+                frame.innerHTML = _renderDomCard(null);
 
-                const img = document.createElement('img');
-                img.src = _config.cardBack;
-                img.alt = 'Card back';
-
-                frame.appendChild(img);
                 slot.appendChild(label);
                 slot.appendChild(frame);
                 area.appendChild(slot);
@@ -344,8 +362,7 @@ window.CabinetStage = (function () {
             _setFaceDiagnostic(slotEl, false, '');
             frame.classList.remove('dealer-card', 'lucky5-glow', 'du-flip-in', 'du-flip-out');
             label.textContent = '';
-            img.src = _config.cardBack;
-            img.alt = 'Card back';
+            img.innerHTML = _renderDomCard(null);
         }
     }
 
@@ -481,8 +498,7 @@ window.CabinetStage = (function () {
             }
 
             setTimeout(() => {
-                img.src = resolveCardFaceSrc(code);
-                img.alt = `${code} shuffle`;
+                img.innerHTML = _renderDomCard(_asCard(code));
 
                 if (frameEl) {
                     frameEl.classList.remove('du-flip-out');
@@ -549,12 +565,7 @@ window.CabinetStage = (function () {
 
             const face = document.createElement('div');
             face.className = 'card-face';
-
-            const img = document.createElement('img');
-            img.src = _config.cardBack;
-            img.alt = 'Card back';
-
-            face.appendChild(img);
+            face.innerHTML = _renderDomCard(null);
 
             const badge = document.createElement('div');
             badge.className = 'hold-badge';

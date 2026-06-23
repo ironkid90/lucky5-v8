@@ -183,7 +183,7 @@
             "server/src/Lucky5.Api/wwwroot/js/game.js"
           ],
           "tokens": 6334,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782229414756
         }
       ]
@@ -268,7 +268,7 @@
             "server/src/Lucky5.Api/wwwroot/js/game.js"
           ],
           "tokens": 6496,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782230616285
         },
         {
@@ -339,7 +339,7 @@
             "server/src/Lucky5.Api/wwwroot/js/game.js"
           ],
           "tokens": 7997,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782231458079
         },
         {
@@ -384,7 +384,7 @@
             "server/src/Lucky5.Api/wwwroot/js/game.js"
           ],
           "tokens": 7660,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782231638510
         },
         {
@@ -501,7 +501,7 @@
             "server/tests/Lucky5.Tests/RedisPersistenceMigrationTests.cs"
           ],
           "tokens": 6986,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782233013126
         },
         {
@@ -569,6 +569,60 @@
           "tokens": 6135,
           "stale": false,
           "timestamp": 1782233097124
+        }
+      ]
+    },
+    {
+      "id": "1782233346746",
+      "timestamp": 1782233512008,
+      "calls": [
+        {
+          "query": "fix missing cards image paths and visual parity upgrades",
+          "symbols": [
+            "$1$isExpanded",
+            "$1$isImage",
+            "$2$pathSegments$query",
+            "$2$suffixIcon$suffixIconConstraints",
+            "$23$backgroundColor$color$direction$display$fontFamily$fontFamilyFallback$fontFeatureSettings$fontSize$fontStyle$fontWeight$letterSpacing$lineHeight$listStyleImage$listStylePosition$listStyleType$maxLines$textAlign$textDecoration$textOverflow$textShadow$textTransform$whiteSpace$wordSpacing",
+            "$35$alignLabelWithHint$border$constraints$contentPadding$counterStyle$disabledBorder$enabledBorder$errorBorder$errorMaxLines$errorStyle$fillColor$filled$floatingLabelAlignment$floatingLabelBehavior$floatingLabelStyle$focusColor$focusedBorder$focusedErrorBorder$helperMaxLines$helperStyle$hintFadeDuration$hintMaxLines$hintStyle$hoverColor$iconColor$isCollapsed$isDense$labelStyle$prefixIconColor$prefixIconConstraints$prefixStyle$suffixIconColor$suffixIconConstraints$suffixStyle$visualDensity",
+            "$38$after$alignment$backgroundColor$before$border$color$counterIncrement$counterReset$direction$display$fontFamily$fontFamilyFallback$fontFeatureSettings$fontSize$fontStyle$fontWeight$height$letterSpacing$lineHeight$listStyleImage$listStylePosition$listStyleType$margin$marker$maxLines$padding$textAlign$textDecoration$textDecorationColor$textDecorationStyle$textDecorationThickness$textOverflow$textShadow$textTransform$verticalAlign$whiteSpace$width$wordSpacing",
+            "13. Acceptance Checklist — Godot Cabinet Parity",
+            "2. Cabinet Visual Anatomy (Portrait)",
+            "4. Verification & Parity Checklist",
+            "7.1 Base game deal (5 cards)",
+            "7.2 Draw (replace non-held cards)",
+            "8.1 Card assets — `images/cards/`",
+            "Building and Deploying",
+            "Commands",
+            "Visual Direction",
+            "_renderImmediateCards",
+            "aNd",
+            "ai9poker Clone Visual Reference (Authoritative Target)",
+            "getTagFixed",
+            "prototypeForTagFixed",
+            "renderLobbyMachineCards"
+          ],
+          "files": [
+            "AGENTS.md",
+            "GEMINI.md",
+            "README.md",
+            "ai9/ai9-download/install/main.dart.js",
+            "ai9/main.dart.js",
+            "docs/GAME_FEEL_REFERENCE.md",
+            "docs/LUCKY5_AUTHORITATIVE_GAMEPLAY_REFERENCE.md",
+            "docs/MACHINE_BEHAVIOR_REFERENCE.md",
+            "docs/NATIVE_PACKAGING.md",
+            "docs/README.md",
+            "docs/WEB_NATIVE_STRATEGY.md",
+            "docs/assets/lucky5-cabinet-assets.md",
+            "luck5-v8/GEMINI.md",
+            "repositoryguide-important-read-before-search.md",
+            "server/src/Lucky5.Api/wwwroot/js/cabinet-orchestrator-vnext.js",
+            "server/src/Lucky5.Api/wwwroot/js/cabinet-shell-vnext.js"
+          ],
+          "tokens": 4172,
+          "stale": false,
+          "timestamp": 1782233512008
         }
       ]
     }

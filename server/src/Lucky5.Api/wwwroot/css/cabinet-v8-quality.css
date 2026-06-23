@@ -669,3 +669,99 @@ button.cab-btn.asset-button {
     display: block !important;
     content: 'FH' !important;
 }
+
+/* ----- 15. DOM-based Card Faces -------------------------------- */
+.card-front {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background-color: #fffaf0; /* Ivory/white */
+    box-sizing: border-box;
+    border: 0.3cqh solid #e5c158; /* Gold inner border */
+    border-radius: 0.5cqh;
+    font-family: var(--v8-btn-font); /* Retro font */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+}
+
+.card-red {
+    color: #ff2a2a;
+}
+
+.card-black {
+    color: #111111;
+}
+
+.card-corner {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.card-corner.top-left {
+    top: 0.5cqh;
+    left: 0.5cqh;
+}
+
+.card-corner.bottom-right {
+    bottom: 0.5cqh;
+    right: 0.5cqh;
+    transform: rotate(180deg);
+}
+
+.card-rank {
+    font-size: 2.2cqh;
+    font-weight: bold;
+    letter-spacing: -0.1cqh;
+    line-height: 1;
+}
+
+.card-suit {
+    font-size: 1.8cqh;
+    line-height: 1;
+    margin-top: 0.2cqh;
+}
+
+.card-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.card-suit-large {
+    font-size: 5.5cqh;
+}
+
+.card-back-pattern {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #0d1b2a 0%, #1a365d 100%);
+    border: 0.3cqh solid #ffffff;
+    border-radius: 0.5cqh;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-family: var(--v8-btn-font);
+    font-size: 1.5cqh;
+    text-align: center;
+    word-break: break-word;
+    padding: 1cqh;
+}
+
+.card-back-pattern div {
+    text-shadow: 0.1cqh 0.1cqh 0 #000;
+    line-height: 1.4;
+}
+
+/* Warm brown wooden surface gradient for the control deck */
+#controls {
+    background: linear-gradient(180deg, #5c3012 0%, #3e1b06 100%) !important;
+    border-top: 0.4cqh solid #8f5022 !important;
+    box-shadow: inset 0 0.5cqh 1cqh rgba(0,0,0,0.5) !important;
+}
