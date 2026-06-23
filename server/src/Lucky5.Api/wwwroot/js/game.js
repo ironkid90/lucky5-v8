@@ -971,6 +971,11 @@ function updatePaytable(activeHand) {
         : (gameState === 'win' && winAmount > 0 ? winAmount : 0);
     const highlightClass = gameState === 'doubleup' ? 'du-highlight' : 'active';
 
+    if (typeof PaytableCanvas !== 'undefined') {
+        PaytableCanvas.setBet(currentBet);
+        PaytableCanvas.setHighlight(highlightHand, highlightAmount);
+    }
+
     $$('.pay-row').forEach(row => {
         const hand = row.dataset.hand;
         const mult = parseInt(row.querySelector('.pay-amount').dataset.mult) || 0;
@@ -1917,6 +1922,9 @@ function cancelHold() {
 function showDuInfo() {
     updateDoubleUpInfoPanel();
     $('#du-info-panel').classList.add('visible');
+    if (typeof DuBoardCanvas !== 'undefined') {
+        DuBoardCanvas.setState('active', duBoardBonusAmount);
+    }
 }
 
 function hideDuInfo() {
@@ -1927,9 +1935,16 @@ function hideDuInfo() {
 
     const luckyEl = document.getElementById('du-lucky-info');
     if (luckyEl) luckyEl.classList.remove('is-active');
+    
+    if (typeof DuBoardCanvas !== 'undefined') {
+        DuBoardCanvas.setState('hidden', 0);
+    }
 }
 
 function renderDoubleUpCards(dealerCard, showShuffle, challengerCard) {
+    if (typeof DuBoardCanvas !== 'undefined') {
+        DuBoardCanvas.setCards(dealerCard, duCardTrail);
+    }
     const stageOptions = arguments.length > 3 ? arguments[3] : null;
     if (hasCabinetStage()) {
         const trailCards = getCabinetDoubleUpTrailCards();
@@ -3630,4 +3645,30 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         })();
     }
+
+    if (typeof PaytableCanvas !== 'undefined') {
+        PaytableCanvas.init();
+    }
+    
+    if (typeof DuBoardCanvas !== 'undefined') {
+        DuBoardCanvas.init();
+    }
+
+    scaleCabinet();
 });
+
+function scaleCabinet() {
+    const screen = document.getElementById('game-screen');
+    if (!screen) return;
+    
+    const logicalWidth = 720;
+    const logicalHeight = 1280;
+    
+    const scaleX = window.innerWidth / logicalWidth;
+    const scaleY = window.innerHeight / logicalHeight;
+    const scale = Math.min(scaleX, scaleY);
+    
+    screen.style.transform = `scale(${scale})`;
+}
+
+window.addEventListener('resize', scaleCabinet);

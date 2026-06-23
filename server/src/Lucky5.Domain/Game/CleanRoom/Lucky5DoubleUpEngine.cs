@@ -279,6 +279,11 @@ public static class Lucky5DoubleUpEngine
         BigSmallGuess guess,
         Lucky5DoubleUpOptions options)
     {
+        if (challengerCard.Rank == 5 && challengerCard.Suit == 'S')
+        {
+            return true;
+        }
+
         if (options.AceCountsHiOrLo && challengerCard.Rank == 14)
         {
             return true;

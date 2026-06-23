@@ -26,11 +26,10 @@
     display: block;          /* override game.css flex */
     flex-direction: unset;
     overflow: hidden;
-    /* Always 9:16 — fits entirely within the viewport */
-    width:  min(100vw, calc(100vh  * 9 / 16));
-    height: min(100vh,  calc(100vw * 16 / 9));
-    width:  min(100vw, calc(100dvh * 9 / 16));
-    height: min(100dvh, calc(100vw * 16 / 9));
+    /* Fixed logical viewport for pixel-perfect scaling */
+    width: 720px;
+    height: 1280px;
+    transform-origin: top center;
     /* Enable container query units for all descendants */
     container-type: size;
     container-name: cabinet;

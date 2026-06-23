@@ -116,6 +116,25 @@ window.CabinetStage = (function () {
         return null;
     }
 
+    function _animateRAF(duration, easingFn, onFrame, onComplete) {
+        let start = null;
+        function frame(time) {
+            if (!start) start = time;
+            let progress = (time - start) / duration;
+            if (progress > 1) progress = 1;
+            
+            const eased = easingFn(progress);
+            onFrame(eased);
+            
+            if (progress < 1) {
+                requestAnimationFrame(frame);
+            } else if (onComplete) {
+                onComplete();
+            }
+        }
+        requestAnimationFrame(frame);
+    }
+
     function _setFaceDiagnostic(slotEl, hasError, reason) {
         if (!slotEl) return;
 
@@ -578,12 +597,15 @@ window.CabinetStage = (function () {
                     const slotEl = _slot(i);
                     if (!slotEl) return;
 
-                    slotEl.style.transition = `transform ${duration}ms ease-out`;
-                    slotEl.style.transform = 'translateY(0)';
-
-                    if (i === cards.length - 1 && onComplete) {
-                        setTimeout(onComplete, duration + 40);
-                    }
+                    _animateRAF(duration, p => 1 - Math.pow(1 - p, 2), eased => {
+                        const y = -60 * (1 - eased);
+                        slotEl.style.transform = `translateY(${y}px)`;
+                    }, () => {
+                        slotEl.style.transform = 'translateY(0)';
+                        if (i === cards.length - 1 && onComplete) {
+                            setTimeout(onComplete, 40);
+                        }
+                    });
                 }, i * stagger);
             });
         }), baseDelay);
