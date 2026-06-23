@@ -10,7 +10,6 @@
 
 window.CabinetStage = (function () {
     const DEFAULT_MAX_TRAIL_PER_PAGE = 4;
-    const BUTTON_ASSET_BASE = '/assets/images/buttons';
 
     function _resolveConfig(overrides) {
         const cfg = (typeof GAME_CONFIG !== 'undefined') ? GAME_CONFIG : null;
@@ -239,18 +238,7 @@ window.CabinetStage = (function () {
         return card ? { card, label: '' } : null;
     }
 
-    function _setButtonBackground(btn, assetPath) {
-        if (!btn) return;
-        btn.classList.add('asset-button');
-        btn.style.setProperty('background-image', `url('${assetPath}')`, 'important');
-        btn.style.setProperty('background-repeat', 'no-repeat', 'important');
-        btn.style.setProperty('background-position', 'center center', 'important');
-        btn.style.setProperty('background-size', 'contain', 'important');
-    }
-
-    function _buttonAsset(fileName) {
-        return `${BUTTON_ASSET_BASE}/${fileName}`;
-    }
+    // _setButtonBackground and _buttonAsset removed to allow pure CSS buttons
 
     function _stopShuffle() {
         if (_shuffleInterval) {
@@ -669,9 +657,6 @@ window.CabinetStage = (function () {
         const btn = _holdBtn(slotIndex);
         if (btn) {
             btn.classList.toggle('active', isHeld);
-            _setButtonBackground(btn, isHeld
-                ? _buttonAsset('hold_on.png')
-                : _buttonAsset('hold_off.png'));
             btn.setAttribute('aria-label', isHeld ? 'HOLD ON' : 'HOLD OFF');
             btn.title = isHeld ? 'HOLD' : '';
         }
@@ -684,62 +669,7 @@ window.CabinetStage = (function () {
     }
 
     function initButtonAssets() {
-        const BTN_ASSETS = {
-            'btn-big': ['big.png', 'big_on.png'],
-            'btn-small': ['small.png', 'small_on.png'],
-            'btn-cancel': ['cancel_hold.png', 'cancel_hold_on.png'],
-            'btn-deal': ['deal_draw.png', 'deal_draw_on.png'],
-            'btn-bet': ['bet.png', 'bet_on.png'],
-            'btn-take-half': ['take_half.png', 'take_half_on.png'],
-            'btn-take-score': ['take_score.png', 'take_score_on.png']
-        };
-
-        Object.entries(BTN_ASSETS).forEach(([id, [off, on]]) => {
-            const btn = document.getElementById(id);
-            if (!btn || btn.dataset.assetsBound === '1') return;
-
-            const offPath = _buttonAsset(off);
-            const onPath = _buttonAsset(on);
-            _setButtonBackground(btn, offPath);
-
-            const press = () => { _setButtonBackground(btn, onPath); };
-            const release = () => { _setButtonBackground(btn, offPath); };
-
-            btn.addEventListener('mousedown', press);
-            btn.addEventListener('touchstart', press, { passive: true });
-            btn.addEventListener('mouseup', release);
-            btn.addEventListener('touchend', release, { passive: true });
-            btn.addEventListener('touchcancel', release, { passive: true });
-            btn.addEventListener('mouseleave', release);
-            btn.dataset.assetsBound = '1';
-        });
-
-        document.querySelectorAll('#hold-row .cab-hold').forEach(btn => {
-            if (btn.dataset.assetsBound === '1') return;
-
-            const syncVisual = () => {
-                const held = btn.classList.contains('active');
-                _setButtonBackground(btn, held
-                    ? _buttonAsset('hold_on.png')
-                    : _buttonAsset('hold_off.png'));
-                btn.setAttribute('aria-label', held ? 'HOLD ON' : 'HOLD OFF');
-                btn.title = held ? 'HOLD' : '';
-            };
-
-            btn.addEventListener('mousedown', () => {
-                _setButtonBackground(btn, _buttonAsset('hold_on.png'));
-            });
-            btn.addEventListener('mouseup', syncVisual);
-            btn.addEventListener('mouseleave', syncVisual);
-            btn.addEventListener('touchstart', () => {
-                _setButtonBackground(btn, _buttonAsset('hold_on.png'));
-            }, { passive: true });
-            btn.addEventListener('touchend', syncVisual, { passive: true });
-            btn.addEventListener('touchcancel', syncVisual, { passive: true });
-
-            syncVisual();
-            btn.dataset.assetsBound = '1';
-        });
+        // Disabled to allow pure CSS buttons from cabinet-v8-quality.css
     }
 
     function enterDoubleUp(dealerCard, trailCards = []) {

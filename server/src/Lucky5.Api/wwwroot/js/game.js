@@ -2507,8 +2507,8 @@ function animateDrainToCredits(amount, startBalance, handRank = null) {
     });
 }
 
-/// Reverse drain: siphons displayed win amount back to zero.
-/// Credits count DOWN (win amount drained away), win display counts DOWN.
+/// Reverse drain: siphons displayed WIN amount back to zero.
+/// Base CREDITS meter remains UNCHANGED — only the WIN display counts down.
 /// Used for DU loss siphon — the player watches their winnings disappear.
 function animateReverseDrain(amount, startBalance, handRank = null) {
     return new Promise((resolve) => {
@@ -2517,8 +2517,6 @@ function animateReverseDrain(amount, startBalance, handRank = null) {
 
         // Same duration formula as animateDrainToCredits
         const totalDuration = Math.min(T.countUpMaxMs, Math.max(T.countUpMinMs, amount / 1_000_000 * 1500));
-        const creditsEl = $('#credits');
-        const creditsSpan = $('#credits span');
         const winEl = $('#win-indicator');
         const winAmountEl = $('#win-amount-value');
         const msgEl = $('#game-message');
@@ -2540,18 +2538,12 @@ function animateReverseDrain(amount, startBalance, handRank = null) {
             const drained = Math.floor(amount * ease);
             const remaining = amount - drained;
 
-            // Credits count DOWN (win amount siphoned away from balance)
-            balance = startBalance - drained;
-            if (creditsSpan) creditsSpan.textContent = formatNum(Math.max(0, balance));
+            // Base CREDITS meter remains UNCHANGED during loss siphon
+            // Do NOT update creditsSpan — it stays perfectly stable
 
             // Win amount display counts DOWN simultaneously
             if (winAmountEl) winAmountEl.textContent = remaining > 0 ? formatNum(remaining) : '';
             if (payAmountEl) payAmountEl.textContent = remaining > 0 ? formatNum(remaining) : '0';
-
-            if (ts - lastTickToggle > T.creditTickMs) {
-                lastTickToggle = ts;
-                creditsEl.classList.toggle('credit-ticking');
-            }
 
             if (remaining > 0) {
                 if (winEl) winEl.textContent = `LOSE ${formatNum(remaining)}`;
@@ -2567,11 +2559,11 @@ function animateReverseDrain(amount, startBalance, handRank = null) {
             if (rawProgress < 1) {
                 requestAnimationFrame(frame);
             } else {
-                balance = Math.max(0, startBalance - amount);
+                // Restore balance to original startBalance (no subtraction)
+                balance = startBalance;
                 updateCredits();
                 if (winEl) winEl.textContent = '';
                 if (winAmountEl) winAmountEl.textContent = '';
-                creditsEl.classList.remove('credit-ticking');
                 takeScoreAnimating = false;
                 updatePaytable();
                 resolve();
