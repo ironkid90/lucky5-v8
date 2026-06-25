@@ -29,7 +29,7 @@ window.CabinetAudio = (function () {
     });
 
     function _getEventMap() {
-        const cfg = window.GAME_CONFIG && window.GAME_CONFIG.audio ? window.GAME_CONFIG.audio : null;
+        const cfg = (typeof GAME_CONFIG !== 'undefined' && GAME_CONFIG.audio) ? GAME_CONFIG.audio : null;
         return cfg && cfg.events ? { ...DEFAULT_EVENTS, ...cfg.events } : DEFAULT_EVENTS;
     }
 

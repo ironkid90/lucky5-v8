@@ -373,7 +373,8 @@ window.CabinetStage = (function () {
             : [];
         const normalizedDealer = _asCard(dealerCard);
 
-        const maxTrailPerPage = Math.max(1, Number(window.GAME_CONFIG?.doubleUp?.maxTrailPerPage) || DEFAULT_MAX_TRAIL_PER_PAGE);
+        const duConfig = (typeof GAME_CONFIG !== 'undefined') ? GAME_CONFIG.doubleUp : null;
+        const maxTrailPerPage = Math.max(1, Number(duConfig?.maxTrailPerPage) || DEFAULT_MAX_TRAIL_PER_PAGE);
         const carryStep = Math.max(1, maxTrailPerPage - 1);
 
         let startIndex = 0;
