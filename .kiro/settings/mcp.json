@@ -3,7 +3,7 @@
     "vexp": {
       "command": "node",
       "args": [
-        "c:\\Users\\Gabi.WIN-CD45QMUUPFF\\.vscode-insiders\\extensions\\vexp.vexp-vscode-2.0.31-win32-x64\\dist\\mcp-server.cjs"
+        "c:\\Users\\Gabi.WIN-CD45QMUUPFF\\.vscode-insiders\\extensions\\vexp.vexp-vscode-2.0.33-win32-x64\\dist\\mcp-server.cjs"
       ],
       "env": {
         "VEXP_WORKSPACE": "c:\\Users\\Gabi.WIN-CD45QMUUPFF\\Documents\\GitHub\\lucky5-v8\\lucky5-v8"

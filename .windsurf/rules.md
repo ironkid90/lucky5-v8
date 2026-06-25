@@ -1,4 +1,4 @@
-## vexp for Windsurf <!-- vexp v2.0.31 -->
+## vexp for Windsurf <!-- vexp v2.0.33 -->
 
 **MANDATORY: use `run_pipeline` - do NOT grep, glob, or read files manually.**
 vexp returns pre-indexed, graph-ranked context in a single call.

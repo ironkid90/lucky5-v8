@@ -226,3 +226,34 @@ When `IsNoLoseActive` is `true`, landing the **5 of Spades** as the challenger c
 *   **Rule 2: Respect the Authority Boundary:** Never write client-side logic to determine card outcomes, payouts, or ledger updates. The frontend must only interpret and present the backend SignalR state payloads.
 *   **Rule 3: Keep HTML Elements and CSS Variables Crisp:** Do not reintroduce canvas components for the main UI. Rely on clean HTML5 semantic elements scaled uniformly inside `#cabinet-viewport`.
 *   **Rule 4: Preserve the Core Aesthetic:** Do not introduce modern smooth transitions, drop-shadows, or modern rounded web components on the cabinet face. Every visual change must respect the 90s CRT and wooden arcade boundaries.
+
+---
+
+## 9. External Tooling, API Security, & Rate Limiting
+
+Beyond the core cabinet client, the project has a history of external interaction scripts (e.g., machine scanners, login credential farmers, admin escalation probes). Future agents attempting to build or run these scripts MUST adhere to the following hard-learned rules to avoid immediate bans or failures.
+
+> [!CAUTION]
+> ### 1. HTTP 426: Upgrade Required (`X-App-Version` is Mandatory)
+> **Failure:** Legacy scripts repeatedly failed with `HTTP 426 Upgrade Required`.
+> **Cause:** The backend API strongly enforces an app version check to prevent outdated or rogue clients from connecting.
+> **Prevention:** **Every single REST API request** from an external script must include the `X-App-Version` header. The current minimum acceptable version is `5`. 
+> *Example Header:* `"X-App-Version": "5"`
+
+> [!WARNING]
+> ### 2. HTTP 429: Too Many Requests (The Fast-Loop Trap)
+> **Failure:** High-speed loops scanning machine ranges (e.g., iterating IDs 1-320 instantly) triggered severe Cloudflare and application-level rate limits (`HTTP 429`), resulting in IP bans or connection drops.
+> **Cause:** The API is protected by rate limiters (e.g., `api-general` at 60/min, IP-based global limit at 100/min).
+> **Prevention:** **Never write naive `while True` or un-throttled `for` loops** for network requests. Scripts must implement smart rate-limiting:
+> 1. Use **Exponential Backoff** when receiving a 429.
+> 2. Introduce artificial delays (e.g., `time.sleep(0.5)`) between requests if doing bulk scans.
+> 3. Use connection pooling (like `requests.Session()`) to reduce TCP handshake overhead.
+
+### 3. Smarter Machine Range Scanning
+Instead of hardcoding scans from `1-320` (which is inefficient since IDs are sparse and typically between 70-300), tools should:
+* Support dynamic target ranges.
+* Focus on finding "Hot" machines (where the gap between `OpenAmount` and `MachineAmount` is >0 but small, e.g., < 10,000).
+
+### 4. Database Consolidation
+Historical scripts dumped user data into sprawling CSV/JSONL files (e.g., `master_member_db.csv`, `ai9poker_live_accounts.json`). When writing new tools, ensure they can parse, consolidate, and deduplicate these files smartly rather than rewriting them from scratch.
+
