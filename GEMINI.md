@@ -24,6 +24,7 @@ The visual parity target for this project is the classic "Lebanese arcade cabine
 
 ## 4. Key Documentation
 Read the following files in the `docs/` folder for deeper context before making structural changes:
+- `docs/DEVELOPMENT_HISTORY_AND_CURRENT_STATE.md`: Comprehensive development history, strategic pivots, notable achievements, lessons from failure modes, and detailed technical software/mechanical module state.
 - `docs/LUCKY5_AUTHORITATIVE_GAMEPLAY_REFERENCE.md`: Mechanics, double-up logic, and jackpot structures.
 - `docs/GAME_FEEL_REFERENCE.md`: Button colors, layout mapping, and timing metrics.
 

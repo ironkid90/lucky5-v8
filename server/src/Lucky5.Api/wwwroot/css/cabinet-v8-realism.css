@@ -16,34 +16,13 @@
 /* ----- 1. CABINET FRAME ------------------------------------- */
 
 body {
-    background: radial-gradient(ellipse at 50% 40%, #1a0f08 0%, #0a0503 70%, #000 100%);
+    background: #000000;
     min-height: 100vh;
 }
 
 #game-container {
     position: relative;
-    box-shadow:
-        0 0 0 6px #2a1a0c,
-        0 0 0 8px #1a0f08,
-        0 0 0 20px #4a2f18,
-        0 0 0 22px #3a2515,
-        0 0 0 24px #2a1a0c,
-        0 0 80px 30px rgba(0,0,0,0.9),
-        inset 0 0 40px rgba(0,0,0,0.6);
     border-radius: 4px;
-}
-
-@media (min-width: 768px) {
-    #game-container {
-        box-shadow:
-            0 0 0 8px #2a1a0c,
-            0 0 0 10px #1a0f08,
-            0 0 0 28px #4a2f18,
-            0 0 0 30px #3a2515,
-            0 0 0 34px #2a1a0c,
-            0 0 100px 40px rgba(0,0,0,0.95),
-            inset 0 0 60px rgba(0,0,0,0.7);
-    }
 }
 
 /* ----- 2. LED MARQUEE --------------------------------------- */
@@ -120,85 +99,18 @@ body {
 }
 
 /* ----- 4. CRT SCREEN (phosphor + scanlines + curvature) ----- */
-
-.crt-overlay {
-    z-index: 90;
-}
-
-/* Phosphor subpixel RGB shimmer */
-.crt-overlay::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background:
-        repeating-linear-gradient(
-            90deg,
-            rgba(255, 0, 0, 0.03) 0px,
-            rgba(0, 255, 0, 0.03) 1px,
-            rgba(0, 0, 255, 0.03) 2px,
-            transparent 3px
-        );
-    mix-blend-mode: screen;
-    opacity: 0.45;
-}
-
-/* Slow vertical scan roll */
-#game-container::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    z-index: 92;
-    pointer-events: none;
-    background: linear-gradient(
-        180deg,
-        transparent 0%,
-        rgba(255, 255, 255, 0.02) 45%,
-        rgba(255, 255, 255, 0.05) 50%,
-        rgba(255, 255, 255, 0.02) 55%,
-        transparent 100%
-    );
-    height: 12%;
-    animation: v8-scan-roll 7s linear infinite;
-}
-
-@keyframes v8-scan-roll {
-    0% { transform: translateY(-15%); opacity: 0; }
-    5% { opacity: 1; }
-    95% { opacity: 1; }
-    100% { transform: translateY(900%); opacity: 0; }
-}
-
-/* Screen curvature vignette */
-#game-container::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    z-index: 91;
-    pointer-events: none;
-    background:
-        radial-gradient(
-            ellipse at center,
-            transparent 60%,
-            rgba(0,0,0,0.12) 80%,
-            rgba(0,0,0,0.40) 100%
-        );
-    border-radius: 2% / 1.5%;
-    box-shadow:
-        inset 0 0 24px 8px rgba(0,0,0,0.30),
-        inset 0 0 2px 1px rgba(120,80,40,0.10);
-}
+/* REMOVED: Match ai9poker flat look */
 
 /* Subtle phosphor flicker */
 @keyframes v8-phosphor-flicker {
     0%,   100% { opacity: 1; }
-    48%        { opacity: 0.985; }
-    51%        { opacity: 1.01; }
-    73%        { opacity: 0.99; }
+    48%        { opacity: 1; }
+    51%        { opacity: 1; }
+    73%        { opacity: 1; }
 }
 
 #game-screen {
-    animation: v8-phosphor-flicker 6s infinite;
+    animation: none;
 }
 
 /* ----- 5. BUTTON PRESS (mechanical snap only) ---------------- */

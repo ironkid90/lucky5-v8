@@ -38,6 +38,7 @@ This information is your source of truth for the Lucky5 v8 project.
 ### Grounding Documentation
 
 - **Project Overview**: [README.md](README.md) (setup, commands, and repo structure)
+- **Development History & Soft-Module State**: [docs/DEVELOPMENT_HISTORY_AND_CURRENT_STATE.md](docs/DEVELOPMENT_HISTORY_AND_CURRENT_STATE.md) (comprehensive development history, strategic pivots, notable achievements, lessons from failure modes, and current technical state)
 - **Gameplay and Cabinet Behavior**: [docs/README.md](docs/README.md) and [docs/LUCKY5_AUTHORITATIVE_GAMEPLAY_REFERENCE.md](docs/LUCKY5_AUTHORITATIVE_GAMEPLAY_REFERENCE.md)
 - **Visual Design and Architecture**: [docs/GAME_FEEL_REFERENCE.md](docs/GAME_FEEL_REFERENCE.md) and [docs/WEB_NATIVE_STRATEGY.md](docs/WEB_NATIVE_STRATEGY.md)
 

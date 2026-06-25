@@ -22,28 +22,26 @@
 
 :root {
     --v8-btn-font: 'Press Start 2P', 'Courier New', monospace;
-    --v8-btn-shadow: 0 0.45cqh 0 rgba(0,0,0,0.55), 0 0.9cqh 1.5cqh rgba(0,0,0,0.55);
-    --v8-btn-inset:
-        inset 0 0.45cqh 0 rgba(255,255,255,0.38),
-        inset 0 -0.6cqh 0 rgba(0,0,0,0.35);
-    --v8-hold-yellow-1: #ffe66b;
-    --v8-hold-yellow-2: #f5b307;
-    --v8-hold-yellow-3: #9c6d00;
+    --v8-btn-shadow: 0 0 0 0.3cqh #1a0800, 0 0.4cqh 0.6cqh rgba(0,0,0,0.8);
+    --v8-btn-inset: none;
+    --v8-hold-yellow-1: #ffea00;
+    --v8-hold-yellow-2: #ffcc00;
+    --v8-hold-yellow-3: #cc9900;
     --v8-hold-active-1: #fff7a0;
     --v8-hold-active-2: #ffd92b;
-    --v8-orange-1: #ff993c;
-    --v8-orange-2: #e5651a;
-    --v8-orange-3: #8a3606;
-    --v8-red-1: #ff5956;
-    --v8-red-2: #d01814;
-    --v8-red-3: #6d0907;
-    --v8-green-1: #56d968;
-    --v8-green-2: #1ba237;
-    --v8-green-3: #0a4a18;
-    --v8-cream-1: #fff4e0;
-    --v8-cream-2: #f5d8a8;
-    --v8-cream-3: #9d7538;
-    --v8-gold-ring: #b48423;
+    --v8-orange-1: #ffaa00;
+    --v8-orange-2: #ff8800;
+    --v8-orange-3: #cc6600;
+    --v8-red-1: #ff3333;
+    --v8-red-2: #ee0000;
+    --v8-red-3: #990000;
+    --v8-green-1: #33ff33;
+    --v8-green-2: #00dd00;
+    --v8-green-3: #008800;
+    --v8-cream-1: #ffffff;
+    --v8-cream-2: #eeeeee;
+    --v8-cream-3: #cccccc;
+    --v8-gold-ring: #663300;
 }
 
 /* ----- 2. Universal cab button reset (pure CSS, no PNG) ---- */
@@ -66,9 +64,9 @@
     align-items: center;
     justify-content: center;
     position: relative;
-    border-radius: 1.2cqh !important;
-    box-shadow: var(--v8-btn-inset), var(--v8-btn-shadow) !important;
-    text-shadow: 0 1px 0 rgba(255,255,255,0.28), 0 -1px 0 rgba(0,0,0,0.45);
+    border-radius: 0.5cqh !important;
+    box-shadow: var(--v8-btn-shadow) !important;
+    text-shadow: 1px 1px 0 rgba(0,0,0,0.6);
     transition: transform 0.06s ease-out, filter 0.06s ease-out,
                 box-shadow 0.06s ease-out !important;
     overflow: hidden;
@@ -81,10 +79,8 @@
     transform: translateY(0.3cqh) scale(0.97) !important;
     filter: brightness(0.85) !important;
     box-shadow:
-        inset 0 0.3cqh 0 rgba(255,255,255,0.12),
-        inset 0 -0.3cqh 0 rgba(0,0,0,0.55),
-        0 1px 0 rgba(0,0,0,0.5),
-        0 2px 4px rgba(0,0,0,0.4) !important;
+        inset 0 0.3cqh 0 rgba(0,0,0,0.3),
+        0 0 0 0.3cqh #1a0800 !important;
 }
 
 .cab-btn:disabled {
@@ -110,10 +106,10 @@
 .cab-btn.cab-hold {
     background: linear-gradient(180deg,
         var(--v8-hold-yellow-1) 0%,
-        var(--v8-hold-yellow-2) 55%,
+        var(--v8-hold-yellow-2) 50%,
         var(--v8-hold-yellow-3) 100%) !important;
     border: 0.3cqh solid var(--v8-gold-ring) !important;
-    color: #1c1200 !important;
+    color: #111111 !important;
 }
 
 .cab-btn.cab-hold::before {
@@ -208,11 +204,11 @@
 .cab-btn.cab-cancel {
     background: linear-gradient(180deg,
         var(--v8-cream-1) 0%,
-        var(--v8-cream-2) 60%,
+        var(--v8-cream-2) 50%,
         var(--v8-cream-3) 100%) !important;
-    color: #b11914 !important;
-    border: 0.25cqh solid #75531c !important;
-    text-shadow: 0 1px 0 rgba(255,255,255,0.6);
+    color: #111111 !important;
+    border: 0.3cqh solid #666666 !important;
+    text-shadow: none;
 }
 .cab-btn.cab-cancel::before {
     content: 'CANCEL\A HOLD';
@@ -264,9 +260,9 @@
 }
 
 .cab-btn.cab-menu {
-    background: radial-gradient(circle at 50% 42%, #5a5a5a 0%, #2a2a2a 68%, #0e0e0e 100%) !important;
-    color: #f0dc6c !important;
-    border: 0.25cqh solid #111 !important;
+    background: #000000 !important;
+    color: #ffffff !important;
+    border: 0.25cqh solid #333333 !important;
     border-radius: 50% !important;
     width: 7cqh !important;
     height: 7cqh !important;
@@ -274,19 +270,15 @@
     max-height: 7cqh !important;
     min-width: 0 !important;
     min-height: 0 !important;
-    box-shadow:
-        inset 0 0.3cqh 0.6cqh rgba(255,255,255,0.22),
-        inset 0 -0.6cqh 1.2cqh rgba(0,0,0,0.7),
-        0 0.45cqh 0 rgba(0,0,0,0.55),
-        0 0.9cqh 1.5cqh rgba(0,0,0,0.55) !important;
+    box-shadow: 0 0 0 0.3cqh #1a0800, 0 0.4cqh 0.6cqh rgba(0,0,0,0.8) !important;
 }
 .cab-btn.cab-menu::before {
     content: '\2630'; /* hamburger U+2630 */
     font-family: 'Segoe UI Symbol', 'Arial', sans-serif;
     font-size: 3.4cqh;
     letter-spacing: 0;
-    color: #f0dc6c;
-    text-shadow: 0 1px 0 rgba(0,0,0,0.6);
+    color: #ffffff;
+    text-shadow: none;
 }
 
 /* ----- 6. Paytable sizing and FH jackpot placement -----------
@@ -714,14 +706,14 @@ button.cab-btn.asset-button {
 }
 
 .card-rank {
-    font-size: 2.2cqh;
+    font-size: 3cqh;
     font-weight: bold;
     letter-spacing: -0.1cqh;
     line-height: 1;
 }
 
 .card-suit {
-    font-size: 1.8cqh;
+    font-size: 2.2cqh;
     line-height: 1;
     margin-top: 0.2cqh;
 }
@@ -733,14 +725,17 @@ button.cab-btn.asset-button {
 }
 
 .card-suit-large {
-    font-size: 5.5cqh;
+    font-size: 6.5cqh;
 }
 
 .card-back-pattern {
     width: 100%;
     height: 100%;
-    background: linear-gradient(135deg, #0d1b2a 0%, #1a365d 100%);
-    border: 0.3cqh solid #ffffff;
+    background-color: #d81b60;
+    background-image: 
+        repeating-linear-gradient(45deg, transparent, transparent 1cqh, rgba(255,255,255,0.1) 1cqh, rgba(255,255,255,0.1) 2cqh),
+        repeating-linear-gradient(-45deg, transparent, transparent 1cqh, rgba(255,255,255,0.1) 1cqh, rgba(255,255,255,0.1) 2cqh);
+    border: 0.4cqh solid #ffffff;
     border-radius: 0.5cqh;
     box-sizing: border-box;
     display: flex;
@@ -761,7 +756,7 @@ button.cab-btn.asset-button {
 
 /* Warm brown wooden surface gradient for the control deck */
 #controls {
-    background: linear-gradient(180deg, #5c3012 0%, #3e1b06 100%) !important;
-    border-top: 0.4cqh solid #8f5022 !important;
-    box-shadow: inset 0 0.5cqh 1cqh rgba(0,0,0,0.5) !important;
+    background: #3d1a04 !important;
+    border-top: none !important;
+    box-shadow: none !important;
 }

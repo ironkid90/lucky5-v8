@@ -4,6 +4,7 @@ The repo now has a single delivery path: a web-native cabinet served by the ASP.
 
 ## Primary References
 
+- [DEVELOPMENT_HISTORY_AND_CURRENT_STATE.md](DEVELOPMENT_HISTORY_AND_CURRENT_STATE.md) - fully curated global development history, major achievements, strategic pivots, notable mistakes, and technical module state
 - [WEB_NATIVE_STRATEGY.md](WEB_NATIVE_STRATEGY.md) - why v8 exists, what carried over from v7, and what was intentionally dropped
 - [LUCKY5_AUTHORITATIVE_GAMEPLAY_REFERENCE.md](LUCKY5_AUTHORITATIVE_GAMEPLAY_REFERENCE.md) - gameplay and presentation rules that the cabinet must honor
 - [GAME_FEEL_REFERENCE.md](GAME_FEEL_REFERENCE.md) - visual feel, pacing, button colors, and cabinet proportions

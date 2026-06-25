@@ -28,28 +28,31 @@
 }
 
 #paytable .pay-row.rf,
-#paytable .pay-row.rf .pay-amount { color: #ff4444; }
+#paytable .pay-row.rf .pay-amount { color: #ffcc00; }
 
 #paytable .pay-row.sf,
-#paytable .pay-row.sf .pay-amount { color: #ff8800; }
+#paytable .pay-row.sf .pay-amount { color: #ff4444; }
 
 #paytable .pay-row.foak,
-#paytable .pay-row.foak .pay-amount { color: #44ffcc; }
+#paytable .pay-row.foak .pay-amount { color: #44ff88; }
 
-#paytable .pay-row.fh,
-#paytable .pay-row.fh .pay-amount { color: #ffff00; }
+#paytable .pay-row.fh { 
+    background: #ffffff;
+    color: #000000;
+}
+#paytable .pay-row.fh .pay-amount { color: #000000; }
 
 #paytable .pay-row.fl,
-#paytable .pay-row.fl .pay-amount { color: #ff6666; }
+#paytable .pay-row.fl .pay-amount { color: #44ddff; }
 
 #paytable .pay-row.st,
-#paytable .pay-row.st .pay-amount { color: #44ff88; }
+#paytable .pay-row.st .pay-amount { color: #44ddff; }
 
 #paytable .pay-row.tok,
-#paytable .pay-row.tok .pay-amount { color: #44ddff; }
+#paytable .pay-row.tok .pay-amount { color: #ffcc00; }
 
 #paytable .pay-row.tp,
-#paytable .pay-row.tp .pay-amount { color: #ddddaa; }
+#paytable .pay-row.tp .pay-amount { color: #44ddff; }
 
 /* Solid selection box (not glow-only) */
 #paytable .pay-row.jackpot-selected {
@@ -83,11 +86,13 @@
 
 #credits.credit-val span,
 #stake-display.stake-val span {
-    color: #ffffff;
     display: block;
     font-size: 1.56cqh;
     line-height: 1.05;
 }
+
+#credits.credit-val span { color: #00ff44; }
+#stake-display.stake-val span { color: #ffcc00; }
 
 /* LUCKY5 LABEL BAND */
 #lucky5-banner {
@@ -143,10 +148,14 @@
 
 #machine-identity .mi-label,
 #machine-identity .mi-sep,
+#machine-serial .mi-label {
+    color: #44ddff;
+    font-size: 0.85cqh;
+}
+
 #machine-identity .mi-val,
-#machine-serial .mi-label,
 #machine-serial .mi-val {
-    color: #44ff88;
+    color: #ff4444;
     font-size: 0.85cqh;
 }
 
