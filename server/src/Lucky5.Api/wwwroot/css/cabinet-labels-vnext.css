@@ -377,10 +377,11 @@
     transition: transform 0.4s ease-in-out;
 }
 
-.idle-selector-card img {
+.idle-selector-card > div {
     width: 100%;
     height: 100%;
-    object-fit: contain;
+    display: block;
+    background: #fff;
     border-radius: 0.5cqw;
     box-shadow: 0 0.8cqw 2cqw rgba(0, 0, 0, 0.6);
 }

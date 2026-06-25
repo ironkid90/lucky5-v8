@@ -166,7 +166,8 @@ window.CabinetStage = (function () {
         'S': '♠'
     };
 
-    function _renderDomCard(card) {
+    function _renderDomCard(inputCard) {
+        const card = _asCard(inputCard);
         if (!card || !card.code) {
             return '<div class="card-back-pattern"><div>LUCKY 5 ♠</div></div>';
         }
@@ -599,7 +600,8 @@ window.CabinetStage = (function () {
 
             _resetMainSlot(slotEl);
             _applyCardFace(slotEl, img, card, { requireFace: true });
-            slotEl.style.transform = 'translateY(-60px)';
+            slotEl.style.transform = 'translateY(-20cqh) scale(0.95)';
+            slotEl.style.opacity = '0';
         });
 
         setTimeout(() => requestAnimationFrame(() => {
@@ -608,11 +610,14 @@ window.CabinetStage = (function () {
                     const slotEl = _slot(i);
                     if (!slotEl) return;
 
-                    _animateRAF(duration, p => 1 - Math.pow(1 - p, 2), eased => {
-                        const y = -60 * (1 - eased);
-                        slotEl.style.transform = `translateY(${y}px)`;
+                    _animateRAF(duration, p => 1 - Math.pow(1 - p, 3), eased => {
+                        const y = -20 * (1 - eased);
+                        const s = 0.95 + (0.05 * eased);
+                        slotEl.style.transform = `translateY(${y}cqh) scale(${s})`;
+                        slotEl.style.opacity = eased;
                     }, () => {
-                        slotEl.style.transform = 'translateY(0)';
+                        slotEl.style.transform = 'translateY(0) scale(1)';
+                        slotEl.style.opacity = '1';
                         if (i === cards.length - 1 && onComplete) {
                             setTimeout(onComplete, 40);
                         }
@@ -648,7 +653,7 @@ window.CabinetStage = (function () {
                 _applyCardFace(slotEl, img, card, { requireFace: true });
                 if (face) {
                     face.style.transition = 'none';
-                    face.style.opacity = '1';
+                    face.style.transform = 'rotateY(0)';
                 }
                 return;
             }
@@ -658,16 +663,20 @@ window.CabinetStage = (function () {
 
             setTimeout(() => {
                 if (face) {
-                    face.style.transition = `opacity ${outMs}ms ease-in`;
-                    face.style.opacity = '0';
+                    face.style.transition = `transform ${outMs}ms ease-in`;
+                    face.style.transform = 'rotateY(90deg)';
                 }
 
                 setTimeout(() => {
                     _applyCardFace(slotEl, img, card, { requireFace: true });
 
                     if (face) {
-                        face.style.transition = `opacity ${inMs}ms ease-out`;
-                        face.style.opacity = '1';
+                        face.style.transition = 'none';
+                        face.style.transform = 'rotateY(-90deg)';
+                        requestAnimationFrame(() => {
+                            face.style.transition = `transform ${inMs}ms ease-out`;
+                            face.style.transform = 'rotateY(0)';
+                        });
                     }
 
                     pending--;
@@ -798,6 +807,7 @@ window.CabinetStage = (function () {
         updateDoubleUpTrail,
         shuffleChallenger,
         exitDoubleUp,
+        renderDomCard: _renderDomCard,
         showLucky5Active,
         isDoubleUpMode: function() { return _isDoubleUpMode; }
     };

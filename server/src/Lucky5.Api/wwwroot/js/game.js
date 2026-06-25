@@ -1232,7 +1232,7 @@ function showIdleTitle(animateSelector = false) {
     const card = document.createElement('div');
     card.className = 'idle-selector-card';
     if (animateSelector) card.classList.add('is-flipping');
-    card.innerHTML = `<img src="/assets/images/cards/${fullHouseSelectorCode()}.png" alt="full house selector">`;
+    card.innerHTML = CabinetStage.renderDomCard(fullHouseSelectorCode());
     selector.appendChild(card);
     area.appendChild(selector);
 

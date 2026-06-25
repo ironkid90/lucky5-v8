@@ -368,7 +368,7 @@ public static class Lucky5DoubleUpEngine
         }
 
         var evaluation = FiveCardDrawEngine.EvaluateHand(boardCards);
-        var bonusAmount = FiveCardDrawEngine.ResolvePayout(evaluation, session.BetAmount, PaytableProfile.Lebanese);
+        var bonusAmount = FiveCardDrawEngine.ResolvePayout(evaluation, session.BetAmount, PaytableProfile.TwoPairMinimum);
         if (bonusAmount <= 0)
         {
             return (null, 0);

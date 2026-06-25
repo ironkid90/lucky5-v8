@@ -483,14 +483,11 @@
     display: block;
 }
 
-.card-slot .card-face img {
+.card-slot .card-face > div {
     width: 100%;
     height: 100%;
-    object-fit: contain;
     display: block;
     background: #fff;
-    image-rendering: -webkit-optimize-contrast;
-    image-rendering: pixelated;
 }
 
 /* Diagnostic marker: if JS flags a card as face-load-error. */
