@@ -601,7 +601,7 @@ window.CabinetStage = (function () {
 
             _resetMainSlot(slotEl);
             _applyCardFace(slotEl, img, card, { requireFace: true });
-            slotEl.style.transform = 'translateY(-20cqh) scale(0.95)';
+            slotEl.style.transform = 'translateX(-30cqw) scale(0.95)';
             slotEl.style.opacity = '0';
         });
 
@@ -612,12 +612,12 @@ window.CabinetStage = (function () {
                     if (!slotEl) return;
 
                     _animateRAF(duration, p => 1 - Math.pow(1 - p, 3), eased => {
-                        const y = -20 * (1 - eased);
+                        const x = -30 * (1 - eased);
                         const s = 0.95 + (0.05 * eased);
-                        slotEl.style.transform = `translateY(${y}cqh) scale(${s})`;
+                        slotEl.style.transform = `translateX(${x}cqw) scale(${s})`;
                         slotEl.style.opacity = eased;
                     }, () => {
-                        slotEl.style.transform = 'translateY(0) scale(1)';
+                        slotEl.style.transform = 'translateX(0) scale(1)';
                         slotEl.style.opacity = '1';
                         if (i === cards.length - 1 && onComplete) {
                             setTimeout(onComplete, 40);
