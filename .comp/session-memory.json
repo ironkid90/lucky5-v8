@@ -1019,7 +1019,7 @@
             "server/src/Lucky5.Api/wwwroot/js/game.js"
           ],
           "tokens": 4885,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782371770780
         },
         {
@@ -1063,7 +1063,7 @@
             "server/src/Lucky5.Api/wwwroot/js/game.js"
           ],
           "tokens": 7997,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782371839891
         }
       ]
@@ -1123,7 +1123,7 @@
             "server/src/Lucky5.Api/wwwroot/js/cabinet-stage-vnext.js"
           ],
           "tokens": 3810,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782373926014
         },
         {
@@ -1176,7 +1176,7 @@
             "server/src/Lucky5.Api/wwwroot/js/cabinet-stage-vnext.js"
           ],
           "tokens": 3797,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782373933188
         },
         {
@@ -1233,7 +1233,7 @@
             "server/src/Lucky5.Api/wwwroot/js/game.js"
           ],
           "tokens": 5747,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782373968422
         },
         {
@@ -1288,7 +1288,7 @@
             "server/src/Lucky5.Api/wwwroot/js/game.js"
           ],
           "tokens": 5722,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782374020492
         },
         {
@@ -1358,7 +1358,7 @@
             "server/src/Lucky5.Api/wwwroot/js/game.js"
           ],
           "tokens": 5685,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782374023881
         },
         {
@@ -1422,7 +1422,7 @@
             "server/src/Lucky5.Api/wwwroot/js/game.js"
           ],
           "tokens": 5972,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782374027195
         },
         {
@@ -1489,7 +1489,7 @@
             "server/src/Lucky5.Api/wwwroot/js/game.js"
           ],
           "tokens": 5984,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782374047355
         },
         {
@@ -1528,7 +1528,7 @@
             "server/src/Lucky5.Api/wwwroot/js/game.js"
           ],
           "tokens": 5947,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782374084391
         },
         {
@@ -1577,7 +1577,7 @@
             "server/src/Lucky5.Api/wwwroot/js/game.js"
           ],
           "tokens": 5897,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782374099450
         },
         {
@@ -1627,7 +1627,7 @@
             "server/src/Lucky5.Api/wwwroot/js/game.js"
           ],
           "tokens": 6559,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782374104601
         },
         {
@@ -1680,7 +1680,7 @@
             "server/src/Lucky5.Api/wwwroot/js/game.js"
           ],
           "tokens": 5497,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782374145037
         },
         {
@@ -1726,7 +1726,7 @@
             "server/src/Lucky5.Api/wwwroot/js/game.js"
           ],
           "tokens": 5947,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782374177851
         },
         {
@@ -1776,7 +1776,7 @@
             "server/src/Lucky5.Api/wwwroot/js/game.js"
           ],
           "tokens": 5946,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782374770485
         },
         {
@@ -1817,7 +1817,7 @@
             "server/src/Lucky5.Api/wwwroot/js/game.js"
           ],
           "tokens": 5884,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782374785036
         },
         {
@@ -1881,7 +1881,7 @@
             "server/src/Lucky5.Api/wwwroot/js/game.js"
           ],
           "tokens": 6183,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782374787992
         }
       ]
