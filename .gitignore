@@ -158,3 +158,5 @@ ai9/*.aab
 .codebuddy
 /ai9poker
 /pagesource_output
+.agentsroom/handoff-transcript-*.txt
+.agentsroom/handoff-summary-*.md
