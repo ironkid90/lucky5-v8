@@ -1,0 +1,498 @@
+/*
+ * cabinet-ai9-parity.css
+ * ═════════════════════════════════════════════════════════════════════════════
+ * AI9 PARITY OVERHAUL — Comprehensive geometry, color, and rendering corrections
+ *
+ * PURPOSE:
+ *   Make Lucky5 v8 match the AI9 reference game identically in:
+ *   - Cabinet layout geometry (CRT/deck split, card grid, button grid)
+ *   - CRT screen colors and text rendering (paytable, credit/stake, jackpots)
+ *   - Button rendering (PNG assets, not CSS gradients)
+ *   - Timing (deal/draw stagger, drain animation)
+ *
+ * LOAD ORDER:
+ *   This file MUST load AFTER all other cabinet CSS (cabinet-layout-vnext,
+ *   cabinet-v8-quality, etc.) so it can override their rules with !important.
+ *   Add to index.html AFTER cabinet-v8-quality.css.
+ *
+ * GROUND TRUTH:
+ *   All measurements derived from pixel-perfect frame analysis of ai9-download
+ *   recording (900×1600 resolution). See docs/AI9_PARITY_GROUND_TRUTH_AND_WORKLOG.md.
+ *
+ * REVERSIBILITY:
+ *   This file is entirely additive (no deletions from other files).
+ *   To disable parity, comment out the <link> in index.html.
+ *
+ * ═════════════════════════════════════════════════════════════════════════════
+ */
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   1. CABINET LAYOUT GEOMETRY — AI9 measured proportions
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* The v8 cabinet is 720×1280 (9:16). AI9 is 900×1600 (same ratio).
+   Proportions are identical; we just correct the zone positions to match
+   the measured AI9 frame geometry. */
+
+/* CRT screen: top 0–54.6% (measured from frame analysis: y=0..874px of 1600px).
+   Deck: bottom 45.4% (y=874..1600px). */
+#game-screen {
+    --ai9-crt-height-pct: 54.6%;
+    --ai9-deck-height-pct: 45.4%;
+}
+
+/* Paytable: top-left, 8 rows, occupies ~0.55w width, values right-aligned.
+   In v8 720×1280: top 0%, left 0%, width ~396px (55%), height ~15%. */
+#paytable,
+[data-zone="paytable"] {
+    top: 0 !important;
+    left: 0 !important;
+    width: 55% !important;
+    height: 15% !important;
+    padding: 2px 6px 0 6px !important;
+}
+
+/* Credit/Stake: top-right, stacked label/value pairs.
+   In v8: top 0%, right 0%, width ~45%, height ~15%. */
+#credit-stake-bar,
+[data-zone="credit-stake"] {
+    top: 0 !important;
+    right: 0 !important;
+    width: 45% !important;
+    height: 15% !important;
+    padding: 2px 8px 0 4px !important;
+}
+
+/* Card area: 5 cards in a row, centered, spanning ~0.90w.
+   AI9 measured: centers at 0.099, 0.299, 0.499, 0.699, 0.899w (0.20w pitch).
+   In v8 720×1280: top ~15.1% (y≈193), height ~18% (to ~35.1%).
+   Cards are edge-to-edge (x 13..886 of 900 = 0.014..0.985w). */
+#card-area,
+[data-zone="card-stage"] {
+    top: 15.1% !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 20% !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0 !important;
+}
+
+/* Each card: 0.169w wide (≈121px in 720), aspect ratio 313:528 ≈ 0.593.
+   Rendered height in frame: ~0.18h (≈230px in 1280). */
+.card-slot {
+    width: 16.9% !important;
+    aspect-ratio: 313 / 528 !important;
+    flex-shrink: 0;
+}
+
+/* Win amount display row: below cards, centered. */
+#win-amount-display,
+[data-zone="win-amount"] {
+    top: 35.5% !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 3% !important;
+}
+
+/* Machine info block (SERIE/KENT/S/N + jackpot counters):
+   AI9 measured: y≈0.36h..0.50h (jackpot block sits below cards, above deck).
+   In v8: top ~35.8%, height ~13%. */
+#machine-info-block,
+[data-zone="machine-info"] {
+    top: 35.8% !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 13% !important;
+    padding: 2px 8px !important;
+}
+
+/* Info bar (INSERT COIN, etc.): below machine-info. */
+#info-bar,
+[data-zone="info-bar"] {
+    top: 48.8% !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 2% !important;
+}
+
+/* Bonus bar: below info-bar. */
+#bonus-bar {
+    top: 50.8% !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 1% !important;
+}
+
+/* Control deck: wooden panel with 3 button rows.
+   Starts at y≈54.6% (where wood begins), extends to bottom. */
+#controls {
+    top: 54.6% !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 45.4% !important;
+    padding: 3% 8% 5% !important;
+    background-image: url('/assets/images/board.png') !important;
+    background-size: cover !important;
+    background-position: center !important;
+    background-repeat: no-repeat !important;
+}
+
+/* Hold row (5 HOLD buttons, evenly spaced):
+   AI9 measured: y≈0.59h (in deck, which starts at 0.546h).
+   Relative to deck top: (0.59 - 0.546) / 0.454 = 9.5% of deck height.
+   In v8 deck (45.4% of total): top ~4.3% of deck = top ~2.4% of total. */
+#hold-row,
+[data-zone="hold-row"] {
+    position: absolute !important;
+    top: 2.4% !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 28% !important;
+    padding: 1% 8% !important;
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    align-items: center !important;
+    justify-items: center !important;
+    gap: 2% !important;
+}
+
+/* Action row (BIG, SMALL, CANCEL HOLD, DEAL DRAW, BET):
+   AI9 measured: y≈0.738h (in deck).
+   Relative to deck: (0.738 - 0.546) / 0.454 = 42.3% of deck.
+   In v8: top ~19.2% of deck = top ~8.7% of total. */
+#action-row,
+[data-zone="action-row"] {
+    position: absolute !important;
+    top: 8.7% !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 28% !important;
+    padding: 1% 8% !important;
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    align-items: center !important;
+    justify-items: center !important;
+    gap: 2% !important;
+}
+
+/* Bottom row (TAKE HALF, MENU, TAKE SCORE):
+   AI9 measured: y≈0.89h (in deck).
+   Relative to deck: (0.89 - 0.546) / 0.454 = 75.8% of deck.
+   In v8: top ~34.4% of deck = top ~15.6% of total. */
+#bottom-row,
+[data-zone="bottom-row"] {
+    position: absolute !important;
+    top: 15.6% !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 28% !important;
+    padding: 1% 8% !important;
+    display: grid !important;
+    grid-template-columns: 1fr auto 1fr !important;
+    align-items: center !important;
+    justify-items: center !important;
+    gap: 2% !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   2. BUTTON RENDERING — PNG assets (not CSS gradients)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Override the v8-quality layer that disables PNG backgrounds.
+   Re-enable background-image so button PNGs render. */
+.cab-btn {
+    background-image: var(--btn-image) !important;
+    background-repeat: no-repeat !important;
+    background-size: contain !important;
+    background-position: center !important;
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    color: transparent !important;
+    font-size: 0 !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+}
+
+.cab-btn::before {
+    display: none !important;
+}
+
+.cab-btn:active:not(:disabled),
+.cab-btn.is-pressed:not(:disabled) {
+    transform: none !important;
+    filter: none !important;
+    box-shadow: none !important;
+}
+
+/* Button image assignments: set via JS (cabinet-orchestrator or game.js).
+   The JS will set --btn-image CSS variable on each button element. */
+
+/* Hold buttons: hold_off.png (idle) / hold_on.png (pressed).
+   Aspect ratio 1024:1536 ≈ 0.667. */
+.cab-hold {
+    aspect-ratio: 1024 / 1536 !important;
+}
+
+/* Action buttons: bet, big, small, cancel_hold, deal_draw.
+   All same aspect ratio 1024:1536. */
+.cab-big,
+.cab-small,
+.cab-cancel,
+.cab-deal,
+.cab-bet {
+    aspect-ratio: 1024 / 1536 !important;
+}
+
+/* Take-half and take-score buttons: same aspect. */
+.cab-takehalf,
+.cab-takescore {
+    aspect-ratio: 1024 / 1536 !important;
+}
+
+/* Menu button: menu.png is 50×50 (square). */
+.cab-menu {
+    width: 8% !important;
+    height: auto !important;
+    aspect-ratio: 1 / 1 !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   3. CRT SCREEN COLORS & TEXT RENDERING
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* CRT background: pure black (arcade cabinet CRT field). */
+#game-screen {
+    background-color: #000000 !important;
+}
+
+/* Paytable text: ARCADE dot-matrix font (or fallback monospace).
+   Each row has a label (left) and a value (right-aligned).
+   Colors per AI9 reference: */
+#paytable .pay-row {
+    color: #ffaa00 !important;  /* Default: gold/amber */
+    font-family: 'ARCADE', 'Courier New', monospace !important;
+    font-size: 1.2cqh !important;
+    font-weight: bold !important;
+    letter-spacing: 0.1cqh !important;
+    line-height: 1.4 !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    padding: 0.2cqh 0 !important;
+}
+
+/* Paytable row colors (per AI9 frame analysis): */
+#paytable .pay-row.rf {
+    color: #ffaa00 !important;  /* ROYAL FLUSH: gold */
+}
+#paytable .pay-row.sf {
+    color: #ff3333 !important;  /* STRAIGHT FLUSH: red */
+}
+#paytable .pay-row.foak {
+    color: #33ff33 !important;  /* 4 OF A KIND: green */
+}
+#paytable .pay-row.fh {
+    background-color: #ffffff !important;
+    color: #000000 !important;  /* FULL HOUSE: white bg, black text (selection highlight) */
+}
+#paytable .pay-row.fl {
+    color: #ffaa00 !important;  /* FLUSH: gold */
+}
+#paytable .pay-row.st {
+    color: #00dddd !important;  /* STRAIGHT: cyan */
+}
+#paytable .pay-row.tok {
+    color: #ffaa00 !important;  /* 3 OF A KIND: gold */
+}
+#paytable .pay-row.tp {
+    color: #00dddd !important;  /* 2 PAIR: cyan */
+}
+
+/* Credit/Stake display: stacked labels and values, right-aligned. */
+#credit-stake-bar {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    justify-content: flex-start !important;
+    font-family: 'ARCADE', 'Courier New', monospace !important;
+    font-weight: bold !important;
+    letter-spacing: 0.1cqh !important;
+    line-height: 1.2 !important;
+}
+
+#credits {
+    color: #33ff33 !important;  /* CREDIT: green */
+    font-size: 1.0cqh !important;
+}
+
+#credits span {
+    font-size: 1.4cqh !important;
+    display: block !important;
+}
+
+#stake-display {
+    color: #ffaa00 !important;  /* STAKE: gold */
+    font-size: 1.0cqh !important;
+    margin-top: 0.5cqh !important;
+}
+
+#stake-display span {
+    font-size: 1.4cqh !important;
+    display: block !important;
+}
+
+/* Machine info block (SERIE/KENT/S/N + jackpot counters): */
+#machine-info-block {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-family: 'ARCADE', 'Courier New', monospace !important;
+    font-weight: bold !important;
+    font-size: 0.9cqh !important;
+    letter-spacing: 0.1cqh !important;
+    line-height: 1.3 !important;
+}
+
+#machine-identity {
+    color: #ff3333 !important;  /* SERIE/KENT: red */
+    margin-bottom: 0.3cqh !important;
+}
+
+#machine-serial {
+    color: #00dddd !important;  /* S/N: cyan */
+    margin-bottom: 0.3cqh !important;
+}
+
+#jackpot-counters {
+    display: flex !important;
+    justify-content: center !important;
+    gap: 1cqh !important;
+    font-size: 1.1cqh !important;
+}
+
+#jackpot-counters .jp-counter {
+    color: #33ff33 !important;  /* Left & right: green */
+}
+
+#jackpot-counters .jp-counter:nth-child(2) {
+    color: #ff3333 !important;  /* Center (SF): red */
+}
+
+/* Info bar (INSERT COIN, etc.): */
+#info-bar {
+    color: #ffffff !important;
+    font-family: 'ARCADE', 'Courier New', monospace !important;
+    font-size: 1.0cqh !important;
+    font-weight: bold !important;
+    letter-spacing: 0.1cqh !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   4. IDLE OVERLAY — LUCKY 5 POKER title (cyan, behind cards)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* The idle overlay (LUCKY 5 / POKER) sits behind the card area when idle.
+   AI9 measured: cyan color, static (no animation). */
+#idle-overlay {
+    top: 10% !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 35% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    pointer-events: none !important;
+    z-index: 2 !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    transition: opacity 320ms ease !important;
+}
+
+#idle-overlay.visible {
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+#idle-overlay-text {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.5cqh !important;
+    font-family: 'ARCADE', 'Courier New', monospace !important;
+    font-weight: bold !important;
+    color: #00dddd !important;  /* Cyan */
+    text-shadow: 0 0 1cqh rgba(0, 221, 221, 0.8) !important;
+    letter-spacing: 0.2cqh !important;
+    line-height: 1 !important;
+}
+
+#idle-overlay-text .idle-line {
+    font-size: 4cqh !important;
+    display: block !important;
+    white-space: nowrap !important;
+}
+
+#idle-overlay-text .idle-line-lucky {
+    align-self: flex-start !important;
+    padding-left: 2cqh !important;
+}
+
+#idle-overlay-text .idle-line-poker {
+    align-self: flex-end !important;
+    padding-right: 2cqh !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   5. FONTS — Load ARCADE.ttf if not already present
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@font-face {
+    font-family: 'ARCADE';
+    src: url('/assets/fonts/ARCADE.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   6. TIMING CONSTANTS — Configured in game-config.js
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Timing is NOT CSS-driven; it lives in game-config.js:
+   - dealStaggerMs: time between card reveals (deal phase)
+   - drawStaggerMs: time between card replacements (draw phase)
+   - countUpMinMs / countUpMaxMs: drain-to-credits animation duration
+   - jackpotFillMinMs / jackpotFillMaxMs: jackpot fill animation
+   
+   These are already set in game-config.js and should NOT be changed here.
+   If AI9 timing differs, update game-config.js TIMING block directly.
+   
+   Current v8 values (2026-06-16 calibration):
+   - dealStaggerMs: 180ms
+   - drawStaggerMs: 100ms
+   - countUpMinMs: 1000ms, countUpMaxMs: 65000ms
+   
+   AI9 reference: ~1000ms per card in video (likely player pacing, not animation).
+   OPEN ITEM: Frame-step both recordings to lock exact stagger values.
+*/
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   7. RESPONSIVE / MOBILE ADJUSTMENTS
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* The cabinet is always portrait-locked (9:16). No reflow. */
+@media (min-width: 900px) {
+    #game-container {
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+}
+
+/* ═════════════════════════════════════════════════════════════════════════════
+   END OF AI9 PARITY CSS
+   ═════════════════════════════════════════════════════════════════════════════ */

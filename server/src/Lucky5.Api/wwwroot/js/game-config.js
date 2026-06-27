@@ -51,24 +51,20 @@ const GAME_CONFIG = Object.freeze({
     // ── 2. TIMING ────────────────────────────────────────────────────────────
     // All durations are in milliseconds.
     //
-    // 2026-06-16 CLASSIC FEEL CALIBRATION.
-    // Reference: Lebanese Lucky5 cabinets, IGT Game King, Aristocrat Reels.
-    // Old mechanical/electromechanical machines had noticeable, deliberate pacing.
-    // Each card tick, each counter increment had physical weight.
-    // Rule of thumb:
-    //   - Player-press to visible feedback: < 150 ms (instant feel)
-    //   - Card deal full cycle: 800-1200 ms (cards drop one at a time, heavy)
-    //   - Card draw full cycle: 600-900 ms (replacement cards flip visibly)
-    //   - Shuffle flicker: 120-180 ms per frame (visible card cycling)
-    //   - Credit count-up: 1.0-65 s total, ease-out cubic (scales with amount)
-    //   - Jackpot fill: 750ms-65s total (same scaling as drain)
-    // If you change these, mirror the feel-check in GAME_FEEL_REFERENCE.md.
+    // 2026-06-27 AI9 PARITY CALIBRATION.
+    // Reference: AI9 Dart/Flutter cabinet (frame-by-frame video analysis).
+    // Measured via 30fps frame extraction and white-pixel detection in card area.
+    // Deal stagger: cards 3-4 show 500ms and 433ms inter-card gaps (average 450-500ms).
+    // Draw stagger: TBD (frame-step draw phase).
+    // Drain animation: TBD (frame-step TAKE SCORE sequence).
+    // If you change these, mirror the feel-check in GAME_FEEL_REFERENCE.md and
+    // docs/AI9_PARITY_GROUND_TRUTH_AND_WORKLOG.md.
     timing: Object.freeze({
         // Main-hand deal animation
         // Cards drop from above one at a time, like a mechanical dealer.
         // Each card has visible travel + settle time.
         dealBaseMs:           80,  // pause before first card lands (cabinet "thunk")
-        dealStaggerMs:        180,  // left-to-right stagger — each card drops after the previous settles
+        dealStaggerMs:        475,  // left-to-right stagger — AI9 measured 450-500ms per card (2026-06-27 frame analysis)
         dealAnimDurationMs:   150,  // slide/flip settle time per card (visible motion)
 
         // Draw animation (re-dealing only non-held cards)
