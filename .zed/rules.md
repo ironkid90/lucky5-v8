@@ -1,4 +1,4 @@
-## vexp for Zed <!-- vexp v2.0.33 -->
+## vexp for Zed <!-- vexp v2.1.0 -->
 
 **MANDATORY: use `run_pipeline` - do NOT grep, glob, or read files manually.**
 vexp returns pre-indexed, graph-ranked context in a single call.

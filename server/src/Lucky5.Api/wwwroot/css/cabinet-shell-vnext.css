@@ -329,7 +329,8 @@ body.menu-open::after {
     font-family: 'Press Start 2P', 'Arcade', monospace;
 }
 
-.menu-panel.is-open {
+.menu-panel.is-open,
+.menu-panel.visible {
     display: flex;
 }
 

@@ -182,18 +182,41 @@ window.CabinetShell = (function () {
 
     /* ── initMenuOverlay ─────────────────────────────────────────────────── */
     /**
-     * Wire the menu overlay close-on-backdrop behavior.
+     * Wire menu overlay behavior that is safe even if game.js has not bound yet.
      * The CASH IN / CASH OUT / BACK TO LOBBY / RESET / LOGOUT buttons
-     * keep their existing game.js handlers — this only adds the backdrop close.
+     * keep their existing game.js handlers — this only adds open and close chrome.
      */
     function initMenuOverlay() {
         const panel = document.getElementById('menu-panel');
         if (!panel) return;
 
+        const setOpen = function (isOpen) {
+            const nextOpen = Boolean(isOpen);
+            panel.classList.toggle('is-open', nextOpen);
+            panel.classList.toggle('visible', nextOpen);
+            document.body.classList.toggle('menu-open', nextOpen);
+        };
+
+        const menuBtn = document.getElementById('btn-menu');
+        if (menuBtn && !menuBtn.dataset.shellMenuBound) {
+            menuBtn.dataset.shellMenuBound = '1';
+            menuBtn.addEventListener('click', function () {
+                setOpen(true);
+            });
+        }
+
+        const closeBtn = document.getElementById('btn-close-menu');
+        if (closeBtn && !closeBtn.dataset.shellMenuBound) {
+            closeBtn.dataset.shellMenuBound = '1';
+            closeBtn.addEventListener('click', function () {
+                setOpen(false);
+            });
+        }
+
         // Close on backdrop click (click outside the button area)
         panel.addEventListener('click', function (e) {
             if (e.target === panel) {
-                panel.classList.remove('is-open');
+                setOpen(false);
             }
         });
     }

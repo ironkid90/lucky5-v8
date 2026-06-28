@@ -54,8 +54,7 @@ const GAME_CONFIG = Object.freeze({
     // 2026-06-27 AI9 PARITY CALIBRATION.
     // Reference: AI9 Dart/Flutter cabinet (frame-by-frame video analysis).
     // Measured via 30fps frame extraction and white-pixel detection in card area.
-    // Deal stagger: cards 3-4 show 500ms and 433ms inter-card gaps (average 450-500ms).
-    // Draw stagger: TBD (frame-step draw phase).
+    // Current parity guide target: deal cards at 350ms stagger and redraw replacements at 100ms.
     // Drain animation: TBD (frame-step TAKE SCORE sequence).
     // If you change these, mirror the feel-check in GAME_FEEL_REFERENCE.md and
     // docs/AI9_PARITY_GROUND_TRUTH_AND_WORKLOG.md.
@@ -64,14 +63,14 @@ const GAME_CONFIG = Object.freeze({
         // Cards drop from above one at a time, like a mechanical dealer.
         // Each card has visible travel + settle time.
         dealBaseMs:           60,  // pause before first card lands (cabinet "thunk")
-        dealStaggerMs:        120,  // Calibrated to AI9 reference: reduced to 120ms for fast and snappy gameplay
+        dealStaggerMs:        350, // AI9 parity guide target
         dealAnimDurationMs:   120,  // slide/flip settle time per card (visible motion)
 
         // Draw animation (re-dealing only non-held cards)
         // Held cards stay put visibly. Replaced cards flip out, new cards flip in.
         drawOutMs:            60,  // fade-out / flip-out duration on replaced cards
         drawInMs:             80,  // fade-in / flip-in duration on new cards
-        drawStaggerMs:        60,  // stagger between replaced card slots
+        drawStaggerMs:        100, // AI9 parity guide target
         drawRevealStartMs:    60,  // delay before first replaced card starts dropping
 
         // Double-up: shuffle animation

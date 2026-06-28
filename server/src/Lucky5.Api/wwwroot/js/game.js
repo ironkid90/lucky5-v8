@@ -407,6 +407,7 @@ function setMenuPanelOpen(isOpen) {
     if (!menuPanel) return;
     const nextOpen = Boolean(isOpen);
     menuPanel.classList.toggle('is-open', nextOpen);
+    menuPanel.classList.toggle('visible', nextOpen);
     document.body.classList.toggle('menu-open', nextOpen);
 }
 
@@ -3548,9 +3549,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const menuPanel = $('#menu-panel');
     if (menuBtn && menuPanel) {
         menuBtn.addEventListener('click', () => {
-            if (gameState === 'idle' || gameState === 'win' || gameState === 'doubleup') {
-                setMenuPanelOpen(true);
-            }
+            setMenuPanelOpen(true);
         });
         $('#btn-close-menu').addEventListener('click', () => {
             setMenuPanelOpen(false);

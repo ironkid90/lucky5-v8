@@ -67,7 +67,7 @@ You have access to a powerful code-graph and retrieval tool called `vexp`.
 -   You are prohibited from using any built-in file search, `grep`, or other codebase indexing tools. Your primary interface with the codebase is `run_pipeline`.
 -   If you need to spawn sub-agents or background tasks, you must pass them the context obtained from `run_pipeline`. Do not allow them to search the codebase independently.
 
-## vexp <!-- vexp v2.0.33 -->
+## vexp <!-- vexp v2.1.0 -->
 
 **MANDATORY: use `run_pipeline` - do NOT grep or glob the codebase.**
 vexp returns pre-indexed, graph-ranked context in a single call.

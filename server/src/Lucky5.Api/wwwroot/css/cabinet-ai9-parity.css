@@ -138,6 +138,8 @@
     background-size: cover !important;
     background-position: center !important;
     background-repeat: no-repeat !important;
+    pointer-events: auto !important;
+    z-index: 8 !important;
 }
 
 /* Hold row (5 HOLD buttons, evenly spaced):
@@ -193,6 +195,8 @@
     align-items: center !important;
     justify-items: center !important;
     gap: 2% !important;
+    pointer-events: auto !important;
+    z-index: 9 !important;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -212,6 +216,8 @@
     font-size: 0 !important;
     padding: 0 !important;
     border-radius: 0 !important;
+    pointer-events: auto !important;
+    z-index: 10 !important;
 }
 
 .cab-btn::before,

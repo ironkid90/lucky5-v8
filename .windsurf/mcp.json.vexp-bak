@@ -1,12 +1,12 @@
 {
   "mcpServers": {
     "vexp": {
-      "command": "C:\\Users\\Gabi.WIN-CD45QMUUPFF\\AppData\\Roaming\\npm\\node_modules\\vexp-cli\\node_modules\\@vexp\\core-win32-x64\\bin\\vexp-core.exe",
+      "command": "node",
       "args": [
-        "mcp"
+        "c:\\Users\\Gabi.WIN-CD45QMUUPFF\\.vscode-insiders\\extensions\\vexp.vexp-vscode-2.0.33-win32-x64\\dist\\mcp-server.cjs"
       ],
       "env": {
-        "VEXP_WORKSPACE": "C:\\Users\\Gabi.WIN-CD45QMUUPFF\\Documents\\GitHub\\lucky5-v8\\lucky5-v8"
+        "VEXP_WORKSPACE": "c:\\Users\\Gabi.WIN-CD45QMUUPFF\\Documents\\GitHub\\lucky5-v8\\lucky5-v8"
       },
       "alwaysAllow": [
         "run_pipeline",
@@ -19,8 +19,7 @@
         "submit_lsp_edges",
         "get_session_context",
         "search_memory",
-        "save_observation",
-        "get_token_savings"
+        "save_observation"
       ]
     }
   }
