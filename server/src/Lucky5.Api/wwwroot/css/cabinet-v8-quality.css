@@ -612,7 +612,7 @@
 
 /* ----- 13. Safety fallbacks -------------------------------- */
 /* Ensure no other stylesheet re-applies button background PNGs. */
-button.cab-btn { background-image: none !important; }
+/* button.cab-btn { background-image: none !important; } */
 
 /* ----- 14. Clone asset buttons re-enabled ---------------------
    v8 initially forced pure CSS buttons so the cabinet could survive

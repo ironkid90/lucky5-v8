@@ -40,5 +40,6 @@ public sealed class GameServiceSimple : IGameService
     public Task<DoubleUpResultDto> CashoutDoubleUpAsync(Guid userId, Guid roundId, CancellationToken cancellationToken) => inner.CashoutDoubleUpAsync(userId, roundId, cancellationToken);
     public Task<DoubleUpResultDto> TakeHalfAsync(Guid userId, Guid roundId, CancellationToken cancellationToken) => inner.TakeHalfAsync(userId, roundId, cancellationToken);
     public Task<JackpotInfoDto> ChangeJackpotRankAsync(int machineId, int rank, CancellationToken cancellationToken) => inner.ChangeJackpotRankAsync(machineId, rank, cancellationToken);
+    public Task<JackpotInfoDto> ChangeCabinetJackpotRankAsync(Guid userId, int machineId, int rank, CancellationToken cancellationToken) => inner.ChangeCabinetJackpotRankAsync(userId, machineId, rank, cancellationToken);
     public Task<object> ResetMachineAsync(Guid userId, int machineId, CancellationToken cancellationToken) => inner.ResetMachineAsync(userId, machineId, cancellationToken);
 }
