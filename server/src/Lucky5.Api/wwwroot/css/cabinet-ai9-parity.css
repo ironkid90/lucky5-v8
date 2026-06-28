@@ -39,28 +39,42 @@
 #game-screen {
     --ai9-crt-height-pct: 54.6%;
     --ai9-deck-height-pct: 45.4%;
+    position: absolute !important;
+    inset: 0 !important;
+    display: block !important;
+    overflow: hidden !important;
 }
 
 /* Paytable: top-left, 8 rows, occupies ~0.55w width, values right-aligned.
    In v8 720×1280: top 0%, left 0%, width ~396px (55%), height ~18%. */
 #paytable,
 [data-zone="paytable"] {
+    position: absolute !important;
     top: 0 !important;
     left: 0 !important;
     width: 55% !important;
     height: 18% !important;
-    padding: 2px 6px 0 6px !important;
+    min-height: 18% !important;
+    padding: 0.35cqh 0.9cqw 0 0.9cqw !important;
+    box-sizing: border-box !important;
+    overflow: visible !important;
+    z-index: 20 !important;
 }
 
 /* Credit/Stake: top-right, stacked label/value pairs.
    In v8: top 0%, right 0%, width ~45%, height ~18%. */
 #credit-stake-bar,
 [data-zone="credit-stake"] {
+    position: absolute !important;
     top: 0 !important;
     right: 0 !important;
     width: 45% !important;
     height: 18% !important;
-    padding: 2px 8px 0 4px !important;
+    min-height: 18% !important;
+    padding: 0.35cqh 1.1cqw 0 0.5cqw !important;
+    box-sizing: border-box !important;
+    overflow: visible !important;
+    z-index: 20 !important;
 }
 
 /* Card area: 5 cards in a row, centered, spanning ~0.90w.
@@ -69,15 +83,19 @@
    Cards are edge-to-edge (x 13..886 of 900 = 0.014..0.985w). */
 #card-area,
 [data-zone="card-stage"] {
+    position: absolute !important;
     top: 18.2% !important;
     left: 0 !important;
     width: 100% !important;
     height: 18% !important;
     padding: 0 !important;
+    box-sizing: border-box !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     gap: 0 !important;
+    overflow: visible !important;
+    z-index: 12 !important;
 }
 
 /* Each card: 0.169w wide (≈121px in 720), aspect ratio 313:528 ≈ 0.593.
@@ -91,10 +109,12 @@
 /* Win amount display row: below cards, centered. */
 #win-amount-display,
 [data-zone="win-amount"] {
+    position: absolute !important;
     top: 36.5% !important;
     left: 0 !important;
     width: 100% !important;
     height: 3% !important;
+    z-index: 13 !important;
 }
 
 /* Machine info block (SERIE/KENT/S/N + jackpot counters):
@@ -102,11 +122,15 @@
    In v8: top ~39.8%, height ~11.5%. */
 #machine-info-block,
 [data-zone="machine-info"] {
+    position: absolute !important;
     top: 39.8% !important;
     left: 0 !important;
     width: 100% !important;
     height: 11.5% !important;
     padding: 2px 8px !important;
+    box-sizing: border-box !important;
+    overflow: visible !important;
+    z-index: 14 !important;
 }
 
 /* Info bar (INSERT COIN, etc.): below machine-info. */
@@ -129,17 +153,20 @@
 /* Control deck: wooden panel with 3 button rows.
    Starts at y≈54.6% (where wood begins), extends to bottom. */
 #controls {
+    position: absolute !important;
     top: 54.6% !important;
     left: 0 !important;
     width: 100% !important;
     height: 45.4% !important;
-    padding: 3% 8% 5% !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
     background-image: url('/assets/images/board.png') !important;
-    background-size: cover !important;
+    background-size: 100% 100% !important;
     background-position: center !important;
     background-repeat: no-repeat !important;
+    overflow: visible !important;
     pointer-events: auto !important;
-    z-index: 8 !important;
+    z-index: 100 !important;
 }
 
 /* Hold row (5 HOLD buttons, evenly spaced):
@@ -205,19 +232,33 @@
 /* Override the v8-quality layer that disables PNG backgrounds.
    Re-enable background-image so button PNGs render. */
 .cab-btn {
+    display: block !important;
+    position: relative !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    flex: none !important;
     background-repeat: no-repeat !important;
-    background-size: contain !important;
-    background-position: center !important;
+    background-size: 100% 100% !important;
+    background-position: center center !important;
     background-color: transparent !important;
     border: none !important;
     box-shadow: none !important;
     text-shadow: none !important;
     color: transparent !important;
     font-size: 0 !important;
+    line-height: 0 !important;
     padding: 0 !important;
+    margin: 0 !important;
     border-radius: 0 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    cursor: pointer !important;
     pointer-events: auto !important;
-    z-index: 10 !important;
+    z-index: 110 !important;
 }
 
 .cab-btn::before,
@@ -327,9 +368,15 @@
 /* MENU button: menu.png (always same, no pressed state) */
 .cab-btn.cab-menu {
     background-image: url('/assets/images/menu.png') !important;
-    width: 8% !important;
-    height: auto !important;
+    width: 7.2cqh !important;
+    height: 7.2cqh !important;
+    min-width: 7.2cqh !important;
+    min-height: 7.2cqh !important;
+    max-width: 7.2cqh !important;
+    max-height: 7.2cqh !important;
     aspect-ratio: 1 / 1 !important;
+    justify-self: center !important;
+    align-self: center !important;
 }
 
 /* FH-TARGET MODE: custom golden-red high-contrast appearance, override PNG mapping */
@@ -385,13 +432,17 @@
 #paytable .pay-row {
     color: #ffaa00 !important;  /* Default: gold/amber */
     font-family: 'ARCADE', 'Courier New', monospace !important;
-    font-size: 1.2cqh !important;
+    font-size: 1.05cqh !important;
     font-weight: bold !important;
-    letter-spacing: 0.1cqh !important;
-    line-height: 1.4 !important;
+    letter-spacing: 0.08cqh !important;
+    line-height: 1.12 !important;
     display: flex !important;
     justify-content: space-between !important;
-    padding: 0.2cqh 0 !important;
+    align-items: center !important;
+    min-height: 1.55cqh !important;
+    padding: 0.05cqh 0 !important;
+    margin: 0 !important;
+    visibility: visible !important;
 }
 
 /* Paytable row colors (per AI9 frame analysis): */
@@ -420,6 +471,9 @@
 }
 #paytable .pay-row.tp {
     color: #00dddd !important;  /* 2 PAIR: cyan */
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
 }
 
 /* Credit/Stake display: stacked labels and values, right-aligned. */

@@ -7,5 +7,37 @@
 			"path": "../../../../.gemini/antigravity-ide/brain/63eb8530-dbf5-4c9a-9c9d-59d1f96e2bce"
 		}
 	],
-	"settings": {}
+	"settings": {
+		"files.exclude": {
+			"**/.git": true,
+			"**/.svn": true,
+			"**/.hg": true,
+			"**/.DS_Store": true,
+			"**/Thumbs.db": true,
+			"**/flutter/ephemeral": true,
+			"**/Flutter/ephemeral": true,
+			"**/.symlinks": true,
+			"**/.plugin_symlinks": true,
+			"**/.mcs": true,
+			"**/.trunk/*actions/": true,
+			"**/.trunk/*logs/": true,
+			"**/.trunk/*notifications/": true,
+			"**/.trunk/*out/": true,
+			"**/.trunk/*plugins/": true,
+			"**/.vexp/daemon.pid": true,
+			"**/.vexp/daemon.sock": true,
+			"**/.vexp/daemon.pipe": true,
+			"**/.vexp/daemon.log": true,
+			"**/.vexp/vexp.log": true,
+			"**/.vexp/healthy": true,
+			"**/.vexp/mcp.port": true,
+			"**/.vexp/mcp.token": true,
+			"**/.vexp/index.db": true,
+			"**/.vexp/index.db-wal": true,
+			"**/.vexp/index.db-shm": true,
+			"**/.vexp/parent_workspace.json": true,
+			"**/.vexp/.gitignore": true,
+			"**/.vexp/.gitattributes": true
+		}
+	}
 }
