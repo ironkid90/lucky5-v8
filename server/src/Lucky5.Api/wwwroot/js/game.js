@@ -472,6 +472,7 @@ function resetGameRuntimeState({ clearSelection = false } = {}) {
     cards = [];
     gameState = 'idle';
     jackpotRankArmed = false;
+    window.jackpotRankArmed = false;
     winAmount = 0;
     roundId = null;
     machineJoined = false;
@@ -587,7 +588,8 @@ function applyCabinetSnapshot(snapshot) {
     syncMachineSessionState({
         isMachineClosed: readCabinetField(sessionState, 'isMachineClosed', 'is_machine_closed'),
         canCashOut: readCabinetField(sessionState, 'canCashOut', 'can_cash_out'),
-        cashOutThreshold: readCabinetField(credits, 'cashOutThreshold', 'cash_out_threshold')
+        cashOutThreshold: readCabinetField(credits, 'cashOutThreshold', 'cash_out_threshold'),
+        isArmed: readCabinetField(sessionState, 'isArmed', 'is_armed')
     });
 
     updateLobbyBalance();
@@ -787,6 +789,8 @@ function refreshIdleMachineState(messageText = null, type = 'win') {
     roundId = null;
     takeScoreAnimating = false;
     gameState = 'idle';
+    jackpotRankArmed = false;
+    window.jackpotRankArmed = false;
     updatePaytable();
     updateBonusBar(null);
     updateWinIndicator(0);
@@ -1432,6 +1436,7 @@ async function doBet() {
     updateStakeDisplay();
     updatePaytable();
     updateBonusHandText();
+    window.jackpotRankArmed = jackpotRankArmed;
     setButtonStates();
 }
 
@@ -1665,6 +1670,7 @@ function restoreRoundFromSnapshot(snapshot) {
     roundDoubleUpAvailable = Boolean(snapshot.doubleUpAvailable);
     takeHalfUsedThisRound = Boolean(snapshot.takeHalfUsed);
     jackpotRankArmed = false;
+    window.jackpotRankArmed = false;
     takeScoreAnimating = false;
     updateStakeDisplay();
     updatePaytable(currentHandRank);
@@ -1773,6 +1779,8 @@ async function doDeal() {
         duSessionStarted = false;
         resetDoubleUpPanelState();
         duDealerCard = null;
+        jackpotRankArmed = false;
+        window.jackpotRankArmed = false;
 
         try {
             const result = await apiCall('POST', GAME_CONFIG.api.deal, {
@@ -3406,6 +3414,7 @@ async function initGame(options = {}) {
             }
             gameState = 'idle';
             jackpotRankArmed = false;
+            window.jackpotRankArmed = false;
             const snapshotState = applyCabinetSnapshot(cabinetSnapshot);
             refreshIdleMachineState(snapshotState?.message || null);
         }

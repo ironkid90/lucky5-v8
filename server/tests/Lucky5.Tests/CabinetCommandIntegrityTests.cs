@@ -357,6 +357,12 @@ public static class CabinetCommandIntegrityTests
 
         await service.CashInAsync(userId, machineId, 200_000m, CancellationToken.None);
         var session = GetSession(store, userId, machineId);
+        
+        // Take a bet to 'arm' the machine for FH rank adjustment
+        await service.SubmitCabinetCommandAsync(userId, BuildCommand(
+            Guid.NewGuid(), "bet", machineId, session.SessionId, 0, "arm-bet", 
+            new Dictionary<string, object?> { ["amount"] = 5000 }), CancellationToken.None);
+
         var snapshot = await service.GetCabinetSnapshotAsync(userId, machineId, CancellationToken.None);
         var command = BuildCommand(
             commandId: Guid.Parse("22000000-1000-0000-0000-000000000007"),
@@ -372,7 +378,7 @@ public static class CabinetCommandIntegrityTests
 
         Assert(
             failures,
-            "Idle funded cabinet snapshots should enable HOLD[0] as the player-facing Full House rank switch.",
+            "Idle armed cabinet snapshots should enable HOLD[0] as the player-facing Full House rank switch.",
             snapshot.GameState == "idle"
             && snapshot.Buttons.Any(button => button.Id == "hold_0" && button.Enabled && button.Visible));
         Assert(

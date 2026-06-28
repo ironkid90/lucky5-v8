@@ -295,9 +295,10 @@
 #paytable .pay-row.foak {
     color: #33ff33 !important;  /* 4 OF A KIND: green */
 }
-#paytable .pay-row.fh {
+#paytable .pay-row.fh,
+#paytable .pay-row.jackpot-selected {
     background-color: #ffffff !important;
-    color: #000000 !important;  /* FULL HOUSE: white bg, black text (selection highlight) */
+    color: #000000 !important;  /* Selection highlight: white bg, black text */
 }
 #paytable .pay-row.fl {
     color: #ffaa00 !important;  /* FLUSH: gold */
@@ -472,8 +473,8 @@
    These are already set in game-config.js and should NOT be changed here.
    If AI9 timing differs, update game-config.js TIMING block directly.
    
-   Current v8 values (2026-06-16 calibration):
-   - dealStaggerMs: 180ms
+   Current v8 values (2026-06-27 calibration):
+   - dealStaggerMs: 350ms (Calibrated to AI9 reference)
    - drawStaggerMs: 100ms
    - countUpMinMs: 1000ms, countUpMaxMs: 65000ms
    

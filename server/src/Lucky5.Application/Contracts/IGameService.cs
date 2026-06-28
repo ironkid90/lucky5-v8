@@ -30,5 +30,6 @@ public interface IGameService
     Task<DoubleUpResultDto> TakeHalfAsync(Guid userId, Guid roundId, CancellationToken cancellationToken);
 
     Task<JackpotInfoDto> ChangeJackpotRankAsync(int machineId, int rank, CancellationToken cancellationToken);
+    Task<JackpotInfoDto> ChangeCabinetJackpotRankAsync(Guid userId, int machineId, int rank, CancellationToken cancellationToken);
     Task<object> ResetMachineAsync(Guid userId, int machineId, CancellationToken cancellationToken);
 }

@@ -39,6 +39,8 @@ public sealed record CabinetSessionStateDto(
     bool IsMachineClosed,
     [property: JsonPropertyName("can_cash_out")]
     bool CanCashOut,
+    [property: JsonPropertyName("is_armed")]
+    bool IsArmed,
     string Visibility,
     [property: JsonPropertyName("started_at_utc")]
     DateTime StartedAtUtc,

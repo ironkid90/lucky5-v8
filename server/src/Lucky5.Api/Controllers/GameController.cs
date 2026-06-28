@@ -220,10 +220,10 @@ public class GameController(IGameService gameService) : ControllerBase
     {
         try
         {
-            var result = await gameService.ChangeJackpotRankAsync(request.MachineId, request.Rank, cancellationToken);
+            var result = await gameService.ChangeCabinetJackpotRankAsync(UserId, request.MachineId, request.Rank, cancellationToken);
             return Ok(ApiResponse<JackpotInfoDto>.Ok(result, traceId: HttpContext.TraceIdentifier));
         }
-        catch (ArgumentException ex)
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
         {
             return BadRequest(new ApiResponse<JackpotInfoDto>(false, ex.Message, null, [], HttpContext.TraceIdentifier));
         }

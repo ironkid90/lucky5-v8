@@ -925,7 +925,7 @@ return guessResult;
         return SnapshotJackpots(ledger);
     }
 
-    private async Task<JackpotInfoDto> ChangeCabinetJackpotRankAsync(Guid userId, int machineId, int rank, CancellationToken cancellationToken)
+    public async Task<JackpotInfoDto> ChangeCabinetJackpotRankAsync(Guid userId, int machineId, int rank, CancellationToken cancellationToken)
     {
         var session = await RequireMachineSessionAsync(userId, machineId, createIfMissing: false);
         if (session.IsMachineClosed || session.MachineCredits <= 0m)
@@ -1939,6 +1939,7 @@ return guessResult;
                 MachineId: machine.Id,
                 IsMachineClosed: session.IsMachineClosed,
                 CanCashOut: CanCashOut(session) && activeRound is null,
+                IsArmed: activeRound is null && session.MachineCredits > 0m && roundBet > 0m,
                 Visibility: "foreground",
                 StartedAtUtc: session.CreatedUtc,
                 LastSeenUtc: serverTimeUtc),
@@ -2222,6 +2223,10 @@ return guessResult;
             if (!session.IsMachineClosed && session.MachineCredits > 0m)
             {
                 buttons.Add("deal_draw");
+                // The Full House jackpot rank can only be adjusted via HOLD[0] 
+                // AFTER a bet has been placed (armed state). In the backend snapshot,
+                // we enable it if the session has credits, but the frontend
+                // provides the final 'armed' gate.
                 buttons.Add("hold_0");
             }
         }

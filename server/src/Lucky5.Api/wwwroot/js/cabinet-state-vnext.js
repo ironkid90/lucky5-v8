@@ -37,6 +37,7 @@ window.CabinetState = (function () {
             machineCanCashOut: false,
             machineSessionClosed: false,
             machineCashOutThreshold: 0,
+            jackpotRankArmed: false,
             message: '',
             messageType: ''
         },
@@ -195,6 +196,7 @@ window.CabinetState = (function () {
             machineCanCashOut: typeof machineCanCashOut !== 'undefined' ? Boolean(machineCanCashOut) : false,
             machineSessionClosed: typeof machineSessionClosed !== 'undefined' ? Boolean(machineSessionClosed) : false,
             machineCashOutThreshold: typeof machineCashOutThreshold !== 'undefined' ? _safeNumber(machineCashOutThreshold, 0) : 0,
+            jackpotRankArmed: typeof jackpotRankArmed !== 'undefined' ? Boolean(jackpotRankArmed) : false,
             message: document.getElementById('game-message')?.textContent || '',
             messageType: document.getElementById('game-message')?.className || ''
         };
@@ -217,8 +219,9 @@ window.CabinetState = (function () {
                 if (locked) return false;
                 if (machine.gameState === 'hold') return true;
                 if (machine.gameState === 'idle' && index === 0) {
-                    // Replicate game.js:canAdjustJackpotRank() logic
-                    return Boolean(window.jackpotRankArmed);
+                    // The v8 documentation requires the machine to be "armed" (bet taken)
+                    // before the Full House jackpot rank can be adjusted via HOLD[0].
+                    return Boolean(machine.jackpotRankArmed);
                 }
                 return false;
             },
