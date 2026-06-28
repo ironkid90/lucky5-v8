@@ -16,17 +16,17 @@ window.CabinetStage = (function () {
         const timing = cfg && cfg.timing ? cfg.timing : {};
         const assets = cfg && cfg.assets ? cfg.assets : {};
 
-        // Arcade-calibrated defaults (2026-06-16 classic feel).
-        // Slower, more deliberate pacing that simulates old mechanical hardware.
+        // Arcade-calibrated defaults (2026-06-28 snappy feel).
+        // Highly responsive, fast-paced timings matching the AI9 poker reference.
         const next = {
             cardBack: assets.cardBack || '/assets/images/cards/bside.png',
-            dealBaseMs: Number(timing.dealBaseMs) || 120,
-            dealStaggerMs: Number(timing.dealStaggerMs) || 180,
-            dealDurationMs: Number(timing.dealAnimDurationMs) || 300,
-            drawOutMs: Number(timing.drawOutMs) || 100,
-            drawInMs: Number(timing.drawInMs) || 150,
-            drawStaggerMs: Number(timing.drawStaggerMs) || 100,
-            drawRevealStartMs: Number(timing.drawRevealStartMs) || 120,
+            dealBaseMs: Number(timing.dealBaseMs) || 60,
+            dealStaggerMs: Number(timing.dealStaggerMs) || 120,
+            dealDurationMs: Number(timing.dealAnimDurationMs) || 120,
+            drawOutMs: Number(timing.drawOutMs) || 60,
+            drawInMs: Number(timing.drawInMs) || 80,
+            drawStaggerMs: Number(timing.drawStaggerMs) || 60,
+            drawRevealStartMs: Number(timing.drawRevealStartMs) || 60,
             shuffleFrameMs: Number(timing.shuffleFrameMs) || 130,
             lucky5ActiveMs: Number(timing.lucky5FlashDurationMs) || 1000
         };

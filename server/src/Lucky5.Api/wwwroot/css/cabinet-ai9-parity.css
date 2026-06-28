@@ -147,10 +147,10 @@
 #hold-row,
 [data-zone="hold-row"] {
     position: absolute !important;
-    top: 2.4% !important;
+    top: 10% !important;
     left: 0 !important;
     width: 100% !important;
-    height: 28% !important;
+    height: 22% !important;
     padding: 1% 8% !important;
     display: grid !important;
     grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
@@ -161,15 +161,14 @@
 
 /* Action row (BIG, SMALL, CANCEL HOLD, DEAL DRAW, BET):
    AI9 measured: y≈0.738h (in deck).
-   Relative to deck: (0.738 - 0.546) / 0.454 = 42.3% of deck.
-   In v8: top ~19.2% of deck = top ~8.7% of total. */
+   Relative to deck: (0.738 - 0.546) / 0.454 = 42.3% of deck. */
 #action-row,
 [data-zone="action-row"] {
     position: absolute !important;
-    top: 8.7% !important;
+    top: 42% !important;
     left: 0 !important;
     width: 100% !important;
-    height: 28% !important;
+    height: 22% !important;
     padding: 1% 8% !important;
     display: grid !important;
     grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
@@ -180,15 +179,14 @@
 
 /* Bottom row (TAKE HALF, MENU, TAKE SCORE):
    AI9 measured: y≈0.89h (in deck).
-   Relative to deck: (0.89 - 0.546) / 0.454 = 75.8% of deck.
-   In v8: top ~34.4% of deck = top ~15.6% of total. */
+   Relative to deck: (0.89 - 0.546) / 0.454 = 75.8% of deck. */
 #bottom-row,
 [data-zone="bottom-row"] {
     position: absolute !important;
-    top: 15.6% !important;
+    top: 74% !important;
     left: 0 !important;
     width: 100% !important;
-    height: 28% !important;
+    height: 22% !important;
     padding: 1% 8% !important;
     display: grid !important;
     grid-template-columns: 1fr auto 1fr !important;
@@ -200,11 +198,9 @@
 /* ─────────────────────────────────────────────────────────────────────────────
    2. BUTTON RENDERING — PNG assets (not CSS gradients)
    ───────────────────────────────────────────────────────────────────────────── */
-
 /* Override the v8-quality layer that disables PNG backgrounds.
    Re-enable background-image so button PNGs render. */
 .cab-btn {
-    background-image: var(--btn-image) !important;
     background-repeat: no-repeat !important;
     background-size: contain !important;
     background-position: center !important;
@@ -218,47 +214,154 @@
     border-radius: 0 !important;
 }
 
-.cab-btn::before {
+.cab-btn::before,
+.cab-btn::after {
     display: none !important;
+    content: none !important;
 }
 
 .cab-btn:active:not(:disabled),
-.cab-btn.is-pressed:not(:disabled) {
+.cab-btn.is-pressed:not(:disabled),
+.cab-btn.active:not(:disabled) {
     transform: none !important;
     filter: none !important;
     box-shadow: none !important;
 }
 
-/* Button image assignments: set via JS (cabinet-orchestrator or game.js).
-   The JS will set --btn-image CSS variable on each button element. */
+/* Button Image mappings (pure CSS, no JS needed) */
 
-/* Hold buttons: hold_off.png (idle) / hold_on.png (pressed).
-   Aspect ratio 1024:1536 ≈ 0.667. */
-.cab-hold {
+/* HOLD buttons: hold_off.png (idle) / hold_on.png (pressed). Aspect ratio 1024:1536 */
+.cab-btn.cab-hold {
+    background-image: url('/assets/images/hold_off.png') !important;
     aspect-ratio: 1024 / 1536 !important;
 }
-
-/* Action buttons: bet, big, small, cancel_hold, deal_draw.
-   All same aspect ratio 1024:1536. */
-.cab-big,
-.cab-small,
-.cab-cancel,
-.cab-deal,
-.cab-bet {
-    aspect-ratio: 1024 / 1536 !important;
+.cab-btn.cab-hold:active:not(:disabled),
+.cab-btn.cab-hold.is-pressed:not(:disabled),
+.cab-btn.cab-hold.active:not(:disabled) {
+    background-image: url('/assets/images/hold_on.png') !important;
 }
 
-/* Take-half and take-score buttons: same aspect. */
-.cab-takehalf,
-.cab-takescore {
+/* BIG button */
+.cab-btn.cab-big {
+    background-image: url('/assets/images/big.png') !important;
     aspect-ratio: 1024 / 1536 !important;
 }
+.cab-btn.cab-big:active:not(:disabled),
+.cab-btn.cab-big.is-pressed:not(:disabled),
+.cab-btn.cab-big.active:not(:disabled) {
+    background-image: url('/assets/images/big_on.png') !important;
+}
 
-/* Menu button: menu.png is 50×50 (square). */
-.cab-menu {
+/* SMALL button */
+.cab-btn.cab-small {
+    background-image: url('/assets/images/small.png') !important;
+    aspect-ratio: 1024 / 1536 !important;
+}
+.cab-btn.cab-small:active:not(:disabled),
+.cab-btn.cab-small.is-pressed:not(:disabled),
+.cab-btn.cab-small.active:not(:disabled) {
+    background-image: url('/assets/images/small_on.png') !important;
+}
+
+/* CANCEL HOLD button */
+.cab-btn.cab-cancel {
+    background-image: url('/assets/images/cancel_hold.png') !important;
+    aspect-ratio: 1024 / 1536 !important;
+}
+.cab-btn.cab-cancel:active:not(:disabled),
+.cab-btn.cab-cancel.is-pressed:not(:disabled),
+.cab-btn.cab-cancel.active:not(:disabled) {
+    background-image: url('/assets/images/cancel_hold_on.png') !important;
+}
+
+/* DEAL DRAW button */
+.cab-btn.cab-deal {
+    background-image: url('/assets/images/deal_draw.png') !important;
+    aspect-ratio: 1024 / 1536 !important;
+}
+.cab-btn.cab-deal:active:not(:disabled),
+.cab-btn.cab-deal.is-pressed:not(:disabled),
+.cab-btn.cab-deal.active:not(:disabled) {
+    background-image: url('/assets/images/deal_draw_on.png') !important;
+}
+
+/* BET button */
+.cab-btn.cab-bet {
+    background-image: url('/assets/images/bet.png') !important;
+    aspect-ratio: 1024 / 1536 !important;
+}
+.cab-btn.cab-bet:active:not(:disabled),
+.cab-btn.cab-bet.is-pressed:not(:disabled),
+.cab-btn.cab-bet.active:not(:disabled) {
+    background-image: url('/assets/images/bet_on.png') !important;
+}
+
+/* TAKE HALF button */
+.cab-btn.cab-takehalf {
+    background-image: url('/assets/images/take_half.png') !important;
+    aspect-ratio: 1024 / 1536 !important;
+}
+.cab-btn.cab-takehalf:active:not(:disabled),
+.cab-btn.cab-takehalf.is-pressed:not(:disabled),
+.cab-btn.cab-takehalf.active:not(:disabled) {
+    background-image: url('/assets/images/take_half_on.png') !important;
+}
+
+/* TAKE SCORE button */
+.cab-btn.cab-takescore {
+    background-image: url('/assets/images/take_score.png') !important;
+    aspect-ratio: 1024 / 1536 !important;
+}
+.cab-btn.cab-takescore:active:not(:disabled),
+.cab-btn.cab-takescore.is-pressed:not(:disabled),
+.cab-btn.cab-takescore.active:not(:disabled) {
+    background-image: url('/assets/images/take_score_on.png') !important;
+}
+
+/* MENU button: menu.png (always same, no pressed state) */
+.cab-btn.cab-menu {
+    background-image: url('/assets/images/menu.png') !important;
     width: 8% !important;
     height: auto !important;
     aspect-ratio: 1 / 1 !important;
+}
+
+/* FH-TARGET MODE: custom golden-red high-contrast appearance, override PNG mapping */
+.cab-btn.cab-hold.fh-target {
+    background: linear-gradient(180deg, #ffd14d 0%, #c45a0f 55%, #5a1f04 100%) !important;
+    background-image: none !important;
+    border: 0.3cqh solid #ff6a1a !important;
+    color: #ffe7aa !important;
+    font-size: 1.75cqh !important;
+    text-indent: 0 !important;
+    overflow: visible !important;
+}
+.cab-btn.cab-hold.fh-target::before {
+    display: block !important;
+    content: 'FH' !important;
+    font-size: 1.75cqh !important;
+}
+
+/* BET button as SWITCH during Double Up: custom orange gradient, override PNG mapping */
+.cab-btn.cab-bet.is-switch {
+    background: linear-gradient(180deg,
+        var(--v8-orange-1) 0%,
+        var(--v8-orange-2) 55%,
+        var(--v8-orange-3) 100%) !important;
+    background-image: none !important;
+    border: 0.25cqh solid #5a2500 !important;
+    color: #fff !important;
+    text-indent: 0 !important;
+    overflow: visible !important;
+    font-size: 1.65cqh !important;
+}
+.cab-btn.cab-bet.is-switch::before {
+    display: block !important;
+    content: 'SWITCH' !important;
+    font-size: 1.65cqh !important;
+}
+.cab-btn.cab-bet.is-switch:disabled {
+    filter: grayscale(0.55) brightness(0.5) !important;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -483,8 +586,23 @@
 */
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   7. RESPONSIVE / MOBILE ADJUSTMENTS
+   7. RESPONSIVE / MOBILE ADJUSTMENTS & BACKGROUND BLACKOUT
    ───────────────────────────────────────────────────────────────────────────── */
+
+/* Black out the viewport container and browser canvas to absorb letterboxing */
+html,
+body,
+#game-container {
+    background-color: #000000 !important;
+}
+
+/* Hard limit the cabinet viewport to a perfect 9:16 aspect ratio boundary.
+   56.25vh matches exactly (100vh * 9 / 16), and 177.78vw matches (100vw * 16 / 9).
+   This ensures the wood panel controls and card stages never vertical overflow or overlap. */
+#cabinet-viewport {
+    max-width: 56.25vh !important;
+    max-height: 177.78vw !important;
+}
 
 /* The cabinet is always portrait-locked (9:16). No reflow. */
 @media (min-width: 900px) {
