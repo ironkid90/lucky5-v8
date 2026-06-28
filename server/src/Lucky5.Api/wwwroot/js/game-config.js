@@ -64,7 +64,7 @@ const GAME_CONFIG = Object.freeze({
         // Cards drop from above one at a time, like a mechanical dealer.
         // Each card has visible travel + settle time.
         dealBaseMs:           80,  // pause before first card lands (cabinet "thunk")
-        dealStaggerMs:        475,  // left-to-right stagger — AI9 measured 450-500ms per card (2026-06-27 frame analysis)
+        dealStaggerMs:        350,  // FIXED 2026-06-27: Reduced from 475ms to 350ms for snappier deal animation. AI9 measured 450-500ms but user feedback indicates faster feel is preferred.
         dealAnimDurationMs:   150,  // slide/flip settle time per card (visible motion)
 
         // Draw animation (re-dealing only non-held cards)

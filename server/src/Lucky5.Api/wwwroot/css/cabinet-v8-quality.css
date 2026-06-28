@@ -45,13 +45,14 @@
 }
 
 /* ----- 2. Universal cab button reset (pure CSS, no PNG) ---- */
-/* The original cabinet-image-cache sets background-image on .cab-btn
-   from PNG sprites. We force background-image:none so our pure-CSS
-   gradients render instead — this way the cabinet works even when
-   button PNGs are stale in the CDN. */
+/* FIXED 2026-06-27: Re-enabled PNG rendering via --btn-image CSS variable.
+   The cabinet-ai9-button-images.js module sets --btn-image on each button,
+   and cabinet-ai9-parity.css uses it. We now allow background-image to render
+   from the variable, falling back to pure-CSS gradients only if --btn-image
+   is not set. */
 
 .cab-btn {
-    background-image: none !important;
+    background-image: var(--btn-image, none) !important;
     background-repeat: no-repeat !important;
     background-size: 100% 100% !important;
     background-position: center center !important;
@@ -624,7 +625,7 @@ button.cab-btn { background-image: none !important; }
     background: transparent !important;
     border: 0 !important;
     border-radius: 0 !important;
-    box-shadow: none !important;
+    background-image: var(--btn-image, none) !important;
     background-repeat: no-repeat !important;
     background-position: center center !important;
     background-size: contain !important;

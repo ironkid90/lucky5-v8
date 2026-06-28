@@ -3680,17 +3680,10 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function scaleCabinet() {
-    const screen = document.getElementById('cabinet-viewport');
-    if (!screen) return;
-    
-    const logicalWidth = 720;
-    const logicalHeight = 1280;
-    
-    const scaleX = window.innerWidth / logicalWidth;
-    const scaleY = window.innerHeight / logicalHeight;
-    const scale = Math.min(scaleX, scaleY);
-    
-    screen.style.transform = `scale(${scale})`;
+    // FIXED 2026-06-27: Removed JS transform scaling that caused letterboxing.
+    // The CSS layout system (cabinet-layout-vnext.css) now handles responsive
+    // scaling via container queries (cqh/cqw units) and viewport-relative sizing.
+    // This function is kept as a no-op for backward compatibility.
 }
 
 window.addEventListener('resize', scaleCabinet);

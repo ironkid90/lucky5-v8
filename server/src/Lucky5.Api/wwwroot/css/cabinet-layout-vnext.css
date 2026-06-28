@@ -11,24 +11,31 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 100%;
-    height: 100%;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;  /* Prevent scrollbars */
 }
 
 /* ── Cabinet face: locked 9:16 portrait, scales with viewport ────────────── */
-/* Uses dvh (dynamic viewport height) with vh fallback for mobile browsers.  */
-/* container-type:size lets child rules use cqh/cqw units that track the     */
-/* cabinet's actual rendered height, so all type and spacing scale together.  */
+/* FIXED 2026-06-27: Changed from fixed 720x1280px to responsive scaling.
+   Now uses max-width/max-height to fill viewport while maintaining 9:16 aspect.
+   Removed fixed width/height that caused letterboxing on desktop/mobile.
+   container-type:size lets child rules use cqh/cqw units that track the
+   cabinet's actual rendered height, so all type and spacing scale together. */
 #cabinet-viewport {
     position: relative;
-    /* Fixed logical viewport for pixel-perfect scaling */
-    width: 720px;
-    height: 1280px;
+    /* Responsive scaling: fill viewport while maintaining 9:16 aspect ratio */
+    width: 100vw;
+    height: 100vh;
+    max-width: 80vh;  /* Maintain 9:16 aspect (720/1280 = 0.5625) */
+    max-height: 177.78vw;  /* 1280/720 = 1.7778 */
+    aspect-ratio: 720 / 1280;
     transform-origin: center center;
     /* Enable container query units for all descendants */
     container-type: size;
     container-name: cabinet;
     overflow: hidden;
+    margin: auto;  /* Center in viewport */
 }
 
 #game-screen,

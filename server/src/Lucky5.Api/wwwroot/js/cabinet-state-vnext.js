@@ -211,9 +211,17 @@ window.CabinetState = (function () {
             machineClosed,
             canBet: !locked && !machineClosed && (machine.gameState === 'idle' || machine.gameState === 'doubleup'),
             canDeal: !locked && !machineClosed && (machine.gameState === 'idle' || machine.gameState === 'hold'),
-            // Only allow holds during 'hold' phase. The jackpot-rank-adjust via hold[0] during
-            // idle is handled entirely by game.js's own setButtonStates; vnext does not override it.
-            canHold: (index) => !locked && machine.gameState === 'hold',
+            // Allow holds during 'hold' phase, OR allow HOLD[0] during 'idle' for FH-rank adjustment
+            // if the machine is armed (has taken a bet).
+            canHold: (index) => {
+                if (locked) return false;
+                if (machine.gameState === 'hold') return true;
+                if (machine.gameState === 'idle' && index === 0) {
+                    // Replicate game.js:canAdjustJackpotRank() logic
+                    return Boolean(window.jackpotRankArmed);
+                }
+                return false;
+            },
             canGuess: !locked && (machine.gameState === 'doubleup' || (machine.gameState === 'win' && machine.roundDoubleUpAvailable && machine.winAmount > 0)),
             canSwitch: !locked && machine.gameState === 'doubleup' && machine.duSwitchesRemaining > 0,
             canTakeScore: !locked && (machine.gameState === 'win' || machine.gameState === 'doubleup'),
