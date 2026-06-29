@@ -57,6 +57,12 @@ Thumbs.db
 .ai9poker/
 .lucky5_godot_deck_v1/
 lucky5_godot_deck_v1/
+./ai9
+mediafiles
+ai9
+./mediafiles
+./goldenpoker
+goldenpoker
 
 # ── Local workspace scratch / agent state ─────────────────────────────────────
 tmp/
