@@ -1,0 +1,3 @@
+{
+  "output": "Output: CertUtil: Unknown arg: -hex\r\n\r\n\r\nCertUtil -?              -- Display a verb list (command list)\r\nCertUtil -dump -?        -- Display help text for the \"dump\" verb\r\nCertUtil -v -?           -- Display all help text for all verbs\nExit Code: 1\nProcess Group PGID: 29724"
+}

@@ -1,0 +1,3 @@
+{
+  "output": "Output: Get-Content: Cannot process argument transformation on parameter 'Encoding'. 'Byte' is not a supported encoding name. For information on defining a custom encoding, see the documentation for the Encoding.RegisterProvider method. (Parameter 'name')\nExit Code: 1\nProcess Group PGID: 27264"
+}

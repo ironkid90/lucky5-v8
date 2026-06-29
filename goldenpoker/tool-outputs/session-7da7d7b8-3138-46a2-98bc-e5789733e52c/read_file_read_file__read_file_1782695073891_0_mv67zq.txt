@@ -1,0 +1,3 @@
+{
+  "error": "Path not in workspace: Attempted path \"c:\\Users\\Gabi.WIN-CD45QMUUPFF\\Downloads\\goldnpkr.cpp\" resolves outside the allowed workspace directories: c:\\Users\\Gabi.WIN-CD45QMUUPFF\\Documents\\GitHub\\lucky5-v8\\lucky5-v8 or the project temp directory: C:\\Users\\Gabi.WIN-CD45QMUUPFF\\.gemini\\tmp\\lucky5-v8-1"
+}

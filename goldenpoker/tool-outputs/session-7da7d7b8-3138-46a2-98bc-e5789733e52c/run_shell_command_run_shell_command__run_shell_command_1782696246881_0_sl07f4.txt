@@ -1,0 +1,3 @@
+{
+  "output": "Output: ParserError: \r\nLine |\r\n   1 |  \"C:\\Da65\\bin\\da65.exe\" -S 0x8000 -o \"C:\\Users\\Gabi.WIN-CD45QMUUPFF\\.g .\r\n     |                         ~~\r\n     | Unexpected token '-S' in expression or statement.\nExit Code: 1\nProcess Group PGID: 23408"
+}

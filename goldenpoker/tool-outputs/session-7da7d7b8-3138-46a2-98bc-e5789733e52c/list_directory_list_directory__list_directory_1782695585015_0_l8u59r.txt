@@ -1,0 +1,3 @@
+{
+  "output": "Directory listing for C:\\Users\\Gabi.WIN-CD45QMUUPFF\\.gemini\\tmp\\lucky5-v8-1\\goldenpoker rom:\ntbp24s10n.7d (256 bytes)\nu38_5a.bin (8192 bytes)\nu40_4a.bin (8192 bytes)\nu43_2a.bin (8192 bytes)\nups39_12a.bin (32768 bytes)"
+}
