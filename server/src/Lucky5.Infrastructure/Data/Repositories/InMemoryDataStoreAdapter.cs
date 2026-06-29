@@ -125,7 +125,7 @@ public class InMemoryDataStoreAdapter : IDataStore
                 MachineId = machineId,
                 MachineSerial = machine?.MachineSerial ?? string.Empty,
                 MachineSerie = machine?.MachineSerie ?? string.Empty,
-                MachineKent = machine?.MachineKent ?? string.Empty,
+                MachineKent = machine != null && machine.VariantState.Contains("MachineKent") ? System.Text.Json.JsonDocument.Parse(machine.VariantState).RootElement.GetProperty("MachineKent").GetString() ?? string.Empty : string.Empty,
                 TargetRtp = Lucky5.Domain.Game.CleanRoom.EngineConfig.Default.TargetRtp,
                 LastPayoutScale = Lucky5.Domain.Game.CleanRoom.EngineConfig.Default.DefaultPayoutScale
             };

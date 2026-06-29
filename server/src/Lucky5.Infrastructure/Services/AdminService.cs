@@ -159,7 +159,7 @@ public sealed class AdminService(InMemoryDataStore store, PersistenceStore persi
                 MachineId = machine.Id,
                 MachineSerial = machine.MachineSerial,
                 MachineSerie = machine.MachineSerie,
-                MachineKent = machine.MachineKent
+                MachineKent = machine.VariantState.Contains("MachineKent") ? System.Text.Json.JsonDocument.Parse(machine.VariantState).RootElement.GetProperty("MachineKent").GetString() ?? string.Empty : string.Empty
             };
         }
 

@@ -7,7 +7,7 @@ public sealed class Machine
     public string Name { get; init; } = string.Empty;
     public string MachineSerial { get; init; } = string.Empty;
     public string MachineSerie { get; init; } = string.Empty;
-    public string MachineKent { get; init; } = string.Empty;
+    public string VariantState { get; set; } = "{}"; // JSON payload for variant-specific state (e.g., Kent)
     public bool IsOpen { get; set; } = true;
     public decimal MinBet { get; init; } = 1;
     public decimal MaxBet { get; init; } = 10;

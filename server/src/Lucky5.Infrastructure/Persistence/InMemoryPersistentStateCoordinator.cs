@@ -191,9 +191,10 @@ public sealed class InMemoryPersistentStateCoordinator : IPersistentStateCoordin
         {
             if (inMemoryStore.MachineLedgers.TryGetValue(machine.Id, out var ledger))
             {
+                string? machineKentFromState = machine.VariantState.Contains("MachineKent") ? System.Text.Json.JsonDocument.Parse(machine.VariantState).RootElement.GetProperty("MachineKent").GetString() : null;
                 if (string.IsNullOrWhiteSpace(ledger.MachineSerial)) ledger.MachineSerial = machine.MachineSerial;
                 if (string.IsNullOrWhiteSpace(ledger.MachineSerie)) ledger.MachineSerie = machine.MachineSerie;
-                if (string.IsNullOrWhiteSpace(ledger.MachineKent)) ledger.MachineKent = machine.MachineKent;
+                if (string.IsNullOrWhiteSpace(ledger.MachineKent)) ledger.MachineKent = machineKentFromState ?? string.Empty;
                 continue;
             }
 
@@ -202,7 +203,7 @@ public sealed class InMemoryPersistentStateCoordinator : IPersistentStateCoordin
                 MachineId = machine.Id,
                 MachineSerial = machine.MachineSerial,
                 MachineSerie = machine.MachineSerie,
-                MachineKent = machine.MachineKent,
+                MachineKent = machine.VariantState.Contains("MachineKent") ? System.Text.Json.JsonDocument.Parse(machine.VariantState).RootElement.GetProperty("MachineKent").GetString() ?? string.Empty : string.Empty,
                 TargetRtp = EngineConfig.Default.TargetRtp,
                 LastPayoutScale = EngineConfig.Default.DefaultPayoutScale
             };
@@ -219,8 +220,8 @@ public sealed class InMemoryPersistentStateCoordinator : IPersistentStateCoordin
     private static IReadOnlyList<Machine> CreateSeedMachines()
         =>
         [
-            new() { Id = 1, GameId = 1, Name = "Beirut 5K", MachineSerial = "105001", MachineSerie = "27", MachineKent = "1", IsOpen = true, MinBet = 5000, MaxBet = 10000 },
-            new() { Id = 2, GameId = 1, Name = "Hamra 10K", MachineSerial = "105002", MachineSerie = "27", MachineKent = "2", IsOpen = true, MinBet = 10000, MaxBet = 20000 },
-            new() { Id = 3, GameId = 1, Name = "VIP 50K", MachineSerial = "105003", MachineSerie = "27", MachineKent = "3", IsOpen = false, MinBet = 50000, MaxBet = 100000 }
+            new() { Id = 1, GameId = 1, Name = "Beirut 5K", MachineSerial = "105001", MachineSerie = "27", VariantState = "{\"MachineKent\": \"1\"}", IsOpen = true, MinBet = 5000, MaxBet = 10000 },
+            new() { Id = 2, GameId = 1, Name = "Hamra 10K", MachineSerial = "105002", MachineSerie = "27", VariantState = "{\"MachineKent\": \"2\"}", IsOpen = true, MinBet = 10000, MaxBet = 20000 },
+            new() { Id = 3, GameId = 1, Name = "VIP 50K", MachineSerial = "105003", MachineSerie = "27", VariantState = "{\"MachineKent\": \"3\"}", IsOpen = false, MinBet = 50000, MaxBet = 100000 }
         ];
 }

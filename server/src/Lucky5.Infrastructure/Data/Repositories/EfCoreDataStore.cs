@@ -116,7 +116,7 @@ public class EfCoreDataStore : IDataStore
                 MachineId = machineId,
                 MachineSerial = machine?.MachineSerial ?? string.Empty,
                 MachineSerie = machine?.MachineSerie ?? string.Empty,
-                MachineKent = machine?.MachineKent ?? string.Empty
+                MachineKent = machine != null && machine.VariantState.Contains("MachineKent") ? System.Text.Json.JsonDocument.Parse(machine.VariantState).RootElement.GetProperty("MachineKent").GetString() ?? string.Empty : string.Empty
             };
             _context.MachineLedgers.Add(ledger);
             await _context.SaveChangesAsync();

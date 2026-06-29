@@ -1951,7 +1951,7 @@ return guessResult;
                 MaxBet: ToDecimalString(machine.MaxBet),
                 MachineSerial: FirstNonEmpty(jackpot.MachineSerial, machine.MachineSerial),
                 MachineSerie: FirstNonEmpty(jackpot.MachineSerie, machine.MachineSerie),
-                MachineKent: FirstNonEmpty(jackpot.MachineKent, machine.MachineKent),
+                MachineKent: FirstNonEmpty(jackpot.MachineKent, machine.VariantState.Contains("MachineKent") ? System.Text.Json.JsonDocument.Parse(machine.VariantState).RootElement.GetProperty("MachineKent").GetString() ?? string.Empty : string.Empty),
                 FirstRechargeCredit: ToDecimalString(machine.FirstRechargeCredit),
                 SecondRechargeCredit: ToDecimalString(machine.SecondRechargeCredit),
                 FirstRechargeBonus: ToDecimalString(machine.FirstRechargeBonus),
