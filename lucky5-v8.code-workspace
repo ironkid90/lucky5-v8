@@ -38,6 +38,7 @@
 			"**/.vexp/parent_workspace.json": true,
 			"**/.vexp/.gitignore": true,
 			"**/.vexp/.gitattributes": true
-		}
+		},
+		"powershell.cwd": "lucky5-v8"
 	}
 }

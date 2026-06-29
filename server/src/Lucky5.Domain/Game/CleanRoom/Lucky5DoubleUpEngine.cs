@@ -387,3 +387,4 @@ public static class Lucky5DoubleUpEngine
 		}
 	}
 }
+
