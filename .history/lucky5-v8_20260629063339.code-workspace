@@ -39,7 +39,6 @@
 			"**/.vexp/.gitignore": true,
 			"**/.vexp/.gitattributes": true
 		},
-		"powershell.cwd": "lucky5-v8",
-		"additionalContextMenus.enabled": true
+		"powershell.cwd": "lucky5-v8"
 	}
 }
