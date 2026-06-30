@@ -1,0 +1,14 @@
+{
+  "sessions": {
+    "019f1794-10b3-75d2-aa0e-0dda69de3ba9": {
+      "ordinary_no_progress_guard": {
+        "fingerprint": "ordinary|that error happened because the block is **json**, but it was pasted directly into **powershell**. powershell sees `\"googlecloudcode.project\":` and treats `:` as invalid syntax. use this powershell-safe version instead: ```powershell $settingspath = join-path $env:appdata \"code\\user\\settings.json\" new-item -itemtype directory -force -path (split-path $settingspath) | out-null if (test-path $settingspath) { $raw = get-content $settingspath -raw $settings = if ($raw.trim()) { $raw | convertfrom-json -ashashtable } else { @{} } } else { $settings = @{} } $settings[\"googlecloudcode.project\"] = \"euphoric-axon-500505-f9\" $settings[\"editor.formatonsave\"] = $true $settings[\"editor.codeactionsonsave\"] = @{ \"source.fixall\" = \"explicit\" } $settings[\"extensions.autoupdate\"] = $true $settings[\"extensions.ignorerecommendations\"] = $false $settings[\"security.workspace.trust.enabled\"] = $true $settings[\"telemetry.telemetrylevel\"] = \"error\" $settings[\"terminal.integrated.defaultprofile.windows\"] = \"powershell\" $settings | convertto-json -depth 20 | set-content -path $settingspath -encoding utf8 code --reuse-window $settingspath ``` then set the active google cloud project too: ```powershell gcloud config set project euphoric-axon-500505-f9 ``` alternative: open vs code settings json with `ctrl+shift+p` → `preferences: open user settings (json)` and paste the json inside the existing `{ ... }`, not into powershell.",
+        "first_seen_at": "2026-06-30T09:08:36.507Z",
+        "last_seen_at": "2026-06-30T09:08:36.507Z",
+        "repeat_count": 1,
+        "last_turn_id": "019f17c8-5586-7573-9313-ce5764d6ceb2",
+        "last_thread_id": null
+      }
+    }
+  }
+}
