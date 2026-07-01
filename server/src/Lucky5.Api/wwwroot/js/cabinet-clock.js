@@ -187,6 +187,7 @@ window.CabinetInput = (function () {
     const debounceTicks = 4; // debounce for 4 ticks (approx 66ms)
     const lastPressTick = {}; // buttonId -> tickCount of last press
     const inputQueue = []; // queue of inputs to process on next tick
+    let sequenceCounter = 0; // monotonic counter for stable ordering
 
     // Precedence priority: lower number = higher priority
     const PREC_ORDER = {
