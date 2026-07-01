@@ -398,8 +398,184 @@ window.CabinetOrchestrator = (function () {
     };
 })();
 
+// Unified feel and performance verification harness for Phase 7
+window.CabinetVerification = (function () {
+    const logs = [];
+    const stats = {
+        deals: [],
+        draws: [],
+        buttonTaps: {},
+        errors: []
+    };
+
+    function log(type, message, details = {}) {
+        const entry = {
+            tick: window.CabinetClock ? window.CabinetClock.getTickCount() : 0,
+            timestamp: performance.now(),
+            type,
+            message,
+            details
+        };
+        logs.push(entry);
+        console.log(`[CabinetVerification] [Tick ${entry.tick}] [${type}] ${message}`, details);
+        if (type === 'ERROR') {
+            stats.errors.push(entry);
+        }
+    }
+
+    let observer = null;
+    let slotStartTicks = {};
+    let slotEndTicks = {};
+
+    function startObserving() {
+        const cardArea = document.getElementById('card-area');
+        if (!cardArea) {
+            window.CabinetClock.delayTicks(30, startObserving);
+            return;
+        }
+
+        observer = new MutationObserver((mutations) => {
+            const nowTick = window.CabinetClock.getTickCount();
+            mutations.forEach((mutation) => {
+                const target = mutation.target;
+                const slotIndexAttr = target.getAttribute('data-slot');
+                if (slotIndexAttr === null) return;
+                const idx = parseInt(slotIndexAttr, 10);
+
+                if (mutation.attributeName === 'style') {
+                    const style = target.getAttribute('style') || '';
+                    const isStarting = style.includes('translateY(-120%)') || style.includes('opacity: 0') || style.includes('opacity: 0;');
+                    const isDone = (style.includes('translateY(0%)') || style.includes('translateY(0)') || !style.includes('translateY')) && style.includes('opacity: 1');
+
+                    if (isStarting) {
+                        if (idx === 0) {
+                            slotStartTicks = {};
+                            slotEndTicks = {};
+                        }
+                        if (!slotStartTicks[idx]) {
+                            slotStartTicks[idx] = nowTick;
+                            log('DEAL_SLOT_START', `Slot ${idx} started deal reveal.`);
+                        }
+                    }
+
+                    if (isDone && slotStartTicks[idx] && !slotEndTicks[idx]) {
+                        slotEndTicks[idx] = nowTick;
+                        log('DEAL_SLOT_END', `Slot ${idx} completed deal reveal.`);
+
+                        if (Object.keys(slotEndTicks).length === 5) {
+                            verifyDealSequence();
+                        }
+                    }
+                }
+            });
+        });
+
+        observer.observe(cardArea, { attributes: true, subtree: true, attributeFilter: ['style'] });
+        log('SYSTEM', 'DOM card-area observer installed.');
+    }
+
+    function verifyDealSequence() {
+        for (let i = 0; i < 4; i++) {
+            const startA = slotStartTicks[i];
+            const startB = slotStartTicks[i + 1];
+            if (startA && startB && startA > startB) {
+                log('ERROR', `Deal sequence order regression! Slot ${i} started at tick ${startA} which is after Slot ${i+1} at tick ${startB}`);
+            }
+        }
+
+        const cfg = window.CabinetStage?.getConfig?.();
+        if (cfg) {
+            const expectedTotalTicks = window.CabinetClock.msToTicks(cfg.dealBaseMs + 4 * cfg.dealStaggerMs + cfg.dealDurationMs);
+            const totalDurationTicks = slotEndTicks[4] - slotStartTicks[0];
+
+            log('METRIC', `Deal Duration: ${totalDurationTicks} ticks (Expected approx ${expectedTotalTicks} ticks).`);
+            
+            const tolerance = 6; 
+            if (Math.abs(totalDurationTicks - expectedTotalTicks) > tolerance) {
+                log('ERROR', `Deal duration mismatch! Took ${totalDurationTicks} ticks, expected ${expectedTotalTicks} ticks (tolerance +/- ${tolerance}).`);
+            }
+        }
+    }
+
+    function verifyButtonDebounce(buttonId) {
+        const nowTick = window.CabinetClock.getTickCount();
+        const lastPress = stats.buttonTaps[buttonId];
+        stats.buttonTaps[buttonId] = nowTick;
+
+        if (lastPress) {
+            const diff = nowTick - lastPress;
+            if (diff < 4) {
+                log('ERROR', `Input Debounce regression! Button ${buttonId} pressed at tick ${nowTick}, only ${diff} ticks after previous press.`);
+            } else {
+                log('INPUT_OK', `Button ${buttonId} pressed debounced with ${diff} ticks separation.`);
+            }
+        } else {
+            log('INPUT_OK', `Button ${buttonId} first press registered.`);
+        }
+    }
+
+    function installInputVerifier() {
+        if (!window.CabinetInput || !window.CabinetInput.trigger) {
+            window.CabinetClock.delayTicks(10, installInputVerifier);
+            return;
+        }
+
+        const originalTrigger = window.CabinetInput.trigger;
+        window.CabinetInput.trigger = function (buttonId, actionFn) {
+            verifyButtonDebounce(buttonId);
+            return originalTrigger.call(this, buttonId, actionFn);
+        };
+        log('SYSTEM', 'CabinetInput verifier patches installed.');
+    }
+
+    function monitorStateTransitions() {
+        if (!window.CabinetState) {
+            window.CabinetClock.delayTicks(10, monitorStateTransitions);
+            return;
+        }
+
+        let lastGameState = null;
+        window.CabinetState.subscribe((snapshot) => {
+            const state = snapshot.machine?.gameState || null;
+            const locked = snapshot.presentation?.locked || false;
+            if (state !== lastGameState) {
+                log('STATE_TRANSITION', `Game state transitioned from ${lastGameState} to ${state}. Presentation locked: ${locked}`);
+                
+                if ((state === 'deal' || state === 'draw' || state === 'doubleup') && !locked) {
+                    log('ERROR', `State transition assertion failed! State is ${state} but presentation is not locked!`);
+                }
+                
+                lastGameState = state;
+            }
+        });
+        log('SYSTEM', 'State transition verifier installed.');
+    }
+
+    function getReport() {
+        return {
+            totalLogs: logs.length,
+            errors: stats.errors,
+            buttonTaps: stats.buttonTaps,
+            status: stats.errors.length === 0 ? 'PASS' : 'FAIL'
+        };
+    }
+
+    return {
+        init: function () {
+            startObserving();
+            installInputVerifier();
+            monitorStateTransitions();
+        },
+        getReport,
+        getLogs: () => logs
+    };
+})();
+
 document.addEventListener('DOMContentLoaded', function () {
     if (window.CabinetOrchestrator) {
         window.CabinetOrchestrator.install();
+    }
+    if (window.CabinetVerification) {
+        window.CabinetVerification.init();
     }
 });

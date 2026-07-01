@@ -61,10 +61,14 @@ window.CabinetPace = (function () {
     }
 
     function _setTimer(fn, ms) {
-        const id = setTimeout(() => {
-            _timers.delete(id);
-            fn();
-        }, ms);
+        const id = {};
+        const cancel = window.CabinetClock.delayMs(ms, () => {
+            if (_timers.has(id)) {
+                _timers.delete(id);
+                fn();
+            }
+        });
+        id.cancel = cancel;
         _timers.add(id);
         return id;
     }
@@ -72,14 +76,16 @@ window.CabinetPace = (function () {
     function _cancelElementAnimation(element) {
         if (!element) return;
         const active = _activeAnimations.get(element);
-        if (active && active.rafId) cancelAnimationFrame(active.rafId);
+        if (active && active.tickHandler) {
+            window.CabinetClock.unregisterHandler(active.tickHandler);
+        }
         _activeAnimations.delete(element);
     }
 
     /* ── countUp ─────────────────────────────────────────────────────────── */
     /**
      * Animate a numeric element from startValue to endValue over durationMs.
-     * Uses requestAnimationFrame. Sets element.textContent.
+     * Uses CabinetClock tick handlers. Sets element.textContent.
      * @param {HTMLElement} element
      * @param {number} startValue
      * @param {number} endValue
@@ -99,29 +105,29 @@ window.CabinetPace = (function () {
             return;
         }
 
-        const start = performance.now();
         const range = endNum - startNum;
+        const totalTicks = window.CabinetClock.msToTicks(duration);
+        let elapsedTicks = 0;
 
-        function step(now) {
-            const currentAnim = _activeAnimations.get(element);
-            if (!currentAnim) return;
-            const elapsed = now - start;
-            const progress = Math.min(elapsed / duration, 1);
+        const tickHandler = function(tickCount) {
+            elapsedTicks++;
+            const progress = Math.min(elapsedTicks / totalTicks, 1);
             // ease-out cubic
             const ease = 1 - Math.pow(1 - progress, 3);
             const current = Math.round(startNum + range * ease);
             element.textContent = _fmt.format(current);
-            if (progress < 1) {
-                currentAnim.rafId = requestAnimationFrame(step);
-            } else {
-                element.textContent = _fmt.format(endNum);
+
+            if (progress >= 1) {
+                window.CabinetClock.unregisterHandler(tickHandler);
                 _activeAnimations.delete(element);
+                element.textContent = _fmt.format(endNum);
                 if (onComplete) onComplete();
             }
-        }
+        };
 
-        const animState = { rafId: requestAnimationFrame(step) };
+        const animState = { tickHandler };
         _activeAnimations.set(element, animState);
+        window.CabinetClock.registerHandler(tickHandler);
     }
 
     /* ── collectWin ──────────────────────────────────────────────────────── */
@@ -238,7 +244,11 @@ window.CabinetPace = (function () {
     }
 
     function stopAll() {
-        _timers.forEach((id) => clearTimeout(id));
+        _timers.forEach((id) => {
+            if (typeof id.cancel === 'function') {
+                id.cancel();
+            }
+        });
         _timers.clear();
         _activeAnimations = new WeakMap();
     }

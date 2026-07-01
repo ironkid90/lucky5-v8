@@ -92,6 +92,7 @@ let adminUsers = [];
 let adminAgents = [];
 let adminMachines = [];
 let lucky5FlashResetTimer = null;
+let duCallToken = null;
 
 // ── 1. ENGINE BOOTSTRAP ───────────────────────────────────────────────────
 // Local aliases so engine logic never hard-codes variant-specific values.
@@ -170,7 +171,7 @@ const buttonFiles = [
                 const loader = document.getElementById('asset-loader');
                 if (loader) {
                     loader.classList.add('done');
-                    setTimeout(() => { loader.style.display = 'none'; }, 500);
+                    CabinetClock.delayMs(500, () => { loader.style.display = 'none'; });
                 }
                 resolve();
             }
@@ -261,7 +262,7 @@ function renderDealStage(cardData, onComplete) {
     }
     renderCards(cardData, true);
     if (onComplete) {
-        setTimeout(onComplete, T.dealBaseMs + (4 * T.dealStaggerMs) + T.dealAnimDurationMs + 160);
+        window.CabinetClock.delayMs(T.dealBaseMs + (4 * T.dealStaggerMs) + T.dealAnimDurationMs + 160, onComplete);
     }
 }
 
@@ -272,7 +273,7 @@ function renderDrawStage(cardData, held, onComplete) {
     }
     renderCards(cardData, false);
     if (onComplete) {
-        setTimeout(onComplete, 400);
+        window.CabinetClock.delayMs(400, onComplete);
     }
 }
 
@@ -344,7 +345,13 @@ function bindSingleButton(id, handler) {
     }
     const node = nodes[0];
     if (!node) return;
-    node.addEventListener('click', handler);
+    node.addEventListener('click', () => {
+        if (window.CabinetInput) {
+            window.CabinetInput.trigger(id, handler);
+        } else {
+            handler();
+        }
+    });
 }
 
 window.render_game_to_text = function renderGameToText() {
@@ -382,7 +389,13 @@ window.render_game_to_text = function renderGameToText() {
 };
 
 window.advanceTime = function advanceTime(ms) {
-    return new Promise(resolve => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
+    return new Promise(resolve => {
+        if (window.CabinetClock) {
+            window.CabinetClock.delayMs(ms, resolve);
+        } else {
+            setTimeout(resolve, Math.max(0, Number(ms) || 0));
+        }
+    });
 };
 
 function setActiveScreen(screenName) {
@@ -970,7 +983,7 @@ function updateWinIndicator(amount) {
     if (amount > 0) {
         el.textContent = `WIN ${formatNum(amount)}`;
         el.classList.add('growing');
-        setTimeout(() => el.classList.remove('growing'), 500);
+        window.CabinetClock.delayMs(500, () => el.classList.remove('growing'));
     } else {
         el.textContent = '';
     }
@@ -1183,7 +1196,11 @@ let idleOverlayVisible = false;
 
 function clearIdleOverlayTimer() {
     if (idleOverlayTimer) {
-        clearTimeout(idleOverlayTimer);
+        if (typeof idleOverlayTimer === 'function') {
+            idleOverlayTimer();
+        } else {
+            clearTimeout(idleOverlayTimer);
+        }
         idleOverlayTimer = null;
     }
 }
@@ -1212,14 +1229,14 @@ function scheduleIdleSelectorReveal(onReveal) {
         Number(T.idleTitleHoldMs ?? T.idleOverlayAppearMs ?? 2200) || 0
     );
 
-    idleOverlayTimer = setTimeout(() => {
+    idleOverlayTimer = window.CabinetClock.delayMs(holdMs, () => {
         if (gameState === 'idle' && holdIndexes.size === 0 && !isDoubleUpMode()) {
             hideIdleOverlay();
             if (typeof onReveal === 'function') {
                 onReveal();
             }
         }
-    }, holdMs);
+    });
 }
 
 function updateIdleOverlayVisibility() {
@@ -1309,14 +1326,24 @@ function renderCards(cardData, animate) {
         slot.appendChild(cardImg);
         slot.appendChild(badge);
 
-        slot.addEventListener('click', () => toggleHold(i));
+        slot.addEventListener('click', () => {
+            const buttonId = `cab-hold-${i}`;
+            if (window.CabinetInput) {
+                window.CabinetInput.trigger(buttonId, () => {
+                    // Card click does NOT cycle jackpot rank (only physical hold button does)
+                    toggleHold(i);
+                });
+            } else {
+                toggleHold(i);
+            }
+        });
         area.appendChild(slot);
 
         if (shouldAnimate) {
-            setTimeout(() => {
+            window.CabinetClock.delayMs(T.dealBaseMs + i * T.dealStaggerMs, () => {
                 slot.classList.remove('deal-in');
                 slot.classList.add('deal-in-done');
-            }, T.dealBaseMs + i * T.dealStaggerMs);
+            });
         } else {
             slot.classList.add('deal-in-done');
         }
@@ -1487,7 +1514,11 @@ function clearLucky5Effects() {
     if (screen) screen.classList.remove('lucky5-active');
 
     if (lucky5FlashResetTimer) {
-        clearTimeout(lucky5FlashResetTimer);
+        if (typeof lucky5FlashResetTimer === 'function') {
+            lucky5FlashResetTimer();
+        } else {
+            clearTimeout(lucky5FlashResetTimer);
+        }
         lucky5FlashResetTimer = null;
     }
 }
@@ -1513,10 +1544,10 @@ function triggerLucky5Flash() {
     if (screen) {
         void screen.offsetWidth;
         screen.classList.add('lucky5-active');
-        lucky5FlashResetTimer = setTimeout(() => {
+        lucky5FlashResetTimer = window.CabinetClock.delayMs(T.lucky5FlashDurationMs, () => {
             screen.classList.remove('lucky5-active');
             lucky5FlashResetTimer = null;
-        }, T.lucky5FlashDurationMs);
+        });
     }
 }
 
@@ -1742,9 +1773,9 @@ function restoreRoundFromSnapshot(snapshot) {
         updateWinIndicator(0);
         updateWinAmountDisplay(0);
         showMessage('PLACE YOUR BET');
-        setTimeout(() => {
+        CabinetClock.delayMs(T.postLossIdleTitleMs || 2500, () => {
             if (gameState === 'idle') showIdleTitle();
-        }, T.postLossIdleTitleMs || 2500);
+        });
     }
     
     setButtonStates();
@@ -1922,9 +1953,9 @@ async function doDeal() {
                     setButtonStates();
                     updatePaytable();
                     updateWinAmountDisplay(0);
-                    setTimeout(() => {
+                    CabinetClock.delayMs(T.postLossIdleTitleMs || 2500, () => {
                         if (gameState === 'idle') showIdleTitle();
-                    }, T.postLossIdleTitleMs || 2500);
+                    });
                 }
             });
         } catch (e) {
@@ -2084,43 +2115,42 @@ function renderDoubleUpCards(dealerCard, showShuffle, challengerCard) {
 // ── 7. ANIMATION HELPERS ────────────────────────────────────────────────
 let shuffleRAF = null;
 let shuffleLastTime = 0;
+let shuffleTickHandler = null;
 
 function startShuffle() {
     stopShuffle();
-    shuffleLastTime = 0;
     const frame = document.getElementById('du-shuffle-frame');
     if (frame) frame.classList.add('du-flip-in');
 
-    function tick(ts) {
-        if (ts - shuffleLastTime >= T.shuffleFrameMs) {
-            shuffleLastTime = ts;
+    const swapIntervalTicks = CabinetClock.msToTicks(T.shuffleFrameMs || 100);
+    let elapsedTicks = 0;
+
+    shuffleTickHandler = function(tickCount) {
+        elapsedTicks++;
+        if (elapsedTicks >= swapIntervalTicks) {
+            elapsedTicks = 0;
             const f = document.querySelector('#du-shuffle-frame img');
             if (f) {
                 const frame = document.getElementById('du-shuffle-frame');
                 if (frame) {
                     frame.classList.remove('du-flip-in');
                     frame.classList.add('du-flip-out');
-                    setTimeout(() => {
+                    CabinetClock.delayTicks(4, () => {
                         f.src = randomCardSrc();
                         frame.classList.remove('du-flip-out');
                         frame.classList.add('du-flip-in');
-                    }, 60);
+                    });
                 }
             }
         }
-        shuffleRAF = requestAnimationFrame(tick);
-    }
-    shuffleRAF = requestAnimationFrame(tick);
+    };
+    CabinetClock.registerHandler(shuffleTickHandler);
 }
 
 function stopShuffle() {
-    if (shuffleRAF) {
-        cancelAnimationFrame(shuffleRAF);
-        shuffleRAF = null;
-    }
-    if (shuffleInterval) {
-        clearInterval(shuffleInterval);
-        shuffleInterval = null;
+    if (shuffleTickHandler) {
+        CabinetClock.unregisterHandler(shuffleTickHandler);
+        shuffleTickHandler = null;
     }
 }
 
@@ -2182,14 +2212,17 @@ async function doDoubleUp(guess) {
     if (shuffleImg) shuffleImg.src = CARD_BACK_SRC;
     stopShuffle();
 
+    const myToken = {};
+    duCallToken = myToken;
+
     try {
         const result = await apiCall('POST', GAME_CONFIG.api.duGuess, { roundId, guess });
         const challengerLabel = String(guess || '').trim().toUpperCase();
 
         // Reveal phase: show the challenger card and outcome.
-        // This delay simulates the physical card flip on old hardware —
-        // the player sees the result before anything else happens.
-        setTimeout(() => {
+        CabinetClock.delayMs(T.duRevealDelayMs, () => {
+            if (duCallToken !== myToken) return;
+
             syncDoubleUpPanelState(result, { preserveMultiplier: true });
             renderDoubleUpCards(duDealerCard, false, result.challengerCard, {
                 challengerLabel,
@@ -2215,7 +2248,8 @@ async function doDoubleUp(guess) {
 
                 // Hold the revealed card visible for a moment (like a real machine),
                 // then advance to the next shuffle slot.
-                setTimeout(() => {
+                CabinetClock.delayMs(T.duWinHoldMs, () => {
+                    if (duCallToken !== myToken) return;
                     if (gameState === 'doubleup') {
                         duCardTrail.push({ card: result.challengerCard, label: challengerLabel });
                         duDealerCard = result.dealerCard;
@@ -2225,7 +2259,7 @@ async function doDoubleUp(guess) {
                         updatePaytable(currentHandRank);
                         setButtonStates();
                     }
-                }, T.duWinHoldMs);
+                });
             } else if (result.status === 'SafeFail') {
                 roundDoubleUpAvailable = false;
                 triggerLucky5Flash();
@@ -2244,18 +2278,18 @@ async function doDoubleUp(guess) {
                 duSessionStarted = false;
                 resetDoubleUpPanelState();
                 clearLucky5Effects();
-                setTimeout(async () => {
+                CabinetClock.delayMs(T.drainDelayMs, async () => {
+                    if (duCallToken !== myToken) return;
                     await animateDrainToCredits(safeAmount, balance, collectHandRank);
+                    if (duCallToken !== myToken) return;
                     syncMachineCreditsFromResponse(result);
                     await fetchMachineSession();
                     refreshIdleMachineState();
-                }, T.drainDelayMs);
+                });
             } else if (result.status === 'MachineClosed') {
                 roundDoubleUpAvailable = false;
                 const closedAmount = result.currentAmount;
                 const collectHandRank = duHighlightHandRank || currentHandRank;
-                // The backend returns settled machine credits in WalletBalance.
-                // The DU winnings (closedAmount) need to drain from the display into credits.
                 const settledMachineCredits = Number(result.walletBalance ?? balance);
                 balance = settledMachineCredits - closedAmount;
                 updateCredits();
@@ -2268,12 +2302,11 @@ async function doDoubleUp(guess) {
                 resetDoubleUpPanelState();
                 clearLucky5Effects();
 
-                // Auto-siphon: drain the DU winnings into machine credits.
-                // No player input needed — the machine does this automatically.
-                // After drain completes, auto cash-out to wallet.
                 machineSessionClosed = true;
                 (async () => {
+                    if (duCallToken !== myToken) return;
                     await animateDrainToCredits(closedAmount, balance, collectHandRank);
+                    if (duCallToken !== myToken) return;
                     balance = settledMachineCredits;
                     updateCredits();
                     syncMachineCreditsFromResponse(result);
@@ -2306,25 +2339,33 @@ async function doDoubleUp(guess) {
                     const collectHandRank = duHighlightHandRank || currentHandRank;
                     const preLossCredits = Math.max(0, balance);
                     updatePaytable(collectHandRank);
-                    setTimeout(async () => {
+                    CabinetClock.delayMs(T.duLoseRevealMs, async () => {
+                        if (duCallToken !== myToken) return;
                         await animateReverseDrain(lossAmount, preLossCredits, collectHandRank);
+                        if (duCallToken !== myToken) return;
                         updateWinIndicator(0);
                         updateWinAmountDisplay(0);
                         updatePaytable();
                         exitDoubleUp();
-                    }, T.duLoseRevealMs);
+                    });
                 } else {
                     updateWinIndicator(0);
                     updateWinAmountDisplay(0);
                     updatePaytable();
-                    setTimeout(() => exitDoubleUp(), T.exitDuLoseMs);
+                    CabinetClock.delayMs(T.exitDuLoseMs, () => {
+                        if (duCallToken !== myToken) return;
+                        exitDoubleUp();
+                    });
                 }
             }
             setButtonStates();
-        }, T.duRevealDelayMs);
+        });
     } catch (e) {
         showMessage(e.message, 'lose');
-        setTimeout(() => exitDoubleUp(), T.exitDuCatchMs);
+        CabinetClock.delayMs(T.exitDuCatchMs, () => {
+            if (duCallToken !== myToken) return;
+            exitDoubleUp();
+        });
     }
 }
 
@@ -2348,7 +2389,7 @@ function showBoardBonusPopup(handRank, bonusAmount, duWinAmount) {
     highlightPaytableDU(handRank, bonusAmount);
 
     // After the overlay displays, drain the bonus into credits
-    setTimeout(() => {
+    const startOverlayDrain = () => {
         if (bonusEl) bonusEl.classList.remove('visible');
 
         // Animate the board bonus draining into credits
@@ -2358,12 +2399,13 @@ function showBoardBonusPopup(handRank, bonusAmount, duWinAmount) {
         const msgEl = document.getElementById('game-message');
 
         const duration = Math.min(3000, Math.max(800, bonusAmount / 500000 * 2000));
-        let startTime = null;
 
-        function frame(ts) {
-            if (!startTime) startTime = ts;
-            const elapsed = ts - startTime;
-            const progress = Math.min(elapsed / duration, 1);
+        const totalTicks = CabinetClock.msToTicks(duration);
+        let elapsedTicks = 0;
+
+        const tickHandler = function(tickCount) {
+            elapsedTicks++;
+            const progress = Math.min(elapsedTicks / totalTicks, 1);
             const ease = 1 - Math.pow(1 - progress, 3);
             const credited = Math.floor(bonusAmount * ease);
             const remaining = bonusAmount - credited;
@@ -2376,21 +2418,23 @@ function showBoardBonusPopup(handRank, bonusAmount, duWinAmount) {
                 msgEl.className = 'win';
             }
 
-            if (progress < 1) {
-                requestAnimationFrame(frame);
-            } else {
+            if (progress >= 1) {
+                CabinetClock.unregisterHandler(tickHandler);
                 syncMachineCreditsFromResponse({ machineCredits: balance });
                 updateWinIndicator(duWinAmount);
                 updateWinAmountDisplay(duWinAmount, getFourOfAKindSlotTag(currentHandRank));
                 showMessage(`WIN ${formatNum(duWinAmount)} + ${formatNum(bonusAmount)} BOARD BONUS`, 'win');
             }
-        }
+        };
 
-        requestAnimationFrame(frame);
-    }, 2500);
+        CabinetClock.registerHandler(tickHandler);
+    };
+
+    CabinetClock.delayMs(2500, startOverlayDrain);
 }
 
 function exitDoubleUp() {
+    duCallToken = null;
     stopShuffle();
     hideDuInfo();
     if (hasCabinetStage()) CabinetStage.exitDoubleUp();
@@ -2447,11 +2491,13 @@ function animateJackpotFill(amount, startBalance, handName) {
 
         // Pre-win counter value equals the full amount won (entire jackpot is awarded).
         const jackpotStart = amount;
-        let startTime = null;
 
-        function frame(ts) {
-            if (!startTime) startTime = ts;
-            const progress = Math.min((ts - startTime) / duration, 1);
+        const totalTicks = CabinetClock.msToTicks(duration);
+        let elapsedTicks = 0;
+
+        const tickHandler = function(tickCount) {
+            elapsedTicks++;
+            const progress = Math.min(elapsedTicks / totalTicks, 1);
             const credited = Math.floor(amount * progress);
             balance = startBalance + credited;
             if (creditsSpan) creditsSpan.textContent = formatNum(balance);
@@ -2464,15 +2510,14 @@ function animateJackpotFill(amount, startBalance, handName) {
                 const current = Math.max(resetValue, jackpotStart - credited);
                 counterEl.textContent = formatNum(current);
             }
-            if (progress < 1) {
-                requestAnimationFrame(frame);
-            } else {
+            if (progress >= 1) {
+                CabinetClock.unregisterHandler(tickHandler);
                 if (winEl) winEl.textContent = '';
                 resolve();
             }
-        }
+        };
 
-        requestAnimationFrame(frame);
+        CabinetClock.registerHandler(tickHandler);
     });
 }
 
@@ -2491,20 +2536,20 @@ function animateDrainToCredits(amount, startBalance, handRank = null) {
         const msgEl = $('#game-message');
         const payRow = handRank ? document.querySelector(`.pay-row[data-hand="${handRank}"]`) : null;
         const payAmountEl = payRow ? payRow.querySelector('.pay-amount') : null;
-        let startTime = null;
-        let lastTickToggle = 0;
 
         if (payRow) {
             payRow.classList.remove('active');
             payRow.classList.add('du-highlight');
         }
 
-        function frame(ts) {
-            if (!startTime) startTime = ts;
-            const elapsed = ts - startTime;
-            const rawProgress = Math.min(elapsed / totalDuration, 1);
-            // ease-out cubic so the drain starts fast and slows as it finishes
-            const ease = 1 - Math.pow(1 - rawProgress, 3);
+        const totalTicks = CabinetClock.msToTicks(totalDuration);
+        let elapsedTicks = 0;
+        let lastTickToggle = 0;
+
+        const tickHandler = function(tickCount) {
+            elapsedTicks++;
+            const progress = Math.min(elapsedTicks / totalTicks, 1);
+            const ease = 1 - Math.pow(1 - progress, 3);
             const drained = Math.floor(amount * ease);
             const remaining = amount - drained;
 
@@ -2516,8 +2561,9 @@ function animateDrainToCredits(amount, startBalance, handRank = null) {
             if (winAmountEl) winAmountEl.textContent = remaining > 0 ? formatNum(remaining) : '';
             if (payAmountEl) payAmountEl.textContent = remaining > 0 ? formatNum(remaining) : '0';
 
-            if (ts - lastTickToggle > T.creditTickMs) {
-                lastTickToggle = ts;
+            const toggleTicks = CabinetClock.msToTicks(T.creditTickMs || 30);
+            if (elapsedTicks - lastTickToggle >= toggleTicks) {
+                lastTickToggle = elapsedTicks;
                 creditsEl.classList.toggle('credit-ticking');
                 if (payRow) {
                     payRow.classList.toggle('du-highlight');
@@ -2535,9 +2581,8 @@ function animateDrainToCredits(amount, startBalance, handRank = null) {
                 msgEl.className = 'win';
             }
 
-            if (rawProgress < 1) {
-                requestAnimationFrame(frame);
-            } else {
+            if (progress >= 1) {
+                CabinetClock.unregisterHandler(tickHandler);
                 balance = startBalance + amount;
                 updateCredits();
                 if (winEl) winEl.textContent = '';
@@ -2548,9 +2593,9 @@ function animateDrainToCredits(amount, startBalance, handRank = null) {
                 updatePaytable();
                 resolve();
             }
-        }
+        };
 
-        requestAnimationFrame(frame);
+        CabinetClock.registerHandler(tickHandler);
     });
 }
 
@@ -2569,26 +2614,22 @@ function animateReverseDrain(amount, startBalance, handRank = null) {
         const msgEl = $('#game-message');
         const payRow = handRank ? document.querySelector(`.pay-row[data-hand="${handRank}"]`) : null;
         const payAmountEl = payRow ? payRow.querySelector('.pay-amount') : null;
-        let startTime = null;
-        let lastTickToggle = 0;
 
         if (payRow) {
             payRow.classList.remove('active');
             payRow.classList.add('du-highlight');
         }
 
-        function frame(ts) {
-            if (!startTime) startTime = ts;
-            const elapsed = ts - startTime;
-            const rawProgress = Math.min(elapsed / totalDuration, 1);
-            const ease = 1 - Math.pow(1 - rawProgress, 3);
+        const totalTicks = CabinetClock.msToTicks(totalDuration);
+        let elapsedTicks = 0;
+
+        const tickHandler = function(tickCount) {
+            elapsedTicks++;
+            const progress = Math.min(elapsedTicks / totalTicks, 1);
+            const ease = 1 - Math.pow(1 - progress, 3);
             const drained = Math.floor(amount * ease);
             const remaining = amount - drained;
 
-            // Base CREDITS meter remains UNCHANGED during loss siphon
-            // Do NOT update creditsSpan — it stays perfectly stable
-
-            // Win amount display counts DOWN simultaneously
             if (winAmountEl) winAmountEl.textContent = remaining > 0 ? formatNum(remaining) : '';
             if (payAmountEl) payAmountEl.textContent = remaining > 0 ? formatNum(remaining) : '0';
 
@@ -2603,10 +2644,8 @@ function animateReverseDrain(amount, startBalance, handRank = null) {
                 msgEl.className = 'lose';
             }
 
-            if (rawProgress < 1) {
-                requestAnimationFrame(frame);
-            } else {
-                // Restore balance to original startBalance (no subtraction)
+            if (progress >= 1) {
+                CabinetClock.unregisterHandler(tickHandler);
                 balance = startBalance;
                 updateCredits();
                 if (winEl) winEl.textContent = '';
@@ -2615,9 +2654,9 @@ function animateReverseDrain(amount, startBalance, handRank = null) {
                 updatePaytable();
                 resolve();
             }
-        }
+        };
 
-        requestAnimationFrame(frame);
+        CabinetClock.registerHandler(tickHandler);
     });
 }
 
@@ -2729,7 +2768,7 @@ async function mainTakeHalf() {
                 gameState = 'win';
                 setButtonStates();
                 if (!machineSessionClosed) {
-                    setTimeout(() => {
+                    CabinetClock.delayMs(T.takeHalfContinueMs, () => {
                         if (gameState === 'win') {
                             if (roundDoubleUpAvailable) {
                                 startDoubleUpFlow();
@@ -2738,7 +2777,7 @@ async function mainTakeHalf() {
                                 setButtonStates();
                             }
                         }
-                    }, T.takeHalfContinueMs);
+                    });
                 }
             }
         }
@@ -3523,26 +3562,51 @@ document.addEventListener('DOMContentLoaded', () => {
     $$('.cab-hold').forEach(btn => {
         btn.addEventListener('click', () => {
             const idx = parseInt(btn.dataset.index);
-            if (idx === 0 && canAdjustJackpotRank()) {
-                cycleJackpotRank();
-                return;
+            const buttonId = `cab-hold-${idx}`;
+            if (window.CabinetInput) {
+                window.CabinetInput.trigger(buttonId, () => {
+                    if (idx === 0 && canAdjustJackpotRank()) {
+                        cycleJackpotRank();
+                        return;
+                    }
+                    toggleHold(idx);
+                });
+            } else {
+                if (idx === 0 && canAdjustJackpotRank()) {
+                    cycleJackpotRank();
+                    return;
+                }
+                toggleHold(idx);
             }
-            toggleHold(idx);
         });
     });
 
     $('#btn-big').addEventListener('click', () => {
-        if (gameState === 'win') {
-            startDoubleUpFlow();
-        } else if (gameState === 'doubleup') {
-            doDoubleUp('Big');
+        const handler = () => {
+            if (gameState === 'win') {
+                startDoubleUpFlow();
+            } else if (gameState === 'doubleup') {
+                doDoubleUp('Big');
+            }
+        };
+        if (window.CabinetInput) {
+            window.CabinetInput.trigger('btn-big', handler);
+        } else {
+            handler();
         }
     });
     $('#btn-small').addEventListener('click', () => {
-        if (gameState === 'win') {
-            startDoubleUpFlow();
-        } else if (gameState === 'doubleup') {
-            doDoubleUp('Small');
+        const handler = () => {
+            if (gameState === 'win') {
+                startDoubleUpFlow();
+            } else if (gameState === 'doubleup') {
+                doDoubleUp('Small');
+            }
+        };
+        if (window.CabinetInput) {
+            window.CabinetInput.trigger('btn-small', handler);
+        } else {
+            handler();
         }
     });
 

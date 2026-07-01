@@ -52,13 +52,13 @@ window.CabinetTransition = (function () {
             // keep planner alive even if a visual step fails
         }
 
-        currentTimer = setTimeout(() => {
+        currentTimer = window.CabinetClock.delayMs(durationMs, () => {
             currentTimer = null;
             CabinetState.updatePresentation({
                 frame: CabinetState.get().presentation.frame + Math.max(1, Number(step.frames || 0))
             });
             _next();
-        }, durationMs);
+        });
     }
 
     function enqueue(steps) {
@@ -72,7 +72,11 @@ window.CabinetTransition = (function () {
 
     function flush() {
         if (currentTimer) {
-            clearTimeout(currentTimer);
+            if (typeof currentTimer === 'function') {
+                currentTimer();
+            } else {
+                clearTimeout(currentTimer);
+            }
             currentTimer = null;
         }
         queue.length = 0;

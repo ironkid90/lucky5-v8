@@ -39,11 +39,13 @@ window.CabinetStage = (function () {
     }
 
     let _config = _resolveConfig();
-    let _shuffleInterval = null;
     let _isDoubleUpMode = false;
-    let _lucky5Timer = null;
     let _duTrailCards = [];
     let _duDealerCard = null;
+    let _activeDealToken = null;
+    let _activeDrawToken = null;
+    let _activeShuffleToken = null;
+    let _lucky5Token = null;
 
     function _normalizeSuit(value) {
         if (!value) return '';
@@ -117,22 +119,22 @@ window.CabinetStage = (function () {
     }
 
     function _animateRAF(duration, easingFn, onFrame, onComplete) {
-        let start = null;
-        function frame(time) {
-            if (!start) start = time;
-            let progress = (time - start) / duration;
-            if (progress > 1) progress = 1;
-            
+        const totalTicks = window.CabinetClock.msToTicks(duration);
+        let elapsedTicks = 0;
+
+        const tickHandler = function(tickCount) {
+            elapsedTicks++;
+            const progress = Math.min(elapsedTicks / totalTicks, 1);
             const eased = easingFn(progress);
             onFrame(eased);
-            
-            if (progress < 1) {
-                requestAnimationFrame(frame);
-            } else if (onComplete) {
-                onComplete();
+
+            if (progress >= 1) {
+                window.CabinetClock.unregisterHandler(tickHandler);
+                if (onComplete) onComplete();
             }
-        }
-        requestAnimationFrame(frame);
+        };
+
+        window.CabinetClock.registerHandler(tickHandler);
     }
 
     function _setFaceDiagnostic(slotEl, hasError, reason) {
@@ -283,11 +285,7 @@ window.CabinetStage = (function () {
     // _setButtonBackground and _buttonAsset removed to allow pure CSS buttons
 
     function _stopShuffle() {
-        if (_shuffleInterval) {
-            clearInterval(_shuffleInterval);
-            _shuffleInterval = null;
-        }
-
+        _activeShuffleToken = null;
         document.querySelectorAll('.du-card-slot.du-shuffling').forEach(slotEl => {
             slotEl.classList.remove('du-shuffling');
         });
@@ -488,9 +486,16 @@ window.CabinetStage = (function () {
         slotEl.classList.add('du-shuffling');
 
         const frameMs = Math.max(60, Number(_config.shuffleFrameMs) || 80);
+        const frameTicks = window.CabinetClock.msToTicks(frameMs);
         const frameEl = _duFrame(slotEl);
         let lastCode = '';
-        _shuffleInterval = setInterval(() => {
+
+        const currentShuffleToken = {};
+        _activeShuffleToken = currentShuffleToken;
+
+        function runShuffleStep() {
+            if (_activeShuffleToken !== currentShuffleToken) return;
+
             const code = _pickShuffleCode(codes, lastCode);
             lastCode = code;
 
@@ -499,15 +504,22 @@ window.CabinetStage = (function () {
                 frameEl.classList.add('du-flip-out');
             }
 
-            setTimeout(() => {
+            const halfMs = Math.min(60, Math.max(30, Math.round(frameMs * 0.45)));
+            window.CabinetClock.delayMs(halfMs, () => {
+                if (_activeShuffleToken !== currentShuffleToken) return;
+
                 img.innerHTML = _renderDomCard(_asCard(code));
 
                 if (frameEl) {
                     frameEl.classList.remove('du-flip-out');
                     frameEl.classList.add('du-flip-in');
                 }
-            }, Math.min(60, Math.max(30, Math.round(frameMs * 0.45))));
-        }, frameMs);
+            });
+
+            window.CabinetClock.delayTicks(frameTicks, runShuffleStep);
+        }
+
+        runShuffleStep();
     }
 
     function configure(overrides) {
@@ -594,6 +606,9 @@ window.CabinetStage = (function () {
         const stagger = Math.max(40, Number(_config.dealStaggerMs) || 100);
         const duration = Math.max(80, Number(_config.dealDurationMs) || 120);
 
+        const dealToken = {};
+        _activeDealToken = dealToken;
+
         cards.forEach((card, i) => {
             const slotEl = _slot(i);
             const img = _cardImg(slotEl);
@@ -601,31 +616,44 @@ window.CabinetStage = (function () {
 
             _resetMainSlot(slotEl);
             _applyCardFace(slotEl, img, card, { requireFace: true });
-            slotEl.style.transform = 'translateX(-30cqw) scale(0.95)';
+            slotEl.style.transform = 'translateY(-120%)';
             slotEl.style.opacity = '0';
         });
 
-        setTimeout(() => requestAnimationFrame(() => {
+        window.CabinetClock.delayMs(baseDelay, () => {
+            if (_activeDealToken !== dealToken) return;
+
+            let completedCount = 0;
             cards.forEach((card, i) => {
-                setTimeout(() => {
+                window.CabinetClock.delayMs(i * stagger, () => {
+                    if (_activeDealToken !== dealToken) return;
+
                     const slotEl = _slot(i);
-                    if (!slotEl) return;
+                    if (!slotEl) {
+                        completedCount++;
+                        if (completedCount === cards.length && onComplete) {
+                            window.CabinetClock.delayMs(40, onComplete);
+                        }
+                        return;
+                    }
 
                     _animateRAF(duration, p => 1 - Math.pow(1 - p, 3), eased => {
-                        const x = -30 * (1 - eased);
-                        const s = 0.95 + (0.05 * eased);
-                        slotEl.style.transform = `translateX(${x}cqw) scale(${s})`;
+                        if (_activeDealToken !== dealToken) return;
+                        const y = -120 * (1 - eased);
+                        slotEl.style.transform = `translateY(${y}%)`;
                         slotEl.style.opacity = eased;
                     }, () => {
-                        slotEl.style.transform = 'translateX(0) scale(1)';
+                        if (_activeDealToken !== dealToken) return;
+                        slotEl.style.transform = 'translateY(0)';
                         slotEl.style.opacity = '1';
-                        if (i === cards.length - 1 && onComplete) {
-                            setTimeout(onComplete, 40);
+                        completedCount++;
+                        if (completedCount === cards.length && onComplete) {
+                            window.CabinetClock.delayMs(40, onComplete);
                         }
                     });
-                }, i * stagger);
+                });
             });
-        }), baseDelay);
+        });
     }
 
     function drawCards(newCardArray, heldIndexes, onComplete) {
@@ -635,12 +663,22 @@ window.CabinetStage = (function () {
 
         const held = new Set(Array.isArray(heldIndexes) ? heldIndexes : Array.from(heldIndexes || []));
         const cards = Array.isArray(newCardArray) ? newCardArray.map(_asCard) : [];
+
+        const drawToken = {};
+        _activeDrawToken = drawToken;
+
         let pending = 0;
 
         const outMs = Math.max(40, Number(_config.drawOutMs) || 60);
         const inMs = Math.max(60, Number(_config.drawInMs) || 80);
         const staggerMs = Math.max(20, Number(_config.drawStaggerMs) || 40);
         const revealStartMs = Math.max(0, Number(_config.drawRevealStartMs) || 0);
+
+        cards.forEach((card, i) => {
+            if (!held.has(i)) {
+                pending++;
+            }
+        });
 
         cards.forEach((card, i) => {
             const slotEl = _slot(i);
@@ -659,22 +697,26 @@ window.CabinetStage = (function () {
                 return;
             }
 
-            pending++;
             slotEl.classList.remove('held');
 
-            setTimeout(() => {
+            window.CabinetClock.delayMs(revealStartMs + (i * staggerMs), () => {
+                if (_activeDrawToken !== drawToken) return;
+
                 if (face) {
                     face.style.transition = `transform ${outMs}ms ease-in`;
                     face.style.transform = 'rotateY(90deg)';
                 }
 
-                setTimeout(() => {
+                window.CabinetClock.delayMs(outMs, () => {
+                    if (_activeDrawToken !== drawToken) return;
+
                     _applyCardFace(slotEl, img, card, { requireFace: true });
 
                     if (face) {
                         face.style.transition = 'none';
                         face.style.transform = 'rotateY(-90deg)';
-                        requestAnimationFrame(() => {
+                        CabinetClock.delayTicks(1, () => {
+                            if (_activeDrawToken !== drawToken) return;
                             face.style.transition = `transform ${inMs}ms ease-out`;
                             face.style.transform = 'rotateY(0)';
                         });
@@ -684,8 +726,8 @@ window.CabinetStage = (function () {
                     if (pending === 0 && onComplete) {
                         onComplete();
                     }
-                }, outMs);
-            }, revealStartMs + (i * staggerMs));
+                });
+            });
         });
 
         if (pending === 0 && onComplete) {
@@ -778,18 +820,30 @@ window.CabinetStage = (function () {
 
     function showLucky5Active() {
         const banner = document.getElementById('lucky5-banner');
+        const currentToken = {};
+        _lucky5Token = currentToken;
+
+        const duration = Math.max(200, Number(_config.lucky5ActiveMs) || 700);
+
         if (banner) {
             banner.classList.add('active');
-            if (_lucky5Timer) clearTimeout(_lucky5Timer);
-            _lucky5Timer = setTimeout(() => {
-                banner.classList.remove('active');
-                _lucky5Timer = null;
-            }, Math.max(200, Number(_config.lucky5ActiveMs) || 700));
         }
 
         document.querySelectorAll('.card-slot, .du-card-slot').forEach(slotEl => {
             slotEl.classList.add('lucky5-active');
-            setTimeout(() => slotEl.classList.remove('lucky5-active'), Math.max(200, Number(_config.lucky5ActiveMs) || 700));
+        });
+
+        window.CabinetClock.delayMs(duration, () => {
+            if (_lucky5Token !== currentToken) return;
+
+            if (banner) {
+                banner.classList.remove('active');
+            }
+
+            document.querySelectorAll('.card-slot, .du-card-slot').forEach(slotEl => {
+                slotEl.classList.remove('lucky5-active');
+            });
+            _lucky5Token = null;
         });
     }
 

@@ -63,7 +63,7 @@ const GAME_CONFIG = Object.freeze({
         // Cards drop from above one at a time, like a mechanical dealer.
         // Each card has visible travel + settle time.
         dealBaseMs:           60,  // pause before first card lands (cabinet "thunk")
-        dealStaggerMs:        350, // AI9 parity guide target
+        dealStaggerMs:        475, // AI9 parity guide target (475ms calibrated stagger)
         dealAnimDurationMs:   120,  // slide/flip settle time per card (visible motion)
 
         // Draw animation (re-dealing only non-held cards)

@@ -1,0 +1,132 @@
+{
+	"hooks": {
+		"ConfigChange": [
+			{
+				"type": "command"
+			}
+		],
+		"CwdChanged": [
+			{
+				"type": "command"
+			}
+		],
+		"Elicitation": [
+			{
+				"type": "command"
+			}
+		],
+		"ElicitationResult": [
+			{
+				"type": "command"
+			}
+		],
+		"FileChanged": [
+			{
+				"type": "command"
+			}
+		],
+		"InstructionsLoaded": [
+			{
+				"type": "command"
+			}
+		],
+		"Notification": [
+			{
+				"type": "command"
+			}
+		],
+		"PermissionRequest": [
+			{
+				"type": "command"
+			}
+		],
+		"PostCompact": [
+			{
+				"type": "command"
+			}
+		],
+		"PostToolUse": [
+			{
+				"type": "command"
+			}
+		],
+		"PostToolUseFailure": [
+			{
+				"type": "command"
+			}
+		],
+		"PreCompact": [
+			{
+				"type": "command"
+			}
+		],
+		"PreToolUse": [
+			{
+				"type": "command"
+			}
+		],
+		"SessionEnd": [
+			{
+				"type": "command"
+			}
+		],
+		"SessionStart": [
+			{
+				"type": "command"
+			}
+		],
+		"Stop": [
+			{
+				"type": "command"
+			}
+		],
+		"StopFailure": [
+			{
+				"type": "command"
+			}
+		],
+		"SubagentStart": [
+			{
+				"type": "command"
+			}
+		],
+		"SubagentStop": [
+			{
+				"type": "command"
+			}
+		],
+		"TaskCompleted": [
+			{
+				"type": "command"
+			}
+		],
+		"TaskCreated": [
+			{
+				"type": "command"
+			}
+		],
+		"TeammateIdle": [
+			{
+				"type": "command"
+			}
+		],
+		"UserPromptSubmit": [
+			{
+				"type": "command"
+			},
+			{
+				"type": "command"
+			}
+		],
+		"WorktreeCreate": [
+			{
+				"type": "command"
+			}
+		],
+		"WorktreeRemove": [
+			{
+				"type": "command"
+			}
+		]
+	}
+}
