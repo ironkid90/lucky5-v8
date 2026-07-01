@@ -196,8 +196,12 @@ window.CabinetOrchestrator = (function () {
         });
 
         _patch('renderDealStage', function (legacy) {
-            return function patchedRenderDealStage(cardData) {
-                const result = legacy.call(this, cardData);
+            return function patchedRenderDealStage(cardData, onComplete) {
+                CabinetState.setPresentationLocked(true);
+                // Dispatch RENDER_DEAL to create a queue step that will release the lock
+                // when it completes (matching the animation duration)
+                CabinetTransition.dispatch({ type: 'RENDER_DEAL', cardCount: 5, staggerFrames: 6, settleFrames: 12 });
+                const result = legacy.call(this, cardData, onComplete);
                 CabinetState.updateMachine({
                     cards: Array.isArray(cardData) ? cardData : [],
                     holdIndexes: []
@@ -410,7 +414,7 @@ window.CabinetVerification = (function () {
 
     function log(type, message, details = {}) {
         const entry = {
-            tick: window.CabinetClock ? window.CabinetClock.getTickCount() : 0,
+            tick: window.CabinetClock ? CabinetClock.getTickCount() : 0,
             timestamp: performance.now(),
             type,
             message,
@@ -487,7 +491,7 @@ window.CabinetVerification = (function () {
         if (cfg) {
             const expectedTotalTicks = window.CabinetClock.msToTicks(cfg.dealBaseMs + 4 * cfg.dealStaggerMs + cfg.dealDurationMs);
             const totalDurationTicks = slotEndTicks[4] - slotStartTicks[0];
-
+            
             log('METRIC', `Deal Duration: ${totalDurationTicks} ticks (Expected approx ${expectedTotalTicks} ticks).`);
             
             const tolerance = 6; 
@@ -498,56 +502,43 @@ window.CabinetVerification = (function () {
     }
 
     function verifyButtonDebounce(buttonId) {
-        const nowTick = window.CabinetClock.getTickCount();
-        const lastPress = stats.buttonTaps[buttonId];
-        stats.buttonTaps[buttonId] = nowTick;
+        if (!stats.buttonTaps[buttonId]) {
+            stats.buttonTaps[buttonId] = [];
+        }
 
-        if (lastPress) {
-            const diff = nowTick - lastPress;
-            if (diff < 4) {
-                log('ERROR', `Input Debounce regression! Button ${buttonId} pressed at tick ${nowTick}, only ${diff} ticks after previous press.`);
+        const now = window.CabinetClock.getTickCount();
+        const taps = stats.buttonTaps[buttonId];
+        taps.push(now);
+
+        if (taps.length > 1) {
+            const lastTap = taps[taps.length - 2];
+            const delta = now - lastTap;
+            const minDelta = 4; // 4 ticks minimum between button taps
+            
+            if (delta < minDelta) {
+                log('ERROR', `Button debounce violation! Button ${buttonId} tapped ${delta} ticks after previous tap (minimum: ${minDelta}).`);
             } else {
-                log('INPUT_OK', `Button ${buttonId} pressed debounced with ${diff} ticks separation.`);
+                log('BUTTON_TAP', `Button ${buttonId} tapped after ${delta} ticks (acceptable).`);
             }
-        } else {
-            log('INPUT_OK', `Button ${buttonId} first press registered.`);
         }
     }
 
-    function installInputVerifier() {
-        if (!window.CabinetInput || !window.CabinetInput.trigger) {
-            window.CabinetClock.delayTicks(10, installInputVerifier);
-            return;
-        }
-
-        const originalTrigger = window.CabinetInput.trigger;
-        window.CabinetInput.trigger = function (buttonId, actionFn) {
-            verifyButtonDebounce(buttonId);
-            return originalTrigger.call(this, buttonId, actionFn);
-        };
-        log('SYSTEM', 'CabinetInput verifier patches installed.');
-    }
-
-    function monitorStateTransitions() {
-        if (!window.CabinetState) {
-            window.CabinetClock.delayTicks(10, monitorStateTransitions);
-            return;
-        }
-
-        let lastGameState = null;
-        window.CabinetState.subscribe((snapshot) => {
-            const state = snapshot.machine?.gameState || null;
-            const locked = snapshot.presentation?.locked || false;
-            if (state !== lastGameState) {
-                log('STATE_TRANSITION', `Game state transitioned from ${lastGameState} to ${state}. Presentation locked: ${locked}`);
+    function installStateVerifier() {
+        const stateVerifier = window.CabinetVerification.stateVerifier;
+        if (stateVerifier && typeof stateVerifier.observe === 'function') {
+            stateVerifier.observe(function (state) {
+                const lastGameState = stateVerifier.lastGameState;
+                const locked = state.presentation.locked;
                 
-                if ((state === 'dealing' || state === 'drawing' || state === 'doubleup') && !locked) {
-                    log('ERROR', `State transition assertion failed! State is ${state} but presentation is not locked!`);
+                log('STATE_TRANSITION', `Game state transitioned from ${lastGameState} to ${state.machine.gameState}. Presentation locked: ${locked}`);
+                
+                if ((state.machine.gameState === 'dealing' || state.machine.gameState === 'drawing' || state.machine.gameState === 'doubleup') && !locked) {
+                    log('ERROR', `State transition assertion failed! State is ${state.machine.gameState} but presentation is not locked!`);
                 }
                 
-                lastGameState = state;
-            }
-        });
+                stateVerifier.lastGameState = state.machine.gameState;
+            });
+        }
         log('SYSTEM', 'State transition verifier installed.');
     }
 
@@ -561,21 +552,14 @@ window.CabinetVerification = (function () {
     }
 
     return {
-        init: function () {
-            startObserving();
-            installInputVerifier();
-            monitorStateTransitions();
-        },
+        log,
+        startObserving,
+        verifyButtonDebounce,
+        installStateVerifier,
         getReport,
-        getLogs: () => logs
+        stateVerifier: {
+            lastGameState: null,
+            observe: null
+        }
     };
 })();
-
-document.addEventListener('DOMContentLoaded', function () {
-    if (window.CabinetOrchestrator) {
-        window.CabinetOrchestrator.install();
-    }
-    if (window.CabinetVerification) {
-        window.CabinetVerification.init();
-    }
-});

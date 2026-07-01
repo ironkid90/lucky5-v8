@@ -46,15 +46,15 @@
 }
 
 /* Paytable: top-left, 8 rows, occupies ~0.55w width, values right-aligned.
-   In v8 720×1280: top 0%, left 0%, width ~396px (55%), height ~18%. */
+   AI9 measured: height ~0.165h (8 rows at 0.021h pitch each). */
 #paytable,
 [data-zone="paytable"] {
     position: absolute !important;
     top: 0 !important;
     left: 0 !important;
     width: 55% !important;
-    height: 18% !important;
-    min-height: 18% !important;
+    height: 16.5% !important;
+    min-height: 16.5% !important;
     padding: 0.35cqh 0.9cqw 0 0.9cqw !important;
     box-sizing: border-box !important;
     overflow: visible !important;
@@ -79,12 +79,12 @@
 
 /* Card area: 5 cards in a row, centered, spanning ~0.90w.
    AI9 measured: centers at 0.099, 0.299, 0.499, 0.699, 0.899w (0.20w pitch).
-   In v8 720×1280: top ~18.2% (y≈233), height ~18% (to ~36.2%).
-   Cards are edge-to-edge (x 13..886 of 900 = 0.014..0.985w). */
-#card-area,
-[data-zone="card-stage"] {
+   In v8 720×1280: top 0.191h (exact AI9 measurement), height 0.18h.
+   Cards are edge-to-edge (x 13..886 of 900 = 0.014..0.985w).
+   Inter-card gap ≈ 0.031w (3.1% of screen width). */
+#card-area,[data-zone="card-stage"] {
     position: absolute !important;
-    top: 18.2% !important;
+    top: 19.1% !important;
     left: 0 !important;
     width: 100% !important;
     height: 18% !important;
@@ -93,7 +93,7 @@
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    gap: 0 !important;
+    gap: 0.031cqw !important;
     overflow: visible !important;
     z-index: 12 !important;
 }

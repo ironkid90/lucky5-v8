@@ -64,6 +64,14 @@ ai9
 ./goldenpoker
 goldenpoker
 
+
+
+
+
+
+
+
+
 # ── Local workspace scratch / agent state ─────────────────────────────────────
 tmp/
 attached_assets/
@@ -95,6 +103,14 @@ copilot-instructions.md
 ${SQLITE_DB_PATH}
 $APPDATA/
 %USERPROFILE%/
+.gemini
+.gemini%/
+gemini/
+.gemini/
+.Hermes/
+Hermes/
+.hermes
+hermes
 
 # ── Logs & runtime artifacts ──────────────────────────────────────────────────
 *.log
