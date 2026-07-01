@@ -541,7 +541,7 @@ window.CabinetVerification = (function () {
             if (state !== lastGameState) {
                 log('STATE_TRANSITION', `Game state transitioned from ${lastGameState} to ${state}. Presentation locked: ${locked}`);
                 
-                if ((state === 'deal' || state === 'draw' || state === 'doubleup') && !locked) {
+                if ((state === 'dealing' || state === 'drawing' || state === 'doubleup') && !locked) {
                     log('ERROR', `State transition assertion failed! State is ${state} but presentation is not locked!`);
                 }
                 

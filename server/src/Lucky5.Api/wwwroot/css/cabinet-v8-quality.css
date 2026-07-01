@@ -452,8 +452,8 @@
    must flex-fill the height naturally. We only refine visual edges. */
 
 #card-area {
-    padding: 0.3cqh 1cqh !important;
-    gap: 0.6cqh !important;
+    padding: 0.3cqh 1.2cqh !important;
+    gap: 0.8cqh !important;
 }
 
 .card-slot {

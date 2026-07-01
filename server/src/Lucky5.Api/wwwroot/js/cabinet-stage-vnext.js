@@ -596,65 +596,53 @@ window.CabinetStage = (function () {
     }
 
     function dealCards(cardArray, onComplete) {
-        if (!_ensureMainSlots()) return;
+            if (!_ensureMainSlots()) return;
 
-        _stopShuffle();
-        clearAllHolds();
+            _stopShuffle();
+            clearAllHolds();
 
-        const cards = Array.isArray(cardArray) ? cardArray.map(_asCard) : [];
-        const baseDelay = Math.max(0, Number(_config.dealBaseMs) || 0);
-        const stagger = Math.max(40, Number(_config.dealStaggerMs) || 100);
-        const duration = Math.max(80, Number(_config.dealDurationMs) || 120);
+            const cards = Array.isArray(cardArray) ? cardArray.map(_asCard) : [];
+            const baseDelay = Math.max(0, Number(_config.dealBaseMs) || 0);
+            const stagger = Math.max(40, Number(_config.dealStaggerMs) || 100);
 
-        const dealToken = {};
-        _activeDealToken = dealToken;
+            const dealToken = {};
+            _activeDealToken = dealToken;
 
-        cards.forEach((card, i) => {
-            const slotEl = _slot(i);
-            const img = _cardImg(slotEl);
-            if (!slotEl || !img) return;
+            cards.forEach((card, i) => {
+                const slotEl = _slot(i);
+                const img = _cardImg(slotEl);
+                if (!slotEl || !img) return;
 
-            _resetMainSlot(slotEl);
-            _applyCardFace(slotEl, img, card, { requireFace: true });
-            slotEl.style.transform = 'translateY(-120%)';
-            slotEl.style.opacity = '0';
-        });
-
-        window.CabinetClock.delayMs(baseDelay, () => {
-            if (_activeDealToken !== dealToken) return;
+                _resetMainSlot(slotEl);
+                _applyCardFace(slotEl, img, card, { requireFace: true });
+                slotEl.style.transform = 'translateY(0)';
+                slotEl.style.opacity = '0';
+            });
 
             let completedCount = 0;
             cards.forEach((card, i) => {
-                window.CabinetClock.delayMs(i * stagger, () => {
+                if (_activeDealToken !== dealToken) return;
+
+                window.CabinetClock.delayMs(baseDelay + (i * stagger), () => {
                     if (_activeDealToken !== dealToken) return;
 
                     const slotEl = _slot(i);
                     if (!slotEl) {
                         completedCount++;
                         if (completedCount === cards.length && onComplete) {
-                            window.CabinetClock.delayMs(40, onComplete);
+                            window.CabinetClock.delayMs(20, onComplete);
                         }
                         return;
                     }
 
-                    _animateRAF(duration, p => 1 - Math.pow(1 - p, 3), eased => {
-                        if (_activeDealToken !== dealToken) return;
-                        const y = -120 * (1 - eased);
-                        slotEl.style.transform = `translateY(${y}%)`;
-                        slotEl.style.opacity = eased;
-                    }, () => {
-                        if (_activeDealToken !== dealToken) return;
-                        slotEl.style.transform = 'translateY(0)';
-                        slotEl.style.opacity = '1';
-                        completedCount++;
-                        if (completedCount === cards.length && onComplete) {
-                            window.CabinetClock.delayMs(40, onComplete);
-                        }
-                    });
+                    slotEl.style.opacity = '1';
+                    completedCount++;
+                    if (completedCount === cards.length && onComplete) {
+                        window.CabinetClock.delayMs(20, onComplete);
+                    }
                 });
             });
-        });
-    }
+        }
 
     function drawCards(newCardArray, heldIndexes, onComplete) {
         if (!_ensureMainSlots()) return;

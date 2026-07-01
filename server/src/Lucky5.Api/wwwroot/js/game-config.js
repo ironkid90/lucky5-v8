@@ -62,9 +62,11 @@ const GAME_CONFIG = Object.freeze({
         // Main-hand deal animation
         // Cards drop from above one at a time, like a mechanical dealer.
         // Each card has visible travel + settle time.
+        // FAST DEAL (2026-06-28): Reduced stagger for snappier feel.
+        // Target: ~15% faster total deal time for more responsive gameplay.
         dealBaseMs:           60,  // pause before first card lands (cabinet "thunk")
-        dealStaggerMs:        475, // AI9 parity guide target (475ms calibrated stagger)
-        dealAnimDurationMs:   120,  // slide/flip settle time per card (visible motion)
+        dealStaggerMs:        340, // ~20% faster than 475ms (cards appear quicker left-to-right)
+        dealAnimDurationMs:   100, // slightly faster settle time
 
         // Draw animation (re-dealing only non-held cards)
         // Held cards stay put visibly. Replaced cards flip out, new cards flip in.
