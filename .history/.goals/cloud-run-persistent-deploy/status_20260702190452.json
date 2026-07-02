@@ -1,0 +1,10 @@
+{
+  "goal_id": "cloud-run-persistent-deploy",
+  "status": "building",
+  "iteration": 1,
+  "builder_model": "Claude:Sonnet-4.6",
+  "inspector_model": "Claude:Haiku-4.5",
+  "initial_sha": "598cf338a47588bb039806181372a8fc4a4829b4",
+  "created_at": "2026-07-02T00:00:00Z",
+  "history": []
+}
