@@ -574,21 +574,21 @@
 #idle-overlay #idle-overlay-text .idle-line {
     font-family: var(--v8-btn-font);
     font-weight: 900;
-    font-size: 9cqh;
-    letter-spacing: 0.6cqh;
+    font-size: 3.2cqh;
+    letter-spacing: 0.2cqh;
     color: #9ceaff;
     text-transform: uppercase;
     /* Sharp pixel edge + outer bloom stack — reads like a VFD/LED screen */
     text-shadow:
-        0 0 0.4cqh #9ceaff,
-        0 0 1.4cqh rgba(95, 216, 255, 0.9),
-        0 0 3cqh rgba(40, 160, 220, 0.55),
-        0 0.25cqh 0 rgba(0, 0, 0, 0.65);
-    -webkit-text-stroke: 0.08cqh #1a5d7a;
+        0 0 0.3cqh #9ceaff,
+        0 0 1.0cqh rgba(95, 216, 255, 0.9),
+        0 0 2cqh rgba(40, 160, 220, 0.55),
+        0 0.2cqh 0 rgba(0, 0, 0, 0.65);
+    -webkit-text-stroke: 0.05cqh #1a5d7a;
     opacity: 0.95;
 }
-#idle-overlay #idle-overlay-text .idle-line-lucky { font-size: 10cqh; }
-#idle-overlay #idle-overlay-text .idle-line-poker { font-size: 11.5cqh; }
+#idle-overlay #idle-overlay-text .idle-line-lucky { font-size: 3.5cqh; }
+#idle-overlay #idle-overlay-text .idle-line-poker { font-size: 4.0cqh; }
 
 /* Attract-mode pulse: slow cyan breathing to sell the "cabinet calling
    for a coin" feel. Disabled by prefers-reduced-motion. */

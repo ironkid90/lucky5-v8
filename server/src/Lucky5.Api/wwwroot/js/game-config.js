@@ -85,20 +85,22 @@ const GAME_CONFIG = Object.freeze({
         duStaggerPerCardMs:   120,  // stagger between cards on a fresh DU page
 
         // Win collection / drain-to-credits
-        //   Duration scales with amount: ~1.5s at 500K, ~60s at 40M.
-        //   Formula in animateDrainToCredits: amount / 1_000_000 * 1500, clamped.
-        //   Min clamped at countUpMinMs (1.0s), max clamped at countUpMaxMs (65s).
+        //   Duration scales with amount: ~1.0s at 500K, ~6.5s at 5M, capped at 20s.
+        //   Formula in animateDrainToCredits: minMs + (maxMs-minMs) * clamp01(amount/5M).
+        //   Min clamped at countUpMinMs (1.0s), max clamped at countUpMaxMs (20s).
+        //   Consistent feel across all payout sizes — small wins drain fast,
+        //   large wins drain slow but cap at 20s (not 65s) to avoid feeling stuck.
         countUpMinMs:         1000,
-        countUpMaxMs:         65000,
-        creditTickMs:         120,  // digit-flash toggle during count-up (mechanical reel tick cadence)
+        countUpMaxMs:         20000,
+        creditTickMs:         80,  // digit-flash toggle during count-up (mechanical reel tick cadence)
 
         // Jackpot fill animation (for jackpot-level wins)
         //   Same scaling as animateDrainToCredits: amount / 1_000_000 * 1500.
-        //   500K → 750ms, 10M → 15s, 40M → 60s.
+        //   500K → 750ms, 10M → 15s, capped at 20s for consistent pacing.
         //   Jackpot wins behave like a mini machine-close: everything freezes,
         //   the jackpot counter drains slowly into credits, then DU page appears.
         jackpotFillMinMs:     750,
-        jackpotFillMaxMs:     65000,
+        jackpotFillMaxMs:     20000,
 
         // Lucky5 safe / machine-closed payout drain
         drainDelayMs:         500,   // brief pause before starting the drain animation
