@@ -2341,15 +2341,16 @@ async function doDoubleUp(guess) {
                     updateWinIndicator(lossAmount);
                     updateWinAmountDisplay(lossAmount, getFourOfAKindSlotTag(currentHandRank));
                     const collectHandRank = duHighlightHandRank || currentHandRank;
-                    const preLossCredits = Math.max(0, balance);
                     updatePaytable(collectHandRank);
-                    CabinetClock.delayMs(T.duLoseRevealMs, async () => {
+                    // On DU loss, the player loses their winnings instantly —
+                    // no drain animation. The win indicator simply clears.
+                    // (Original behavior animated a reverse drain which was visually
+                    // noisy and made losses feel punishing without purpose.)
+                    updateWinIndicator(0);
+                    updateWinAmountDisplay(0);
+                    updatePaytable();
+                    CabinetClock.delayMs(T.exitDuLoseMs, () => {
                         if (duCallToken !== myToken) return;
-                        await animateReverseDrain(lossAmount, preLossCredits, collectHandRank);
-                        if (duCallToken !== myToken) return;
-                        updateWinIndicator(0);
-                        updateWinAmountDisplay(0);
-                        updatePaytable();
                         exitDoubleUp();
                     });
                 } else {
