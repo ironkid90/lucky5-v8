@@ -52,21 +52,10 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-# Native gcloud calls signal failure via $LASTEXITCODE, not PowerShell exceptions.
-# Disable the PS 7.3+ auto-throw-on-nonzero-exit-code behavior so existence probes
-# (which are expected to "fail" on first run) don't abort the script; critical
-# steps below check $LASTEXITCODE explicitly instead.
-$PSNativeCommandUseErrorActionPreference = $false
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..' '..')
 
 function Step($message) {
     Write-Host "==> $message" -ForegroundColor Cyan
-}
-
-function Assert-LastExitCode($message) {
-    if ($LASTEXITCODE -ne 0) {
-        throw "$message (exit code $LASTEXITCODE)"
-    }
 }
 
 Step "Ensuring required Google Cloud APIs are enabled on $ProjectId"
@@ -108,7 +97,6 @@ Step "Building the container image via Cloud Build (no local Docker required)"
 Push-Location $repoRoot
 try {
     gcloud builds submit --config cloudbuild.yaml --project $ProjectId --substitutions "_IMAGE=$ImageTag" .
-    Assert-LastExitCode "Cloud Build image build failed"
 }
 finally {
     Pop-Location
@@ -130,7 +118,6 @@ gcloud run deploy $Service `
     --set-env-vars "LUCKY5_STATE_DIR=$MountPath,ASPNETCORE_ENVIRONMENT=Production" `
     --set-secrets "JWT__SIGNING_KEY=$($Secret):latest" `
     --quiet
-Assert-LastExitCode "Cloud Run deploy failed"
 
 if ($MakePublic) {
     Step "Granting public (unauthenticated) invoke access"
