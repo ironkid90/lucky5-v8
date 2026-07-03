@@ -2262,7 +2262,11 @@ async function doDoubleUp(guess) {
                 });
             } else if (result.status === 'SafeFail') {
                 roundDoubleUpAvailable = false;
-                triggerLucky5Flash();
+                // NOTE: Do NOT call triggerLucky5Flash() here — SafeFail means
+                // the challenger card was 5♠ which grants no-lose status for the
+                // remainder of the round. The banner stays on; flashing mid-hand
+                // interrupts the player's flow. Only the SWITCH action flashes.
+                CabinetState.updatePresentation({ lucky5Active: true });
                 const safeAmount = result.currentAmount;
                 const collectHandRank = duHighlightHandRank || currentHandRank;
                 // Credits are already settled server-side via FinalizeDoubleUp.

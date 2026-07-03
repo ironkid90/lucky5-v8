@@ -77,33 +77,61 @@
     z-index: 20 !important;
 }
 
-/* Card area: 5 cards in a row, centered, spanning ~0.90w.
+/* Card area: 5 cards in a row, centered, spanning ~0.86w.
    AI9 measured: centers at 0.099, 0.299, 0.499, 0.699, 0.899w (0.20w pitch).
    In v8 720×1280: top 0.191h (exact AI9 measurement), height 0.18h.
-   Cards are edge-to-edge (x 13..886 of 900 = 0.014..0.985w).
-   Inter-card gap ≈ 0.031w (3.1% of screen width). */
+   Cards have a 6px gap between them so they don't visually merge.
+   AI9 actually has them touching (very small gap); for visibility we add 6px (~0.83%w). */
 #card-area,[data-zone="card-stage"] {
     position: absolute !important;
     top: 19.1% !important;
     left: 0 !important;
     width: 100% !important;
     height: 18% !important;
-    padding: 0 !important;
+    padding: 0 2% !important;
     box-sizing: border-box !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    gap: 0.031cqw !important;
-    overflow: visible !important;
+    gap: 6px !important;
+    overflow: hidden !important;
     z-index: 12 !important;
 }
 
-/* Each card: 0.169w wide (≈121px in 720), aspect ratio 313:528 ≈ 0.593.
-   Rendered height in frame: ~0.18h (≈230px in 1280). */
+/* Each card: AI9 reference shows ~0.16w wide, aspect ratio 313:528.
+   Width 16% with 6px gap on 720px screen = 5 × (115.2px) + 4 × 6px = 576 + 24 = 600px,
+   leaving 120px (60px each side) for padding/margin.
+   aspect-ratio 313/528 → height 194px at 115.2px wide. Fits in 18% of 1280 = 230px. */
 .card-slot {
-    width: 16.9% !important;
+    width: 16% !important;
+    max-width: 120px !important;
+    min-width: 90px !important;
     aspect-ratio: 313 / 528 !important;
-    flex-shrink: 0;
+    flex: 0 0 16% !important;
+    flex-shrink: 1 !important;
+    height: auto !important;
+    position: relative !important;
+}
+
+/* Card image: must preserve aspect ratio of source PNG.
+   Use object-fit: contain so the image is never stretched. */
+.card-face {
+    width: 100% !important;
+    height: 100% !important;
+    flex: none !important;
+}
+
+.card-face img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain !important;
+    display: block !important;
+}
+
+/* Hide card face overflow to prevent spillover */
+.card-slot .card-face {
+    overflow: hidden !important;
+    border-radius: 4px !important;
 }
 
 /* Win amount display row: below cards, centered. */
