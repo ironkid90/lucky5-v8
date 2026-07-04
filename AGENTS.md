@@ -18,6 +18,13 @@ This information is your source of truth for the Lucky5 v8 project.
 ### Agent Onboarding
 **CRITICAL:** If you are newly assigned to this project, immediately read `GEMINI.md` for the overarching project architecture, technical stack, and visual parity rules. It serves as your definitive "catch-up" guide.
 
+### MCP Hub (PC-wide)
+This machine has a single canonical MCP store at `C:\Users\Gabi.WIN-CD45QMUUPFF\.mcp-hub\`.
+- **Always edit `~/.mcp-hub/mcp.json`** — never edit platform-specific configs (gemini/codex/claude/vscode) directly.
+- After editing, run `python ~/.mcp-hub/sync.py` to regenerate VS Code, Codex, Gemini, Claude Desktop configs.
+- Hermes is file-sync incapable; add new hub servers with `hermes mcp add <name> --command ... --args ... --env KEY=VAL`.
+- The mandatory `vexp` server is wired there. The tool list includes `run_pipeline` (PRIMARY), `get_skeleton`, `index_status`, `expand_vexp_ref`.
+
 ### Invariants
 
 - The `docs/` directory is the definitive source for product and engineering behavior.
