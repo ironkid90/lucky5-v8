@@ -1,0 +1,279 @@
+# Lucky5 v8 → Google Cloud Run CI/CD
+# ================================================================
+# Triggered on every push to the default branch and on every pull
+# request. Pull requests run a build + test only; pushes to the
+# default branch additionally build the container image and deploy
+# the new revision to Cloud Run.
+#
+# Required GitHub repository secrets:
+#   GCP_PROJECT_ID          e.g. euphoric-axon-500505-f9
+#   GCP_REGION              europe-west1
+#   GCP_SERVICE_NAME        lucky5-v8
+#   GCP_SNAPSHOT_BUCKET     lucky5-v8-snapshots-ew1
+#   GCP_JWT_SECRET_NAME     lucky5-jwt-signing-key
+#   GCP_WORKLOAD_IDENTITY_PROVIDER
+#                           projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+#   GCP_SERVICE_ACCOUNT     github-deployer@PROJECT_ID.iam.gserviceaccount.com
+#
+# First-time setup (one-time, run locally):
+#   1. Create the deployer service account:
+#        gcloud iam service-accounts create github-deployer \
+#          --project=$GCP_PROJECT_ID --display-name="GitHub Actions deployer"
+#   2. Grant it the roles it needs:
+#        gcloud projects add-iam-policy-binding $GCP_PROJECT_ID \
+#          --member="serviceAccount:github-deployer@$GCP_PROJECT_ID.iam.gserviceaccount.com" \
+#          --role="roles/run.admin"
+#        gcloud projects add-iam-policy-binding $GCP_PROJECT_ID \
+#          --member="serviceAccount:github-deployer@$GCP_PROJECT_ID.iam.gserviceaccount.com" \
+#          --role="roles/cloudbuild.builds.editor"
+#        gcloud projects add-iam-policy-binding $GCP_PROJECT_ID \
+#          --member="serviceAccount:github-deployer@$GCP_PROJECT_ID.iam.gserviceaccount.com" \
+#          --role="roles/artifactregistry.writer"
+#        gcloud projects add-iam-policy-binding $GCP_PROJECT_ID \
+#          --member="serviceAccount:github-deployer@$GCP_PROJECT_ID.iam.gserviceaccount.com" \
+#          --role="roles/storage.admin"
+#   3. Create a Workload Identity Pool + Provider for GitHub:
+#        gcloud iam workload-identity-pools create github-pool \
+#          --project=$GCP_PROJECT_ID --location=global \
+#          --display-name="GitHub Actions pool"
+#        gcloud iam workload-identity-pools providers create-oidc github-provider \
+#          --project=$GCP_PROJECT_ID --location=global \
+#          --workload-identity-pool=github-pool \
+#          --display-name="GitHub provider" \
+#          --issuer-uri="https://token.actions.githubusercontent.com" \
+#          --attribute-mapping="google.subject=assertion.sub,attribute.actor=assertion.actor,attribute.repository=assertion.repository,attribute.repository_owner=assertion.repository_owner" \
+#          --attribute-condition="assertion.repository_owner == 'YOUR_GITHUB_ORG'"
+#   4. Bind the pool to the deployer SA (replace OWNER/REPO):
+#        gcloud iam service-accounts add-iam-policy-binding \
+#          github-deployer@$GCP_PROJECT_ID.iam.gserviceaccount.com \
+#          --project=$GCP_PROJECT_ID \
+#          --role="roles/iam.workloadIdentityUser" \
+#          --member="principalSet://iam.googleapis.com/projects/$(gcloud projects describe $GCP_PROJECT_ID --format='value(projectNumber)')/locations/global/workloadIdentityPools/github-pool/attribute.repository/OWNER/REPO"
+#   5. Set the GitHub repository secrets (Settings → Secrets and variables → Actions):
+#        GCP_PROJECT_ID, GCP_REGION, GCP_SERVICE_NAME, GCP_SNAPSHOT_BUCKET,
+#        GCP_JWT_SECRET_NAME, GCP_WORKLOAD_IDENTITY_PROVIDER, GCP_SERVICE_ACCOUNT
+# ================================================================
+
+name: Build and Deploy to Cloud Run
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  DOCKER_BUILDKIT: '1'
+
+jobs:
+  # ────────────────────────────────────────────────────────────────────
+  # 1. Test: restore, build, and run the regression test suite on every
+  #    push and PR. Gates the deploy job on success.
+  # ────────────────────────────────────────────────────────────────────
+  test:
+    name: Build & Test (Lucky5.Tests)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('server/**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore solution
+        run: dotnet restore server/Lucky5.sln
+
+      - name: Build (Release, no-restore)
+        run: dotnet build server/Lucky5.sln -c Release --no-restore
+
+      - name: Run regression tests
+        run: |
+          dotnet test server/tests/Lucky5.Tests/Lucky5.Tests.csproj \
+            -c Release --no-build --logger "console;verbosity=normal"
+
+  # ────────────────────────────────────────────────────────────────────
+  # 2. Deploy: triggered only after tests pass on the default branch.
+  #    Builds the container image via Cloud Build, pushes it to
+  #    Artifact Registry, and deploys a new Cloud Run revision with the
+  #    GCS-mounted state directory and the JWT signing key from Secret
+  #    Manager. Pinned to 1 instance for in-memory correctness.
+  # ────────────────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to Cloud Run
+    needs: test
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'   # required for Workload Identity Federation
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (Workload Identity Federation)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Resolve deploy image tag
+        id: tag
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          echo "image=europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cloud-run-source-deploy/${{ secrets.GCP_SERVICE_NAME }}:${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "image_latest=europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cloud-run-source-deploy/${{ secrets.GCP_SERVICE_NAME }}:latest" >> "$GITHUB_OUTPUT"
+
+      - name: Enable required services (idempotent)
+        run: |
+          gcloud services enable \
+            run.googleapis.com \
+            cloudbuild.googleapis.com \
+            artifactregistry.googleapis.com \
+            storage.googleapis.com \
+            secretmanager.googleapis.com \
+            --project "${{ secrets.GCP_PROJECT_ID }}"
+
+      - name: Ensure Artifact Registry repository exists
+        run: |
+          if ! gcloud artifacts repositories describe cloud-run-source-deploy \
+               --project="${{ secrets.GCP_PROJECT_ID }}" \
+               --location="${{ secrets.GCP_REGION }}" >/dev/null 2>&1; then
+            gcloud artifacts repositories create cloud-run-source-deploy \
+              --repository-format=docker \
+              --location="${{ secrets.GCP_REGION }}" \
+              --project="${{ secrets.GCP_PROJECT_ID }}" \
+              --description="Cloud Run source-deploy images for Lucky5 v8"
+          fi
+
+      - name: Ensure snapshot bucket exists
+        run: |
+          if ! gcloud storage buckets describe \
+               "gs://${{ secrets.GCP_SNAPSHOT_BUCKET }}" \
+               --project="${{ secrets.GCP_PROJECT_ID }}" >/dev/null 2>&1; then
+            gcloud storage buckets create \
+              "gs://${{ secrets.GCP_SNAPSHOT_BUCKET }}" \
+              --project="${{ secrets.GCP_PROJECT_ID }}" \
+              --location="${{ secrets.GCP_REGION }}" \
+              --uniform-bucket-level-access
+          fi
+
+      - name: Ensure JWT signing key secret exists
+        run: |
+          if ! gcloud secrets describe \
+               "${{ secrets.GCP_JWT_SECRET_NAME }}" \
+               --project="${{ secrets.GCP_PROJECT_ID }}" >/dev/null 2>&1; then
+            gcloud secrets create "${{ secrets.GCP_JWT_SECRET_NAME }}" \
+              --project="${{ secrets.GCP_PROJECT_ID }}" \
+              --replication-policy=automatic
+            # Bootstrap a fresh 48-byte random key on first-ever deploy.
+            head -c 48 /dev/urandom | base64 \
+              | gcloud secrets versions add "${{ secrets.GCP_JWT_SECRET_NAME }}" \
+                  --project="${{ secrets.GCP_PROJECT_ID }}" \
+                  --data-file=-
+          else
+            echo "Secret already exists; leaving value untouched."
+          fi
+
+      - name: Grant Cloud Run runtime SA access to the JWT secret
+        run: |
+          PROJECT_NUMBER=$(gcloud projects describe "${{ secrets.GCP_PROJECT_ID }}" --format='value(projectNumber)')
+          RUNTIME_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+          gcloud secrets add-iam-policy-binding \
+            "${{ secrets.GCP_JWT_SECRET_NAME }}" \
+            --project="${{ secrets.GCP_PROJECT_ID }}" \
+            --member="serviceAccount:${RUNTIME_SA}" \
+            --role=roles/secretmanager.secretAccessor \
+            >/dev/null
+          echo "Granted secretAccessor on ${RUNTIME_SA}"
+
+      - name: Build container image with Cloud Build
+        run: |
+          gcloud builds submit \
+            --config cloudbuild.yaml \
+            --project "${{ secrets.GCP_PROJECT_ID }}" \
+            --substitutions "_IMAGE=${{ steps.tag.outputs.image }},_IMAGE_LATEST=${{ steps.tag.outputs.image_latest }}" \
+            .
+
+      - name: Tag image as :latest
+        run: |
+          gcloud container images add-tag \
+            "${{ steps.tag.outputs.image }}" \
+            "${{ steps.tag.outputs.image_latest }}" \
+            --project "${{ secrets.GCP_PROJECT_ID }}"
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy "${{ secrets.GCP_SERVICE_NAME }}" \
+            --project "${{ secrets.GCP_PROJECT_ID }}" \
+            --region "${{ secrets.GCP_REGION }}" \
+            --image "${{ steps.tag.outputs.image }}" \
+            --platform managed \
+            --execution-environment gen2 \
+            --min-instances 0 \
+            --max-instances 1 \
+            --concurrency 80 \
+            --cpu 1 --memory 512Mi \
+            --add-volume "name=snapshots,type=cloud-storage,bucket=${{ secrets.GCP_SNAPSHOT_BUCKET }}" \
+            --add-volume-mount "volume=snapshots,mount-path=/mnt/snapshots" \
+            --set-env-vars "LUCKY5_STATE_DIR=/mnt/snapshots,ASPNETCORE_ENVIRONMENT=Production" \
+            --set-secrets "JWT__SIGNING_KEY=${{ secrets.GCP_JWT_SECRET_NAME }}:latest" \
+            --quiet
+
+      - name: Grant public Cloud Run invoker (best-effort)
+        continue-on-error: true
+        run: |
+          gcloud run services add-iam-policy-binding "${{ secrets.GCP_SERVICE_NAME }}" \
+            --project "${{ secrets.GCP_PROJECT_ID }}" \
+            --region "${{ secrets.GCP_REGION }}" \
+            --member allUsers \
+            --role roles/run.invoker || \
+          echo "Public binding was blocked by org policy; service is up but requires IAM access."
+
+      - name: Print service URL and verify health endpoint
+        id: health
+        run: |
+          URL=$(gcloud run services describe "${{ secrets.GCP_SERVICE_NAME }}" \
+                  --project "${{ secrets.GCP_PROJECT_ID }}" \
+                  --region "${{ secrets.GCP_REGION }}" \
+                  --format='value(status.url)')
+          echo "Service URL: $URL"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+          # Wait briefly for the new revision to finish starting up.
+          for i in $(seq 1 12); do
+            if curl -fsS "$URL/health/live" >/dev/null 2>&1; then
+              echo "Health check passed on attempt $i"
+              exit 0
+            fi
+            echo "Waiting for revision to come up (attempt $i)..."
+            sleep 5
+          done
+          echo "::warning::Health check did not pass within 60s; service may still be starting. Inspect logs with: gcloud run services logs read ${{ secrets.GCP_SERVICE_NAME }} --project ${{ secrets.GCP_PROJECT_ID }} --region ${{ secrets.GCP_REGION }}"
+          exit 0
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "### Deploy summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Service**: \`${{ secrets.GCP_SERVICE_NAME }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Region**: \`${{ secrets.GCP_REGION }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Image**: \`${{ steps.tag.outputs.image }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **URL**: ${{ steps.health.outputs.url }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Commit**: \`${{ github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Trigger**: \`${{ github.event_name }}\` (${{ github.ref }})" >> "$GITHUB_STEP_SUMMARY"

@@ -6,9 +6,13 @@
 ## (e.g. `COPY server/Lucky5.sln ...`). Submit from the repo root:
 ##
 ##   gcloud builds submit --config cloudbuild.yaml \
-##     --substitutions=_IMAGE=europe-west1-docker.pkg.dev/PROJECT/cloud-run-source-deploy/lucky5-v8:TAG .
+##     --substitutions=_IMAGE=europe-west1-docker.pkg.dev/PROJECT/cloud-run-source-deploy/lucky5-v8:TAG,_IMAGE_LATEST=europe-west1-docker.pkg.dev/PROJECT/cloud-run-source-deploy/lucky5-v8:latest .
 ##
-## See server/deploy/deploy-cloud-run.ps1 for the full build+deploy workflow.
+## Both _IMAGE (versioned, e.g. :abcdef0) and _IMAGE_LATEST (:latest) are
+## produced from a single build by tagging the same image twice; the
+## GitHub Actions workflow then deploys the versioned image to Cloud Run
+## so each revision is reproducible. See server/deploy/deploy-cloud-run.ps1
+## for the equivalent manual workflow.
 
 steps:
   - name: gcr.io/cloud-builders/docker
@@ -21,12 +25,19 @@ steps:
       - -t
       - ${_IMAGE}
       - .
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - tag
+      - ${_IMAGE}
+      - ${_IMAGE_LATEST}
 
 images:
   - ${_IMAGE}
+  - ${_IMAGE_LATEST}
 
 substitutions:
   _IMAGE: europe-west1-docker.pkg.dev/PROJECT_ID/cloud-run-source-deploy/lucky5-v8:latest
+  _IMAGE_LATEST: europe-west1-docker.pkg.dev/PROJECT_ID/cloud-run-source-deploy/lucky5-v8:latest
 
 options:
   logging: CLOUD_LOGGING_ONLY
