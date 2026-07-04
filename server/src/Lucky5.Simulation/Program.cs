@@ -44,7 +44,7 @@ for (int i = 0; i < args.Length; i++)
 // a 5K bet, so the policy correction loop clamps to MinPayoutScale (0.72) to claw
 // back. To get a more honest view of the base game, the simulation runs at
 // the cabinet's typical player stake.
-const int Bet = 5_000;
+const int Bet = 2_500;
 
 var cfg = EngineConfig.Default;
 var paytable = PaytableProfile.Lebanese;
@@ -254,7 +254,7 @@ SimulationResult RunSimulation(int rounds, PlayerBehavior behavior, int sampleIn
                 result.OfferedWinningRounds++;
             }
 
-            if (offered && ShouldEnterDoubleUp(behavior, seed, payout, session.MachineCredits, sabotagePhase))
+            if (offered && ShouldEnterDoubleUp(behavior, seed, payout, session.MachineCredits, sabotagePhase, ledger.ObservedRtp - ledger.TargetRtp))
             {
                 result.EnteredDoubleUpChains++;
                 result.EnteredTriggerCredits += payout;
@@ -435,7 +435,7 @@ DoubleUpChainResult PlayDoubleUpChain(
 
     for (var step = 0; step < 16; step++)
     {
-        if (!takeHalfUsed && ShouldTakeHalf(behavior, roundSeed, step, openingAmount, bank.MachineCredits, session.CurrentAmount))
+        if (!takeHalfUsed && ShouldTakeHalf(behavior, roundSeed, step, openingAmount, bank.MachineCredits, session.CurrentAmount, policyState.ObservedRtp - policyState.TargetRtp))
         {
             var half = session.CurrentAmount / 2;
             var remaining = session.CurrentAmount - half;
@@ -446,7 +446,7 @@ DoubleUpChainResult PlayDoubleUpChain(
             takeHalfUsed = true;
         }
 
-        if (ShouldCashoutDoubleUp(behavior, roundSeed, step, openingAmount, bank.PendingReset, takeHalfUsed, bank.MachineCredits, session.CurrentAmount))
+        if (ShouldCashoutDoubleUp(behavior, roundSeed, step, openingAmount, bank.PendingReset, takeHalfUsed, bank.MachineCredits, session.CurrentAmount, policyState.ObservedRtp - policyState.TargetRtp))
         {
             settledCredits += session.CurrentAmount;
             result.DoubleUpCashoutSettlements++;
@@ -455,7 +455,7 @@ DoubleUpChainResult PlayDoubleUpChain(
         }
 
         while (session.SwitchCountInRound < session.Options.MaxSwitchesPerRound
-            && ShouldSwitchDealer(behavior, roundSeed, step, session, sabotagePhase))
+            && ShouldSwitchDealer(behavior, roundSeed, step, session, sabotagePhase, policyState.ObservedRtp - policyState.TargetRtp))
         {
             session = Lucky5DoubleUpEngine.SwitchDealer(session);
             result.DoubleUpDealerSwitches++;
@@ -469,7 +469,7 @@ DoubleUpChainResult PlayDoubleUpChain(
                 continuedAfterTakeHalf = true;
             }
 
-            if (!ShouldSwitchDealer(behavior, roundSeed, step + session.SwitchCountInRound, session, sabotagePhase))
+            if (!ShouldSwitchDealer(behavior, roundSeed, step + session.SwitchCountInRound, session, sabotagePhase, policyState.ObservedRtp - policyState.TargetRtp))
             {
                 break;
             }
@@ -552,15 +552,16 @@ void BankCredits(SessionState bank, int amount, SimulationResult result, BankEve
     }
 }
 
-static bool ShouldEnterDoubleUp(PlayerBehavior behavior, ulong seed, int payout, decimal machineCredits, bool sabotagePhase)
+static bool ShouldEnterDoubleUp(PlayerBehavior behavior, ulong seed, int payout, decimal machineCredits, bool sabotagePhase, decimal drift)
 {
+    // Drift = ObservedRtp - TargetRtp. Positive = machine hot (player pulls back).
+    // Negative = machine cold (player chases). Base accept ±15%.
+    var driftAdj = Math.Clamp(-drift * 0.30m, -0.15m, 0.15m);
     return behavior switch
     {
         PlayerBehavior.ConservativeCollectFirst => false,
-        // Balanced: realistic player — not always entering, especially when the win is small
-        // or when they're already close to the cap. Target accept rate ≈ 55-60% on winning rounds.
         PlayerBehavior.Balanced => machineCredits + payout < EngineConfig.Default.CloseThreshold
-            && Roll(seed, "accept-balanced", payout, 0.55m),
+            && Roll(seed, "accept-balanced", payout, 0.45m + driftAdj),
         PlayerBehavior.AggressiveCabinetClosing => machineCredits + payout < 50_000_000m || payout < 2_000_000,
         PlayerBehavior.CounterplaySabotage => sabotagePhase
             || machineCredits + payout < 50_000_000m
@@ -569,21 +570,32 @@ static bool ShouldEnterDoubleUp(PlayerBehavior behavior, ulong seed, int payout,
     };
 }
 
-static bool ShouldTakeHalf(PlayerBehavior behavior, ulong seed, int step, int openingAmount, decimal machineCredits, int currentAmount)
+static bool ShouldTakeHalf(PlayerBehavior behavior, ulong seed, int step, int openingAmount, decimal machineCredits, int currentAmount, decimal drift)
 {
+    // Hot drift: take-half more often. Cold drift: gamble more.
+    var driftAdj = Math.Clamp(drift * 0.20m, -0.10m, 0.10m);
     return behavior switch
     {
-        // Balanced: take-half only when current amount is materially large (≥ 8× trigger).
-        // Realistic player doesn't bank half on a 4× trigger — they keep going.
-        PlayerBehavior.Balanced => currentAmount >= Math.Max(openingAmount * 8, 1_000_000)
+        PlayerBehavior.Balanced => currentAmount >= Math.Max(openingAmount * 6, 750_000)
             && machineCredits + currentAmount < EngineConfig.Default.CloseThreshold
-            && Roll(seed, "take-half-balanced", step, 0.25m),
+            && Roll(seed, "take-half-balanced", step, 0.20m + driftAdj),
         PlayerBehavior.AggressiveCabinetClosing => currentAmount >= Math.Max(openingAmount * 8, 1_000_000)
             && machineCredits + currentAmount >= EngineConfig.Default.CloseThreshold * 0.65m
             && Roll(seed, "take-half-aggressive", step, 0.60m),
         PlayerBehavior.CounterplaySabotage => currentAmount >= Math.Max(openingAmount * 10, 1_500_000)
             && machineCredits + currentAmount >= EngineConfig.Default.CloseThreshold * 0.70m
             && Roll(seed, "take-half-counterplay", step, 0.45m),
+        _ => false
+    };
+}
+
+static bool ShouldCashOutSession(PlayerBehavior behavior, SessionState session)
+{
+    return behavior switch
+    {
+        PlayerBehavior.ConservativeCollectFirst => session.MachineCredits >= session.SessionCashIn * 2m,
+        PlayerBehavior.Balanced => session.MachineCredits >= Math.Max(session.SessionCashIn * 2.5m, 2_000_000m)
+            && session.MachineCredits < EngineConfig.Default.CloseThreshold * 0.85m,
         _ => false
     };
 }
@@ -596,21 +608,22 @@ static bool ShouldCashoutDoubleUp(
     bool machineAlreadyClosed,
     bool takeHalfUsed,
     decimal machineCredits,
-    int currentAmount)
+    int currentAmount,
+    decimal drift)
 {
     if (machineAlreadyClosed && behavior != PlayerBehavior.AggressiveCabinetClosing)
     {
         return true;
     }
 
+    // Hot drift: cashout more aggressively. Cold drift: keep going.
+    var cashDriftAdj = Math.Clamp(drift * 0.25m, -0.15m, 0.15m);
     return behavior switch
     {
-        // Balanced: realistic player — banks when they've at least tripled the trigger
-        // or when impulse rolls high. Not on the bare 2× bounce.
         PlayerBehavior.Balanced => step > 0 && (
             takeHalfUsed
             || currentAmount >= Math.Max(openingAmount * 3, 500_000)
-            || Roll(seed, "cashout-balanced", step, 0.55m)),
+            || Roll(seed, "cashout-balanced", step, 0.40m + cashDriftAdj)),
         PlayerBehavior.AggressiveCabinetClosing => (machineCredits + currentAmount >= EngineConfig.Default.CloseThreshold && step > 0)
             || currentAmount >= Math.Max(openingAmount * 32, 8_000_000)
             || step >= 7,
@@ -621,7 +634,7 @@ static bool ShouldCashoutDoubleUp(
     };
 }
 
-static bool ShouldSwitchDealer(PlayerBehavior behavior, ulong seed, int step, Lucky5DoubleUpSession session, bool sabotagePhase)
+static bool ShouldSwitchDealer(PlayerBehavior behavior, ulong seed, int step, Lucky5DoubleUpSession session, bool sabotagePhase, decimal drift)
 {
     if (sabotagePhase)
     {
@@ -629,11 +642,13 @@ static bool ShouldSwitchDealer(PlayerBehavior behavior, ulong seed, int step, Lu
     }
 
     var dealerRank = session.DealerCard.Rank;
+    // Cold drift: switch more. Hot drift: lock in current dealer.
+    var switchDriftAdj = Math.Clamp(-drift * 0.15m, -0.10m, 0.10m);
     return behavior switch
     {
         PlayerBehavior.Balanced => session.SwitchCountInRound == 0
             && dealerRank is 7 or 8
-            && Roll(seed, "switch-balanced", step, 0.20m),
+            && Roll(seed, "switch-balanced", step, 0.18m + switchDriftAdj),
         PlayerBehavior.AggressiveCabinetClosing => dealerRank is >= 6 and <= 9
             && Roll(seed, "switch-aggressive", step + session.SwitchCountInRound, session.SwitchCountInRound == 0 ? 0.60m : 0.35m),
         PlayerBehavior.CounterplaySabotage => dealerRank is >= 6 and <= 9
