@@ -891,5 +891,130 @@ body,
 }
 
 /* ═════════════════════════════════════════════════════════════════════════════
+   DU MODE — Card sizing and layout (Bug fix #5)
+   When #card-area has .du-mode, the 5 .du-card-slot elements share the row.
+   Original game.css forces flex: 1 1 0 with max-width: 120px and height: 100%,
+   but the parent card-area has max-height: 160px which clips the trail.
+   Override to use the same 16% width + 313/528 aspect-ratio as main hand,
+   so all 5 trail cards are visible and stay within the card area.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+#card-area.du-mode {
+    justify-content: center !important;
+    padding: 0 2% !important;
+    gap: 4px !important;
+}
+
+.du-card-slot {
+    flex: 0 0 16% !important;
+    width: 16% !important;
+    max-width: 120px !important;
+    min-width: 60px !important;
+    height: auto !important;
+    aspect-ratio: 313 / 528 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+}
+
+.du-card-slot .du-card-frame {
+    width: 100% !important;
+    height: 100% !important;
+    flex: 1 !important;
+}
+
+.du-card-slot .du-card-label {
+    font-size: 0.65cqh !important;
+    line-height: 1 !important;
+    margin: 0 0 2px 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 100% !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   RESOLUTION STRETCHING — No black borders, no overlap
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* The body and html fill the viewport so the cabinet image can stretch.
+   Background is the cabinet wood texture so any uncovered region looks
+   like the cabinet frame instead of black. */
+html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    overflow: hidden !important;
+    background-color: #1a0f08 !important;  /* dark wood */
+}
+
+#game-screen {
+    width: 100% !important;
+    height: 100% !important;
+    /* Allow cabinet to scale up beyond base 720x1280 when viewport is larger.
+       Use min() to preserve 9:16 aspect, then scale up if window is bigger. */
+    position: absolute !important;
+    inset: 0 !important;
+}
+
+/* The cabinet shell itself uses object-fit: contain semantics:
+   - If viewport aspect matches 9:16, fill it completely
+   - Otherwise, letterbox with the dark wood background */
+.cabinet-shell,
+#cabinet-shell,
+[data-cabinet-shell] {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain !important;
+    object-position: center !important;
+    background-color: #1a0f08 !important;
+}
+
+/* CRT screen and control deck scale together with the cabinet so buttons
+   and cards never overlap the cabinet frame regardless of resolution. */
+#crt-screen,
+[data-zone="crt"],
+[data-zone="controls"] {
+    transform-origin: center center !important;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════════
+   PAYTABLE MULTIPLIER — Highlighted row reflects doubling (Bug #9)
+   When .du-highlight is set, the pay-amount doubles each HI win.
+   The .du-multiplier data attribute drives a counter-style number animation.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+#paytable .pay-row.du-highlight .pay-amount {
+    color: #00ff66 !important;
+    font-weight: bold !important;
+    text-shadow: 0 0 4px rgba(0, 255, 102, 0.6) !important;
+    transition: color 0.2s ease !important;
+}
+
+#paytable .pay-row.du-highlight .pay-amount::before {
+    content: "×" attr(data-du-multiplier, "1") "  ";
+    color: #ffcc00;
+    font-weight: 900;
+    font-size: 0.85em;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════════
+   BONUS MESSAGE — Auto-clear after drain completes (Bug fix)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+#bonus-text {
+    transition: opacity 0.3s ease !important;
+}
+
+#bonus-text.clearing {
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════════
    END OF AI9 PARITY CSS
    ═════════════════════════════════════════════════════════════════════════════ */
