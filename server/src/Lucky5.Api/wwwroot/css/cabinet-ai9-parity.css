@@ -94,6 +94,7 @@
     align-items: center !important;
     justify-content: center !important;
     gap: 6px !important;
+    overflow: visible !important;
     z-index: 12 !important;
 }
 
@@ -110,25 +111,28 @@
     flex-shrink: 1 !important;
     height: auto !important;
     position: relative !important;
+    overflow: visible !important;
+}
+
+/* Position hold-badge below the card */
+.card-slot .hold-badge {
+    position: absolute !important;
+    bottom: -2cqh !important;
+    left: 0 !important;
+    right: 0 !important;
+    text-align: center !important;
+    z-index: 10 !important;
 }
 
 /* Card image: must preserve aspect ratio of source PNG.
    Use object-fit: contain so the image is never stretched. */
 .card-face {
-    width: 100% !important;
-    height: 100% !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
     flex: none !important;
-}
-
-.card-face img {
-    width: 100% !important;
-    height: 100% !important;
-    object-fit: contain !important;
-    display: block !important;
-}
-
-/* Hide card face overflow to prevent spillover */
-.card-slot .card-face {
     overflow: hidden !important;
     border-radius: 4px !important;
 }

@@ -168,32 +168,59 @@ window.CabinetStage = (function () {
         'S': '♠'
     };
 
-    function _renderDomCard(inputCard) {
+    const _cardTemplateCache = {};
+
+    function _getCardTemplate(inputCard) {
         const card = _asCard(inputCard);
-        if (!card || !card.code) {
-            return '<div class="card-back-pattern"><div>LUCKY 5 ♠</div></div>';
+        const code = card && card.code ? card.code : 'BACK';
+
+        if (_cardTemplateCache[code]) {
+            return _cardTemplateCache[code].cloneNode(true);
         }
-        
-        const isRed = card.suit === 'H' || card.suit === 'D';
-        const colorClass = isRed ? 'card-red' : 'card-black';
-        const symbol = SUIT_SYMBOLS[card.suit] || card.suit;
-        const rank = card.rank === '10' ? '10' : card.rank;
-        
-        return `
-            <div class="card-front ${colorClass}">
-                <div class="card-corner top-left">
-                    <span class="card-rank">${rank}</span>
-                    <span class="card-suit">${symbol}</span>
+
+        const template = document.createElement('div');
+        template.style.width = '100%';
+        template.style.height = '100%';
+
+        if (code === 'BACK') {
+            template.innerHTML = '<div class="card-back-pattern"><div>LUCKY 5 ♠</div></div>';
+        } else {
+            const isRed = card.suit === 'H' || card.suit === 'D';
+            const colorClass = isRed ? 'card-red' : 'card-black';
+            const symbol = SUIT_SYMBOLS[card.suit] || card.suit;
+            const rank = card.rank === '10' ? '10' : card.rank;
+            
+            template.innerHTML = `
+                <div class="card-front ${colorClass}">
+                    <div class="card-corner top-left">
+                        <span class="card-rank">${rank}</span>
+                        <span class="card-suit">${symbol}</span>
+                    </div>
+                    <div class="card-center">
+                        <span class="card-suit-large">${symbol}</span>
+                    </div>
+                    <div class="card-corner bottom-right">
+                        <span class="card-rank">${rank}</span>
+                        <span class="card-suit">${symbol}</span>
+                    </div>
                 </div>
-                <div class="card-center">
-                    <span class="card-suit-large">${symbol}</span>
-                </div>
-                <div class="card-corner bottom-right">
-                    <span class="card-rank">${rank}</span>
-                    <span class="card-suit">${symbol}</span>
-                </div>
-            </div>
-        `;
+            `;
+        }
+
+        _cardTemplateCache[code] = template.firstElementChild;
+        return _cardTemplateCache[code].cloneNode(true);
+    }
+
+    function _precacheAllCards() {
+        const codes = _allCardCodes();
+        codes.forEach(c => _getCardTemplate(c));
+        _getCardTemplate(null); // Precache back
+    }
+
+    function _renderDomCard(inputCard) {
+        // Fallback for string-based callers (e.g. initCardSlots)
+        const node = _getCardTemplate(inputCard);
+        return node.outerHTML;
     }
 
     function _applyCardFace(slotEl, faceContainer, cardLike, options) {
@@ -205,13 +232,13 @@ window.CabinetStage = (function () {
         }
 
         if (!card || !card.code) {
-            faceContainer.innerHTML = _renderDomCard(null);
+            faceContainer.replaceChildren(_getCardTemplate(null));
             _setFaceDiagnostic(slotEl, requireFace, requireFace ? 'missing-card-code' : '');
             return null;
         }
 
         _setFaceDiagnostic(slotEl, false, '');
-        faceContainer.innerHTML = _renderDomCard(card);
+        faceContainer.replaceChildren(_getCardTemplate(card));
         return card;
     }
 
@@ -665,10 +692,8 @@ window.CabinetStage = (function () {
 
         let pending = 0;
 
-        const outMs = Math.max(40, Number(_config.drawOutMs) || 60);
-        const inMs = Math.max(60, Number(_config.drawInMs) || 80);
-        const staggerMs = Math.max(20, Number(_config.drawStaggerMs) || 40);
-        const revealStartMs = Math.max(0, Number(_config.drawRevealStartMs) || 0);
+        const baseDelay = Math.max(0, Number(_config.dealBaseMs) || 0);
+        const stagger = Math.max(40, Number(_config.dealStaggerMs) || 100);
 
         cards.forEach((card, i) => {
             if (!held.has(i)) {
@@ -676,59 +701,57 @@ window.CabinetStage = (function () {
             }
         });
 
+        // Phase 1: render new cards instantly at opacity 0, slide up
         cards.forEach((card, i) => {
             const slotEl = _slot(i);
             const img = _cardImg(slotEl);
-            const face = slotEl ? slotEl.querySelector('.card-face') : null;
 
             if (!slotEl || !img) return;
 
             if (held.has(i)) {
                 slotEl.classList.add('held');
                 _applyCardFace(slotEl, img, card, { requireFace: true });
-                if (face) {
-                    face.style.transition = 'none';
-                    face.style.transform = 'rotateY(0)';
-                }
                 return;
             }
 
             slotEl.classList.remove('held');
-
-            window.CabinetClock.delayMs(revealStartMs + (i * staggerMs), () => {
-                if (_activeDrawToken !== drawToken) return;
-
-                if (face) {
-                    face.style.transition = `transform ${outMs}ms ease-in`;
-                    face.style.transform = 'rotateY(90deg)';
-                }
-
-                window.CabinetClock.delayMs(outMs, () => {
-                    if (_activeDrawToken !== drawToken) return;
-
-                    _applyCardFace(slotEl, img, card, { requireFace: true });
-
-                    if (face) {
-                        face.style.transition = 'none';
-                        face.style.transform = 'rotateY(-90deg)';
-                        CabinetClock.delayTicks(1, () => {
-                            if (_activeDrawToken !== drawToken) return;
-                            face.style.transition = `transform ${inMs}ms ease-out`;
-                            face.style.transform = 'rotateY(0)';
-                        });
-                    }
-
-                    pending--;
-                    if (pending === 0 && onComplete) {
-                        onComplete();
-                    }
-                });
-            });
+            
+            // Set initial state for replaced cards: invisible + above
+            _applyCardFace(slotEl, img, card, { requireFace: true });
+            slotEl.style.transition = 'none';
+            slotEl.style.transform = 'translateY(-12%)';
+            slotEl.style.opacity = '0';
         });
 
         if (pending === 0 && onComplete) {
-            onComplete();
+            window.CabinetClock.delayMs(20, onComplete);
+            return;
         }
+
+        let completedCount = 0;
+        cards.forEach((card, i) => {
+            if (_activeDrawToken !== drawToken) return;
+            if (held.has(i)) return; // Already rendered
+            window.CabinetClock.delayMs(baseDelay + (i * stagger), () => {
+                if (_activeDrawToken !== drawToken) return;
+                const slotEl = _slot(i);
+                if (!slotEl) {
+                    completedCount++;
+                    if (completedCount === pending && onComplete) {
+                        window.CabinetClock.delayMs(20, onComplete);
+                    }
+                    return;
+                }
+                const durationSec = (Number(_config.dealDurationMs) || 100) / 1000;
+                slotEl.style.transition = `transform ${durationSec}s ease-out, opacity ${durationSec}s ease-out`;
+                slotEl.style.transform = 'translateY(0)';
+                slotEl.style.opacity = '1';
+                completedCount++;
+                if (completedCount === pending && onComplete) {
+                    window.CabinetClock.delayMs(20, onComplete);
+                }
+            });
+        });
     }
 
     function setHold(slotIndex, isHeld) {
@@ -860,7 +883,8 @@ window.CabinetStage = (function () {
         exitDoubleUp,
         renderDomCard: _renderDomCard,
         showLucky5Active,
-        isDoubleUpMode: function() { return _isDoubleUpMode; }
+        isDoubleUpMode: function() { return _isDoubleUpMode; },
+        precacheAllCards: _precacheAllCards
     };
 }());
 

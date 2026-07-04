@@ -2406,9 +2406,7 @@ async function doDoubleUp(guess) {
 
 /// Shows the board bonus popup when the DU board forms a paying hand.
 /// This appears as an overlay after the 5th card lands, showing the bonus
-/// hand and amount, then drains into credits.
-/// The board bonus pays the BASE PAYTABLE (not the DU doubled amount).
-/// It's a separate win on top of the DU doubling.
+/// hand and amount, then drains into the DU win amount.
 function showBoardBonusPopup(handRank, bonusAmount, duWinAmount) {
     const handName = HAND_DISPLAY[handRank] || handRank;
 
@@ -2423,15 +2421,15 @@ function showBoardBonusPopup(handRank, bonusAmount, duWinAmount) {
     // Highlight the matching paytable row
     highlightPaytableDU(handRank, bonusAmount);
 
-    // After the overlay displays, drain the bonus into credits
+    // After the overlay displays, drain the bonus into the DU win amount
     const startOverlayDrain = () => {
         if (bonusEl) bonusEl.classList.remove('visible');
 
-        // Animate the board bonus draining into credits
+        // Animate the board bonus draining into win amount
         const payRow = document.querySelector(`.pay-row[data-hand="${handRank}"]`);
         const payAmountEl = payRow ? payRow.querySelector('.pay-amount') : null;
-        const creditsSpan = document.querySelector('#credits span');
         const msgEl = document.getElementById('game-message');
+        const startWinAmount = duWinAmount - bonusAmount;
 
         const duration = Math.min(3000, Math.max(800, bonusAmount / 500000 * 2000));
 
@@ -2445,8 +2443,8 @@ function showBoardBonusPopup(handRank, bonusAmount, duWinAmount) {
             const credited = Math.floor(bonusAmount * ease);
             const remaining = bonusAmount - credited;
 
-            balance = balance - bonusAmount + credited;
-            if (creditsSpan) creditsSpan.textContent = formatNum(balance);
+            updateWinAmountDisplay(startWinAmount + credited, getFourOfAKindSlotTag(handRank));
+
             if (payAmountEl) payAmountEl.textContent = remaining > 0 ? formatNum(remaining) : '0';
             if (msgEl) {
                 msgEl.textContent = `BOARD BONUS: ${formatNum(credited)} / ${formatNum(bonusAmount)}`;
@@ -3524,6 +3522,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (window.CabinetStage) {
             CabinetStage.initButtonAssets();
             CabinetStage.initCardSlots();
+            if (typeof CabinetStage.precacheAllCards === 'function') {
+                CabinetStage.precacheAllCards();
+            }
         }
     });
 
