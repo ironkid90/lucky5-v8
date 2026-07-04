@@ -297,7 +297,7 @@ public sealed record EngineConfig(
 	decimal TargetDoubleUpRtp = 0.1200m,
 	decimal MinimumObservedBaseRtp = 0.3800m,
 	decimal DefaultPayoutScale = 1.15m,
-	decimal MinPayoutScale = 0.72m,
+	decimal MinPayoutScale = 0.35m,
 	decimal MaxPayoutScale = 2.05m,
 	int WarmupRounds = 60,
 	int ConvergenceHorizon = 320,
@@ -374,7 +374,7 @@ public sealed record EngineConfig(
 	//   (e.g., 6-7-8-9-10). Max: 5,000,000. Start: 500,000.
 	//   This is a separate jackpot from the base STRAIGHT payout. A player can win
 	//   both the base straight payout AND the Kent jackpot on the same hand.
-	//   Must hit this jackpot 3 times total to fully "clear" the Kent pool.
+	//   Pays only when a streak of 3 Kents in a row completes (KentStreak == 3 → reset).
 	//
 	// ROYAL FLUSH: No jackpot. Pays base paytable only (1000x bet).
 	//   The base payout is already massive — no jackpot needed.
@@ -388,10 +388,10 @@ public sealed record EngineConfig(
 	decimal JackpotFullHouseRank14Cap = 20_000_000m,
 	decimal JackpotStraightFlushCap = 10_000_000m,
 	decimal JackpotKentCap = 5_000_000m,
-	int JackpotFourOfAKindContribution = 500,
-	int JackpotFullHouseContribution = 300,
-	int JackpotStraightFlushContribution = 800,
-	int JackpotKentContribution = 200,
+	int JackpotFourOfAKindContribution = 100,
+		int JackpotFullHouseContribution = 60,
+		int JackpotStraightFlushContribution = 160,
+		int JackpotKentContribution = 40,
 	decimal JackpotFourOfAKindStart = 20_000m,
 	decimal JackpotFullHouseStart = 90_000m,
 	decimal JackpotStraightFlushStart = 850_000m,

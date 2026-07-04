@@ -24,8 +24,12 @@ public sealed class MachineLedgerState
     public int ActiveFourOfAKindSlot { get; set; }
     public decimal JackpotStraightFlush { get; set; } = EngineConfig.Default.JackpotStraightFlushStart;
 
-    // Note: JackpotKent kept for backward compatibility with persisted snapshots.
-    // It is no longer used in gameplay — Royal Flush pays base paytable only.
+    // Kent jackpot: progressive pool that pays when a player lands three
+    // sequentially-ordered straights in a row (see docs/LUCKY5_AUTHORITATIVE_GAMEPLAY_REFERENCE.md §5).
+    // KentStreak counts 1, 2, 3 → reset to 0 on the 3rd when the JackpotKent pool pays out.
+    // The pool is incremented by EngineConfig.JackpotKentContribution each round.
+    public decimal JackpotKent { get; set; } = EngineConfig.Default.JackpotKentStart;
+    public int KentStreak { get; set; }
 
     public decimal BaseCapitalOut { get; set; }
     public decimal JackpotCapitalOut { get; set; }

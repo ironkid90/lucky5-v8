@@ -39,6 +39,11 @@ for (int i = 0; i < args.Length; i++)
     }
 }
 
+// Bet: matches GameService default max bet (10 credits → 5,000 at 500-per-credit denom).
+// The Lebanese paytable's nominal base-game RTP at 1.0× scale is already ~134% on
+// a 5K bet, so the policy correction loop clamps to MinPayoutScale (0.72) to claw
+// back. To get a more honest view of the base game, the simulation runs at
+// the cabinet's typical player stake.
 const int Bet = 5_000;
 
 var cfg = EngineConfig.Default;
@@ -136,33 +141,28 @@ SimulationResult RunSimulation(int rounds, PlayerBehavior behavior, int sampleIn
         }
 
         ledger.CapitalIn += Bet;
-        ledger.RoundCount++;
-        ledger.RoundsSinceMediumWin++;
-        ledger.RoundsSinceLucky5Hit++;
-        if (ledger.CooldownRoundsRemaining > 0)
-        {
-            ledger.CooldownRoundsRemaining--;
-        }
+                ledger.RoundCount++;
+                ledger.RoundsSinceMediumWin++;
+                ledger.RoundsSinceLucky5Hit++;
+                if (ledger.CooldownRoundsRemaining > 0)
+                {
+                    ledger.CooldownRoundsRemaining--;
+                }
 
-        ledger.LastDistributionMode = policyMode switch
-        {
-            PolicyDistributionMode.Cold => DistributionMode.Cold,
-            PolicyDistributionMode.Hot => DistributionMode.Hot,
-            _ => DistributionMode.Neutral
-        };
-        ledger.ActiveFourOfAKindSlot = (ledger.RoundCount % 2 == 0) ? (int)(seed % 2) : 1 - (int)(seed % 2);
-        ApplyJackpotContributions(ledger);
-        ledger.NetSinceLastClose = Math.Max(ledger.CapitalIn - ledger.CapitalOut, 0m);
-        session.MachineCredits -= Bet;
+                ledger.LastDistributionMode = policyMode switch
+                {
+                    PolicyDistributionMode.Cold => DistributionMode.Cold,
+                    PolicyDistributionMode.Hot => DistributionMode.Hot,
+                    _ => DistributionMode.Neutral
+                };
+                ledger.ActiveFourOfAKindSlot = (ledger.RoundCount % 2 == 0) ? (int)(seed % 2) : 1 - (int)(seed % 2);
+                ApplyJackpotContributions(ledger);
+                ledger.NetSinceLastClose = Math.Max(ledger.CapitalIn - ledger.CapitalOut, 0m);
+                session.MachineCredits -= Bet;
 
-        ledger.CapitalIn += Bet;
-        ApplyJackpotContributions(ledger);
-        ledger.NetSinceLastClose = Math.Max(ledger.CapitalIn - ledger.CapitalOut, 0m);
-        session.MachineCredits -= Bet;
+                result.TotalIn += Bet;
 
-        result.TotalIn += Bet * 2m;
-
-        var standardDeck = FiveCardDrawEngine.BuildStandardDeck();
+                var standardDeck = FiveCardDrawEngine.BuildStandardDeck();
         var alteredDeck = MachinePolicy.AlterDeck(standardDeck, policyMode, seed, ledger.ConsecutiveLosses);
         var shuffledDeck = FiveCardDrawEngine.ShuffleDeck(seed, "hand", alteredDeck);
         var hand = shuffledDeck.Take(5).ToArray();
@@ -176,12 +176,11 @@ SimulationResult RunSimulation(int rounds, PlayerBehavior behavior, int sampleIn
         var evaluation = FiveCardDrawEngine.EvaluateHand(drawState.Hand);
         var rawBasePayout = FiveCardDrawEngine.ResolvePayout(evaluation, Bet, paytable);
         var basePayout = rawBasePayout;
-        if (basePayout > 0 && drawState.Hand.Any(card => card.Rank == 14))
-        {
-            basePayout *= 2;
-            result.AceMultiplierHands++;
-            result.AceMultiplierUnscaledCredits += basePayout - rawBasePayout;
-        }
+                // NOTE: Ace in the BASE game has no extra multiplier — it pays per the paytable.
+                // Ace only matters in DOUBLE-UP where it triggers an auto-win (handled in
+                // Lucky5DoubleUpEngine.IsWinningGuess). The 5♠ Lucky5 switch is the only
+                // thing with a multiplier (4× first, 2× repeat) and the No-Lose safe-fail.
+                // Per user clarification (out-of-band), Ace is just another rank in the base game.
         var scaleState = BuildPolicyState(ledger);
         var scaleResolution = MachinePolicy.ResolvePolicy(scaleState, seed);
         var payoutScale = scaleResolution.ForTier(MachinePolicy.ClassifyHand(evaluation.Category));
@@ -341,27 +340,30 @@ JackpotResolution ResolveJackpot(ref MachineLedgerState ledger, HandEvaluation e
     }
 
     // Note: Royal Flush (FiveOfAKind) pays base paytable only — no jackpot.
-    // The 1000x base payout is already the top-tier win.
+        // The 1000x base payout is already the top-tier win.
 
-    // Kent jackpot: sequential straight on the initial dealt cards.
-    // The 5 cards must be in sequential positional order (ascending or descending).
-    // Pays in addition to the base STRAIGHT payout.
-    if (evaluation.Category == HandCategory.Straight
-        && FiveCardDrawEngine.IsSequentialBoard(initialHand)
-        && ledger.JackpotKent > 0)
-    {
-        var kentJackpot = ledger.JackpotKent;
-        ledger.JackpotKent = cfg.JackpotKentStart;
-        if (jackpot == 0)
+        // Kent jackpot: pays ONLY on the 3rd consecutive sequential straight (Kent).
+        // Per docs/LUCKY5_AUTHORITATIVE_GAMEPLAY_REFERENCE.md §5:
+        //   - Each Kent round increments KentStreak
+        //   - The counter never resets on a non-Kent round (persists across sessions of non-Kent play)
+        //   - When KentStreak hits 3, the JackpotKent pool pays out and KentStreak resets to 0
+        var isKent = evaluation.Category == HandCategory.Straight
+            && FiveCardDrawEngine.IsSequentialBoard(initialHand);
+        if (isKent)
         {
-            jackpot = kentJackpot;
-            return new JackpotResolution(jackpot, JackpotHitKind.Kent);
+            ledger.KentStreak++;
+            if (ledger.KentStreak >= 3 && ledger.JackpotKent > scaledBasePayout)
+            {
+                var jackpot = ledger.JackpotKent;
+                ledger.JackpotKent = cfg.JackpotKentStart;
+                ledger.KentStreak = 0; // Reset after payout
+                return new JackpotResolution(jackpot, JackpotHitKind.Kent);
+            }
         }
-    }
-    }
+        // Non-Kent rounds: do NOT decrement KentStreak (per spec — progressive counter).
 
-    return new JackpotResolution(jackpot, JackpotHitKind.None);
-}
+        return new JackpotResolution(0m, JackpotHitKind.None);
+    }
 
 DoubleUpChainResult PlayDoubleUpChain(
     ulong roundSeed,
@@ -555,8 +557,10 @@ static bool ShouldEnterDoubleUp(PlayerBehavior behavior, ulong seed, int payout,
     return behavior switch
     {
         PlayerBehavior.ConservativeCollectFirst => false,
+        // Balanced: realistic player — not always entering, especially when the win is small
+        // or when they're already close to the cap. Target accept rate ≈ 55-60% on winning rounds.
         PlayerBehavior.Balanced => machineCredits + payout < EngineConfig.Default.CloseThreshold
-            && Roll(seed, "accept-balanced", payout, 0.78m),
+            && Roll(seed, "accept-balanced", payout, 0.55m),
         PlayerBehavior.AggressiveCabinetClosing => machineCredits + payout < 50_000_000m || payout < 2_000_000,
         PlayerBehavior.CounterplaySabotage => sabotagePhase
             || machineCredits + payout < 50_000_000m
@@ -569,9 +573,11 @@ static bool ShouldTakeHalf(PlayerBehavior behavior, ulong seed, int step, int op
 {
     return behavior switch
     {
-        PlayerBehavior.Balanced => currentAmount >= Math.Max(openingAmount * 4, 500_000)
+        // Balanced: take-half only when current amount is materially large (≥ 8× trigger).
+        // Realistic player doesn't bank half on a 4× trigger — they keep going.
+        PlayerBehavior.Balanced => currentAmount >= Math.Max(openingAmount * 8, 1_000_000)
             && machineCredits + currentAmount < EngineConfig.Default.CloseThreshold
-            && Roll(seed, "take-half-balanced", step, 0.35m),
+            && Roll(seed, "take-half-balanced", step, 0.25m),
         PlayerBehavior.AggressiveCabinetClosing => currentAmount >= Math.Max(openingAmount * 8, 1_000_000)
             && machineCredits + currentAmount >= EngineConfig.Default.CloseThreshold * 0.65m
             && Roll(seed, "take-half-aggressive", step, 0.60m),
@@ -599,10 +605,12 @@ static bool ShouldCashoutDoubleUp(
 
     return behavior switch
     {
+        // Balanced: realistic player — banks when they've at least tripled the trigger
+        // or when impulse rolls high. Not on the bare 2× bounce.
         PlayerBehavior.Balanced => step > 0 && (
             takeHalfUsed
-            || currentAmount >= Math.Max(openingAmount * 2, 250_000)
-            || Roll(seed, "cashout-balanced", step, 0.70m)),
+            || currentAmount >= Math.Max(openingAmount * 3, 500_000)
+            || Roll(seed, "cashout-balanced", step, 0.55m)),
         PlayerBehavior.AggressiveCabinetClosing => (machineCredits + currentAmount >= EngineConfig.Default.CloseThreshold && step > 0)
             || currentAmount >= Math.Max(openingAmount * 32, 8_000_000)
             || step >= 7,
@@ -625,22 +633,11 @@ static bool ShouldSwitchDealer(PlayerBehavior behavior, ulong seed, int step, Lu
     {
         PlayerBehavior.Balanced => session.SwitchCountInRound == 0
             && dealerRank is 7 or 8
-            && Roll(seed, "switch-balanced", step, 0.25m),
+            && Roll(seed, "switch-balanced", step, 0.20m),
         PlayerBehavior.AggressiveCabinetClosing => dealerRank is >= 6 and <= 9
             && Roll(seed, "switch-aggressive", step + session.SwitchCountInRound, session.SwitchCountInRound == 0 ? 0.60m : 0.35m),
         PlayerBehavior.CounterplaySabotage => dealerRank is >= 6 and <= 9
             && Roll(seed, "switch-counterplay", step + session.SwitchCountInRound, session.SwitchCountInRound == 0 ? 0.65m : 0.40m),
-        _ => false
-    };
-}
-
-static bool ShouldCashOutSession(PlayerBehavior behavior, SessionState session)
-{
-    return behavior switch
-    {
-        PlayerBehavior.ConservativeCollectFirst => session.MachineCredits >= session.SessionCashIn * 2m,
-        PlayerBehavior.Balanced => session.MachineCredits >= Math.Max(session.SessionCashIn * 2.5m, 2_000_000m)
-            && session.MachineCredits < EngineConfig.Default.CloseThreshold * 0.85m,
         _ => false
     };
 }
@@ -654,8 +651,20 @@ static BigSmallGuess ChooseGuess(
     SimulationResult result)
 {
     var optimal = session.DealerCard.Rank <= 8 ? BigSmallGuess.Big : BigSmallGuess.Small;
-    if (behavior != PlayerBehavior.CounterplaySabotage || !sabotagePhase)
+    // Balanced: realistic player — 85% optimal, 15% random mistakes on mid-range dealers.
+    // Models human hesitation on edge cards (A, 2, 3, Q, K, A) and mid-dealers (7, 8).
+    if (behavior != PlayerBehavior.CounterplaySabotage)
     {
+        if (behavior == PlayerBehavior.Balanced)
+        {
+            // 15% chance of non-optimal guess on middle dealers (humans second-guess)
+            if (session.DealerCard.Rank is >= 7 and <= 9
+                && Roll(seed, "balanced-mistake", step, 0.15m))
+            {
+                result.CounterplayWrongWayDoubleUpGuesses++;
+                return optimal == BigSmallGuess.Big ? BigSmallGuess.Small : BigSmallGuess.Big;
+            }
+        }
         return optimal;
     }
 
@@ -695,7 +704,7 @@ static bool RollUnsalted(ulong seed, string stream, decimal threshold)
     return (decimal)rng.NextUnit() < threshold;
 }
 
-bool[] ComputeOptimalHolds(CleanRoomCard[] hand)
+bool[] ComputeBehaviorHolds(CleanRoomCard[] hand, PlayerBehavior behavior, ulong seed, int roundIndex, bool sabotagePhase, SimulationResult result)
 {
     var advisedIndexes = FiveCardDrawEngine.ComputeAdvisedHolds(hand);
     if (behavior != PlayerBehavior.CounterplaySabotage || !sabotagePhase)
@@ -837,12 +846,13 @@ void ApplyJackpotContributions(MachineLedgerState ledger)
     {
         ledger.JackpotFourOfAKindB = Math.Min(ledger.JackpotFourOfAKindB + cfg.JackpotFourOfAKindContribution, cfg.JackpotFourOfAKindCap);
     }
-    ledger.JackpotFullHouse = Math.Min(ledger.JackpotFullHouse + cfg.JackpotFullHouseContribution, cfg.JackpotFullHouseCap);
-    ledger.JackpotStraightFlush = Math.Min(ledger.JackpotStraightFlush + cfg.JackpotStraightFlushContribution, cfg.JackpotStraightFlushCap);
-    // Kent jackpot: fixed increment per round, capped at 5M.
-    // Pays when the player gets a sequential straight (cards in positional order).
-    ledger.JackpotKent = Math.Min(ledger.JackpotKent + cfg.JackpotKentContribution, cfg.JackpotKentCap);
-}
+    ledger.JackpotFullHouse = Math.Min(ledger.JackpotFullHouse + cfg.JackpotFullHouseContribution, cfg.GetFullHouseCapForRank(ledger.JackpotFullHouseRank));
+        ledger.JackpotStraightFlush = Math.Min(ledger.JackpotStraightFlush + cfg.JackpotStraightFlushContribution, cfg.JackpotStraightFlushCap);
+        // Kent jackpot: fixed increment per round, capped at 5M.
+        // Pays when the player gets a sequential straight (cards in positional order)
+        // and has completed a streak of 3 in a row.
+        ledger.JackpotKent = Math.Min(ledger.JackpotKent + cfg.JackpotKentContribution, cfg.JackpotKentCap);
+    }
 
 static void PrintEnhancedSummary(string label, SimulationResult result)
 {
