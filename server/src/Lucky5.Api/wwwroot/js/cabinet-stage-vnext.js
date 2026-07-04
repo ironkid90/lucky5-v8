@@ -639,7 +639,8 @@ window.CabinetStage = (function () {
                     }
 
                     // Animate the card IN: fade + slide down to final position
-                    slotEl.style.transition = `transform 0.18s ease-out, opacity 0.18s ease-out`;
+                    const durationSec = (Number(_config.dealDurationMs) || 100) / 1000;
+                    slotEl.style.transition = `transform ${durationSec}s ease-out, opacity ${durationSec}s ease-out`;
                     slotEl.style.transform = 'translateY(0)';
                     slotEl.style.opacity = '1';
 
