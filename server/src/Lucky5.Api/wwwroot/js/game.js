@@ -1622,8 +1622,8 @@ function computeAutoHold(cardList) {
     const sortedRanks = parsed.map(c => c.rank).sort((a, b) => a - b);
     const uniqueRanks = [...new Set(sortedRanks)];
     if (uniqueRanks.length === 5) {
-        const isStraight = (uniqueRanks[4] - uniqueRanks[0] === 4) ||
-            (uniqueRanks[0] === 2 && uniqueRanks[3] === 5 && uniqueRanks[4] === 14);
+        const isStraight = (uniqueRanks[4] - uniqueRanks[0] === 4) &&
+            uniqueRanks.every((r, i) => i === 0 || r === sortedRanks[i - 1] + 1);
         if (isStraight) {
             return new Set([0, 1, 2, 3, 4]);
         }
@@ -1648,7 +1648,9 @@ function computeAutoHold(cardList) {
         for (let i = 0; i <= sorted.length - 4; i++) {
             const window4 = sorted.slice(i, i + 4);
             const uRanks = [...new Set(window4.map(c => c.rank))];
-            if (uRanks.length === 4 && (uRanks[3] - uRanks[0] <= 4)) {
+            if (uRanks.length !== 4) continue;
+            if (uRanks[3] - uRanks[0] === 4 &&
+                uRanks.every((r, i) => i === 0 || r === uRanks[i - 1] + 1)) {
                 return new Set(window4.map(c => c.index));
             }
         }
@@ -1658,7 +1660,7 @@ function computeAutoHold(cardList) {
             if (lowCards.length >= 3) {
                 const combo = [hasAce, ...lowCards.slice(0, 3)];
                 const uRanks = [...new Set(combo.map(c => c.rank))];
-                if (uRanks.length === 4) {
+                if (uRanks.length === 4 && uRanks[3] - uRanks[0] === 3) {
                     return new Set(combo.map(c => c.index));
                 }
             }
@@ -1814,7 +1816,6 @@ async function doDeal() {
             return;
         }
         playPress();
-        jackpotRankArmed = false;
         gameState = 'dealing';
         setButtonStates();
         showMessage('DEALING...');
@@ -1823,13 +1824,8 @@ async function doDeal() {
         updateWinIndicator(0);
         hideDuInfo();
         hideIdleTitle();
-        roundDoubleUpAvailable = false;
-        takeHalfUsedThisRound = false;
-        duSessionStarted = false;
         resetDoubleUpPanelState();
         duDealerCard = null;
-        jackpotRankArmed = false;
-        window.jackpotRankArmed = false;
 
         try {
             const result = await apiCall('POST', GAME_CONFIG.api.deal, {
@@ -1978,10 +1974,15 @@ async function doDeal() {
                 } else {
                     showMessage(HAND_DISPLAY[handName] || 'NO WIN', 'lose');
                     resetDoubleUpAwardState();
+                    holdIndexes.clear();
+                    $$('.card-slot').forEach(s => s.classList.remove('held'));
+                    $$('.cab-hold').forEach(btn => btn.classList.remove('active'));
+                    if (hasCabinetStage()) CabinetStage.clearAllHolds();
                     gameState = 'idle';
                     setButtonStates();
                     updatePaytable();
                     updateWinAmountDisplay(0);
+                    updateIdleOverlayVisibility();
                     CabinetClock.delayMs(T.postLossIdleTitleMs || 2500, () => {
                         if (gameState === 'idle') showIdleTitle();
                     });
@@ -2770,7 +2771,7 @@ async function mainTakeHalf() {
         // or cash out — no new deals are allowed.
         if (result.status === 'MachineClosed') {
             machineSessionClosed = true;
-            showMessage(getMachineClosedMessage('take-score'), 'win');
+            showMessage(getMachineCloseMessage('take-score'), 'win');
         }
 
         if (winAmount <= 0) {
@@ -2785,7 +2786,7 @@ async function mainTakeHalf() {
             updatePaytable();
             updateBonusBar(null);
             updateWinAmountDisplay(0);
-            showMessage(machineSessionClosed ? getMachineClosedMessage('take-score') : 'PLACE YOUR BET');
+            showMessage(machineSessionClosed ? getMachineCloseMessage('take-score') : 'PLACE YOUR BET');
             showIdleTitle();
             updateIdleOverlayVisibility();
         } else {
