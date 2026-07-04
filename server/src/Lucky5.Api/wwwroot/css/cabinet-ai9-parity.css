@@ -94,7 +94,6 @@
     align-items: center !important;
     justify-content: center !important;
     gap: 6px !important;
-    overflow: hidden !important;
     z-index: 12 !important;
 }
 
