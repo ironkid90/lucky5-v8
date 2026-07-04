@@ -64,25 +64,25 @@ const GAME_CONFIG = Object.freeze({
         // Each card has visible travel + settle time.
         // FAST DEAL (2026-06-28): Reduced stagger for snappier feel.
         // Target: ~15% faster total deal time for more responsive gameplay.
-        dealBaseMs:           60,  // pause before first card lands (cabinet "thunk")
-        dealStaggerMs:        340, // ~20% faster than 475ms (cards appear quicker left-to-right)
-        dealAnimDurationMs:   100, // slightly faster settle time
+        dealBaseMs:           50,  // pause before first card lands (cabinet "thunk")
+        dealStaggerMs:        66, // ~20% faster than 475ms (cards appear quicker left-to-right)
+        dealAnimDurationMs:   80, // slightly faster settle time
 
         // Draw animation (re-dealing only non-held cards)
         // Held cards stay put visibly. Replaced cards flip out, new cards flip in.
-        drawOutMs:            60,  // fade-out / flip-out duration on replaced cards
-        drawInMs:             80,  // fade-in / flip-in duration on new cards
-        drawStaggerMs:        100, // AI9 parity guide target
-        drawRevealStartMs:    60,  // delay before first replaced card starts dropping
+        drawOutMs:            50,  // fade-out / flip-out duration on replaced cards
+        drawInMs:             66,  // fade-in / flip-in duration on new cards
+        drawStaggerMs:        66, // AI9 parity guide target
+        drawRevealStartMs:    50,  // delay before first replaced card starts dropping
 
         // Double-up: shuffle animation
         // The active slot cycles through card faces visibly, like a spinning reel.
-        shuffleFrameMs:       130,  // how often the shuffle swaps to a random card
+        shuffleFrameMs:       50,  // how often the shuffle swaps to a random card
 
         // Double-up: reveal sequence
-        duRevealDelayMs:      250,  // wait after server responds before showing challenger card
+        duRevealDelayMs:      150,  // wait after server responds before showing challenger card
         duWinHoldMs:          900,  // show WIN message before advancing the trail (player sees the win)
-        duStaggerPerCardMs:   120,  // stagger between cards on a fresh DU page
+        duStaggerPerCardMs:   80,  // stagger between cards on a fresh DU page
 
         // Win collection / drain-to-credits
         //   Duration scales with amount: ~1.0s at 500K, ~6.5s at 5M, capped at 20s.
@@ -91,8 +91,8 @@ const GAME_CONFIG = Object.freeze({
         //   Consistent feel across all payout sizes — small wins drain fast,
         //   large wins drain slow but cap at 20s (not 65s) to avoid feeling stuck.
         countUpMinMs:         1000,
-        countUpMaxMs:         20000,
-        creditTickMs:         80,  // digit-flash toggle during count-up (mechanical reel tick cadence)
+        countUpMaxMs:         15000,
+        creditTickMs:         50,  // digit-flash toggle during count-up (mechanical reel tick cadence)
 
         // Jackpot fill animation (for jackpot-level wins)
         //   Same scaling as animateDrainToCredits: amount / 1_000_000 * 1500.
