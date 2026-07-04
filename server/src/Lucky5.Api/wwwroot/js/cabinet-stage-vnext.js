@@ -243,9 +243,16 @@ window.CabinetStage = (function () {
     }
 
     function _allCardCodes() {
-        return Array.isArray(window.ALL_CARD_CODES) && window.ALL_CARD_CODES.length > 0
-            ? window.ALL_CARD_CODES
-            : [];
+        if (Array.isArray(window.ALL_CARD_CODES) && window.ALL_CARD_CODES.length > 0) {
+            return window.ALL_CARD_CODES;
+        }
+        const suits = ['H','D','C','S'];
+        const ranks = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+        const fallback = [];
+        for (const r of ranks) {
+            for (const s of suits) fallback.push(r + s);
+        }
+        return fallback;
     }
 
     function _pickShuffleCode(codes, previousCode) {
@@ -729,10 +736,12 @@ window.CabinetStage = (function () {
         }
 
         let completedCount = 0;
+        let unheldSeqIndex = 0;
         cards.forEach((card, i) => {
             if (_activeDrawToken !== drawToken) return;
             if (held.has(i)) return; // Already rendered
-            window.CabinetClock.delayMs(baseDelay + (i * stagger), () => {
+            const currentSeq = unheldSeqIndex++;
+            window.CabinetClock.delayMs(baseDelay + (currentSeq * stagger), () => {
                 if (_activeDrawToken !== drawToken) return;
                 const slotEl = _slot(i);
                 if (!slotEl) {

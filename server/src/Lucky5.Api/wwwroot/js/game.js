@@ -126,6 +126,7 @@ const ALL_CARD_CODES = [];
         for (const s of suits) { ALL_CARD_CODES.push(r + s); }
     }
 })();
+window.ALL_CARD_CODES = ALL_CARD_CODES;
 
 // ── 2. RUNTIME STATE ──────────────────────────────────────────────────────
 // Mutable session variables — reset on logout / machine leave.

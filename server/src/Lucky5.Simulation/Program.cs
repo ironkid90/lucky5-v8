@@ -44,7 +44,7 @@ for (int i = 0; i < args.Length; i++)
 // a 5K bet, so the policy correction loop clamps to MinPayoutScale (0.72) to claw
 // back. To get a more honest view of the base game, the simulation runs at
 // the cabinet's typical player stake.
-const int Bet = 2_500;
+const int Bet = 5_000;
 
 var cfg = EngineConfig.Default;
 var paytable = PaytableProfile.Lebanese;
@@ -722,6 +722,30 @@ static bool RollUnsalted(ulong seed, string stream, decimal threshold)
 bool[] ComputeBehaviorHolds(CleanRoomCard[] hand, PlayerBehavior behavior, ulong seed, int roundIndex, bool sabotagePhase, SimulationResult result)
 {
     var advisedIndexes = FiveCardDrawEngine.ComputeAdvisedHolds(hand);
+
+    // Balanced: realistic player — 80% optimal holds, 20% realistic mistakes.
+    // Mistakes: hold 1 trash card (low rank) ~12%, hold nothing when pair available ~5%,
+    // hold extra pair card ~3%. These produce measurably worse paytable realization
+    // without being so bad that the player never wins.
+    if (behavior == PlayerBehavior.Balanced && !sabotagePhase)
+    {
+        if (Roll(seed, "balanced-hold-mistake", roundIndex, 0.20m) && hand.Length == 5)
+                {
+                    var mistakeMask = new bool[5];
+                    var balAdvisedSet = advisedIndexes.ToHashSet();
+                    // Hold advised + 1 extra low-rank card
+                    foreach (var idx in advisedIndexes) mistakeMask[idx] = true;
+                    var extraIdx = Enumerable.Range(0, 5)
+                        .Where(i => !balAdvisedSet.Contains(i))
+                        .OrderBy(i => hand[i].Rank)
+                        .FirstOrDefault();
+                    mistakeMask[extraIdx] = true;
+                    result.CounterplayTrashHolds++;
+                    return mistakeMask;
+                }
+                return MaskFromIndexes(advisedIndexes);
+    }
+
     if (behavior != PlayerBehavior.CounterplaySabotage || !sabotagePhase)
     {
         return MaskFromIndexes(advisedIndexes);

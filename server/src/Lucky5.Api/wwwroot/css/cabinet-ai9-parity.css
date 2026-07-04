@@ -121,7 +121,8 @@
     left: 0 !important;
     right: 0 !important;
     text-align: center !important;
-    z-index: 10 !important;
+    z-index: 130 !important;
+    overflow: visible !important;
 }
 
 /* Card image: must preserve aspect ratio of source PNG.
@@ -794,6 +795,7 @@ body {
     top: 20.7% !important;
     height: 16.2% !important;
     z-index: 120 !important;
+    overflow: visible !important;
 }
 
 #game-screen.active #win-amount-display {
