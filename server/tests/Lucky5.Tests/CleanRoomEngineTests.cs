@@ -175,7 +175,7 @@ public static class CleanRoomEngineTests
 		Assert(failures, "Approved RTP target should default to the current tuned baseline", defaultConfig.TargetRtp == 0.80m);
 		Assert(failures, "Machine policy state should inherit the approved RTP target by default", new MachinePolicyState().TargetRtp == defaultConfig.TargetRtp);
 		Assert(failures, "Approved close threshold should default to 40,000,000", defaultConfig.CloseThreshold == 40_000_000m);
-		Assert(failures, "Approved payout-scale defaults should match the v8 tuned architecture", defaultConfig.DefaultPayoutScale == 1.15m && defaultConfig.MinPayoutScale == 0.72m && defaultConfig.MaxPayoutScale == 2.05m);
+		Assert(failures, "Approved payout-scale defaults should match the v8 tuned architecture", defaultConfig.DefaultPayoutScale == 1.15m && defaultConfig.MinPayoutScale == 0.35m && defaultConfig.MaxPayoutScale == 2.05m);
 
 		var defaultCloseSession = Lucky5DoubleUpEngine.CreateSessionFromDeck(
 			seedRoot: seed,
