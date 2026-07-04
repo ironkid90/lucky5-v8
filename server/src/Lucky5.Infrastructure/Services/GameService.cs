@@ -2370,30 +2370,11 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 
 	private static IReadOnlyList<PokerCardDto> BuildCardTrail(Lucky5DoubleUpSession session)
 	{
-		if (session.PlayedDealerIndexes is null)
+		if (session.CurrentBoardCards is { Length: > 0 })
 		{
-			return session.Deck.Take(session.DealerIndex + 1).Select(ToCleanRoomDto).ToArray();
+			return session.CurrentBoardCards.Select(ToCleanRoomDto).ToArray();
 		}
-
-		var trail = new List<PokerCardDto>();
-		foreach (var index in session.PlayedDealerIndexes)
-		{
-			if (index >= 0 && index < session.Deck.Length)
-			{
-				trail.Add(ToCleanRoomDto(session.Deck[index]));
-			}
-		}
-
-		if (session.DealerIndex >= 0 && session.DealerIndex < session.Deck.Length)
-		{
-			var dealer = ToCleanRoomDto(session.Deck[session.DealerIndex]);
-			if (trail.Count == 0 || trail[^1].Code != dealer.Code)
-			{
-				trail.Add(dealer);
-			}
-		}
-
-		return trail;
+		return [ToCleanRoomDto(session.DealerCard)];
 	}
 
 	private static PokerCardDto ToDto(PokerCard c)

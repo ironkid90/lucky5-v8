@@ -405,33 +405,41 @@ window.CabinetStage = (function () {
             : [];
         const normalizedDealer = _asCard(dealerCard);
 
-        const duConfig = (typeof GAME_CONFIG !== 'undefined') ? GAME_CONFIG.doubleUp : null;
-        const maxTrailPerPage = Math.max(1, Number(duConfig?.maxTrailPerPage) || DEFAULT_MAX_TRAIL_PER_PAGE);
-        const carryStep = Math.max(1, maxTrailPerPage - 1);
-
-        let startIndex = 0;
-        if (normalizedTrail.length > maxTrailPerPage) {
-            const overshoot = normalizedTrail.length - maxTrailPerPage;
-            const pages = Math.ceil(overshoot / carryStep);
-            startIndex = pages * carryStep;
-        }
-
-        const visibleTrail = normalizedTrail.slice(startIndex);
-        const sequence = visibleTrail.slice();
+        const sequence = Array(5).fill(null);
         let dealerIndex = -1;
+        let revealIndex = -1;
 
-        if (normalizedDealer) {
-            dealerIndex = Math.min(visibleTrail.length, 4);
-            sequence.push({
+        const L = normalizedTrail.length;
+
+        if (L > 0) {
+            for (let i = 0; i < Math.min(L, 5); i++) {
+                sequence[i] = normalizedTrail[i];
+            }
+            dealerIndex = Math.min(L - 1, 4);
+            if (sequence[dealerIndex]) {
+                sequence[dealerIndex].label = 'DEALER';
+            }
+            for (let i = 0; i < dealerIndex; i++) {
+                if (sequence[i]) {
+                    sequence[i].label = 'PLAYED';
+                }
+            }
+            if (L < 5) {
+                revealIndex = L;
+            }
+        } else if (normalizedDealer) {
+            sequence[0] = {
                 card: normalizedDealer,
                 label: 'DEALER'
-            });
+            };
+            dealerIndex = 0;
+            revealIndex = 1;
         }
 
         return {
-            sequence: sequence.slice(0, 5),
+            sequence,
             dealerIndex,
-            revealIndex: Math.min(sequence.length, 4)
+            revealIndex
         };
     }
 
@@ -699,8 +707,8 @@ window.CabinetStage = (function () {
 
         let pending = 0;
 
-        const baseDelay = Math.max(0, Number(_config.dealBaseMs) || 0);
-        const stagger = Math.max(40, Number(_config.dealStaggerMs) || 100);
+        const baseDelay = Math.max(0, Number(_config.drawRevealStartMs) !== undefined ? Number(_config.drawRevealStartMs) : Number(_config.dealBaseMs) || 0);
+        const stagger = Math.max(40, Number(_config.drawStaggerMs) !== undefined ? Number(_config.drawStaggerMs) : Number(_config.dealStaggerMs) || 100);
 
         cards.forEach((card, i) => {
             if (!held.has(i)) {
