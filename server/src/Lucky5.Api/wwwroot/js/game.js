@@ -1006,13 +1006,29 @@ function updatePaytable(activeHand) {
     $$('.pay-row').forEach(row => {
         const hand = row.dataset.hand;
         const mult = parseInt(row.querySelector('.pay-amount').dataset.mult) || 0;
-        row.querySelector('.pay-amount').textContent = formatNum(mult * currentBet);
+        const payAmountEl = row.querySelector('.pay-amount');
+        payAmountEl.textContent = formatNum(mult * currentBet);
         row.classList.remove('active', 'du-highlight');
         if (highlightHand && hand === highlightHand) {
             row.classList.add(highlightClass);
             if (highlightAmount > 0) {
-                row.querySelector('.pay-amount').textContent = formatNum(highlightAmount);
+                payAmountEl.textContent = formatNum(highlightAmount);
+                // Set the DU multiplier data attribute (Bug #9):
+                // The base paytable value (mult * currentBet) doubles with each
+                // HI/LO win. Show "×N" prefix so the player sees how many wins
+                // they've stacked. AI9 reference: 2 → 4 → 8 → 16...
+                if (gameState === 'doubleup' && mult > 0 && currentBet > 0) {
+                    const baseValue = mult * currentBet;
+                    const multiplier = Math.max(1, Math.round(highlightAmount / baseValue));
+                    payAmountEl.dataset.duMultiplier = multiplier;
+                } else {
+                    delete payAmountEl.dataset.duMultiplier;
+                }
+            } else {
+                delete payAmountEl.dataset.duMultiplier;
             }
+        } else {
+            delete payAmountEl.dataset.duMultiplier;
         }
     });
 }
@@ -1908,6 +1924,19 @@ async function doDeal() {
                         if (jackpotWon > 0) {
                             await animateJackpotFill(jackpotWon, balance, handName);
                             if (result.jackpots) updateJackpotDisplay(result.jackpots);
+                            // After the jackpot fills and the drain runs, clear the
+                            // bonus-text "JACKPOT WON" message so it doesn't stick
+                            // on screen. Fade out for a clean transition. The passive
+                            // "4 OF A KIND WINS BONUS" hint comes back via
+                            // updateBonusHandText() on the next idle/hold state.
+                            const bonusEl = document.getElementById('bonus-text');
+                            if (bonusEl) {
+                                bonusEl.classList.add('clearing');
+                                CabinetClock.delayTicks(30, () => {
+                                    bonusEl.classList.remove('clearing');
+                                    updateBonusBar(null);
+                                });
+                            }
                         }
                         machineSessionClosed = Number(finalMachineCredits) >= MACHINE_CREDIT_LIMIT;
                         if (gameState === 'win') {

@@ -608,6 +608,7 @@ window.CabinetStage = (function () {
             const dealToken = {};
             _activeDealToken = dealToken;
 
+            // Phase 1: render all cards in DOM at opacity 0 (instant, no flicker)
             cards.forEach((card, i) => {
                 const slotEl = _slot(i);
                 const img = _cardImg(slotEl);
@@ -615,7 +616,9 @@ window.CabinetStage = (function () {
 
                 _resetMainSlot(slotEl);
                 _applyCardFace(slotEl, img, card, { requireFace: true });
-                slotEl.style.transform = 'translateY(0)';
+                // Set initial state: invisible + slightly above so we can animate IN
+                slotEl.style.transition = 'none';
+                slotEl.style.transform = 'translateY(-12%)';
                 slotEl.style.opacity = '0';
             });
 
@@ -635,7 +638,11 @@ window.CabinetStage = (function () {
                         return;
                     }
 
+                    // Animate the card IN: fade + slide down to final position
+                    slotEl.style.transition = `transform 0.18s ease-out, opacity 0.18s ease-out`;
+                    slotEl.style.transform = 'translateY(0)';
                     slotEl.style.opacity = '1';
+
                     completedCount++;
                     if (completedCount === cards.length && onComplete) {
                         window.CabinetClock.delayMs(20, onComplete);

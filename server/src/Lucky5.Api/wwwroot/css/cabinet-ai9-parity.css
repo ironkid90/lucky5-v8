@@ -677,18 +677,32 @@
    7. RESPONSIVE / MOBILE ADJUSTMENTS & BACKGROUND BLACKOUT
    ───────────────────────────────────────────────────────────────────────────── */
 
-/* Black out the viewport container and browser canvas to absorb letterboxing */
+/* Black out the viewport container and browser canvas to absorb letterboxing.
+   Changed from #000000 to dark cabinet wood (#1a0f08) so letterbox areas look
+   like cabinet frame instead of black borders when the viewport aspect
+   doesn't exactly match 9:16. */
 html,
 body,
 #game-container {
-    background-color: #000000 !important;
+    background-color: #1a0f08 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
 }
 
+/* Wood-grain background image for body so letterboxing looks like cabinet frame */
+body {
+    background-image: url('/assets/images/board.png') !important;
+    background-size: 100% 100% !important;
+    background-position: center center !important;
+    background-repeat: no-repeat !important;
+}
+
 /* Hard limit the cabinet viewport to a perfect 9:16 aspect ratio boundary.
    56.25vh matches exactly (100vh * 9 / 16), and 177.78vw matches (100vw * 16 / 9).
-   This ensures the wood panel controls and card stages never vertical overflow or overlap. */
+   This ensures the wood panel controls and card stages never vertical overflow or overlap.
+   
+   2026-07-04 UPDATE: Allow cabinet to FILL the viewport (no black borders).
+   The wood texture background on body absorbs any uncovered area. */
 #cabinet-viewport,
 #game-screen,
 #controls,
@@ -697,9 +711,37 @@ body,
     print-color-adjust: exact !important;
 }
 
+/* Cabinet face fills the ENTIRE viewport — no black borders.
+   
+   On viewports with EXACTLY 9:16 aspect ratio, the cabinet fills perfectly.
+   On WIDER viewports (desktop, 16:9): the cabinet stretches to fill width
+   while keeping its 9:16 height. The wood deck (#controls) extends below
+   the cabinet to fill the remaining height.
+   On TALLER viewports (mobile portrait, taller than 9:16): the cabinet
+   fills height while width auto-scales by aspect-ratio. Wood extends sideways.
+   
+   All absolute-positioned zones inside the cabinet (paytable, cards, machine
+   info, controls, etc.) use % positions so they scale with the cabinet. */
 #cabinet-viewport {
-    max-width: 56.25vh !important;
-    max-height: 177.78vw !important;
+    position: relative !important;
+    width: 100% !important;
+    height: 100% !important;
+    aspect-ratio: 720 / 1280 !important;
+    /* When viewport aspect != 9:16, fill the viewport in the constraining axis
+       and let the other axis be derived from aspect-ratio. The cabinet body
+       (background wood texture on #controls) absorbs any extra space. */
+    margin: 0 auto !important;
+    transform-origin: center center !important;
+    container-type: size !important;
+    container-name: cabinet !important;
+    overflow: hidden !important;
+}
+
+/* Make sure the cabinet face never shrinks below visibility */
+@media (min-width: 400px) {
+    #cabinet-viewport {
+        min-width: 320px !important;
+    }
 }
 
 /* The cabinet is always portrait-locked (9:16). No reflow. */
