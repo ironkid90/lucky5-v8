@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 COPY server/Lucky5.sln server/Lucky5.sln
@@ -12,7 +12,7 @@ RUN dotnet restore server/src/Lucky5.Api/Lucky5.Api.csproj
 COPY server/ server/
 RUN dotnet publish server/src/Lucky5.Api/Lucky5.Api.csproj -c Release -o /app/publish
 
-FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 COPY --from=build /app/publish .
 
