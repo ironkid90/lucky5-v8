@@ -336,6 +336,14 @@ public sealed record EngineConfig(
 	decimal DoubleUpHighExposureSequencePressureStart = 0.22m,
 	decimal DoubleUpSuspenseReleaseChance = 0.12m,
 
+	// === Ante Model ===
+	// In real Lebanese cabinets the draw ante can be a multiple of the deal ante
+	// (commonly 1× = standard, 2× = "raise on the draw" common in Caribbean Stud variants).
+	// This tuning lever dramatically shifts RTP without changing any game rules.
+	//   DrawAnteMultiplier = 1.0  → standard 1:1 model (deal ante + draw ante = 2×)
+	//   DrawAnteMultiplier = 2.0  → draw costs 2× the deal (total stake = 3× deal ante)
+	decimal DrawAnteMultiplier = 1.0m,
+
 	// === Deck Alteration Bounds ===
 	int MaxColdRemovals = 1,
 	int MaxHotAdditions = 2,

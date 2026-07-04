@@ -89,7 +89,15 @@ public static class MachinePolicy
     private static readonly int[] HighValueRanks = [14, 13, 12, 11];
 
     // All tuning constants now come from EngineConfig; these are convenience accessors for the default.
-    private static EngineConfig Cfg => EngineConfig.Default;
+    // Backing field + setter pattern. The simulator and any code that needs to
+    // override the default config (calibration sweeps, per-machine policy) can
+    // assign Cfg. Most call sites just read Cfg.X and don't care about mutation.
+    private static EngineConfig _cfg = EngineConfig.Default;
+    public static EngineConfig Cfg
+    {
+        get => _cfg;
+        set => _cfg = value;
+    }
 
     public static decimal CloseThreshold => Cfg.CloseThreshold;
 

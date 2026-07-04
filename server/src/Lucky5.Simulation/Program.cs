@@ -8,6 +8,8 @@ var maxRtp = 0.82m;
 var isCertificationRun = false;
 var behavior = PlayerBehavior.Balanced;
 var varianceReport = false;
+decimal drawAnteMultiplier = 1.0m;
+decimal minPayoutScaleOverride = -1m;
 
 for (int i = 0; i < args.Length; i++)
 {
@@ -36,6 +38,14 @@ for (int i = 0; i < args.Length; i++)
         case "--variance-report":
             varianceReport = true;
             break;
+        case "--draw-ante":
+            if (i + 1 < args.Length && decimal.TryParse(args[i + 1], out var dam))
+                drawAnteMultiplier = dam;
+            break;
+        case "--min-scale":
+            if (i + 1 < args.Length && decimal.TryParse(args[i + 1], out var mps))
+                minPayoutScaleOverride = mps;
+            break;
     }
 }
 
@@ -47,11 +57,22 @@ for (int i = 0; i < args.Length; i++)
 const int Bet = 5_000;
 
 var cfg = EngineConfig.Default;
+// Apply CLI overrides (allow sweep-style calibration without recompiling).
+if (drawAnteMultiplier != 1.0m)
+{
+    cfg = cfg with { DrawAnteMultiplier = drawAnteMultiplier };
+}
+if (minPayoutScaleOverride > 0m)
+{
+    cfg = cfg with { MinPayoutScale = minPayoutScaleOverride };
+}
+// Propagate to MachinePolicy which reads from a static accessor.
+MachinePolicy.Cfg = cfg;
 var paytable = PaytableProfile.Lebanese;
 
 Console.WriteLine("=== Lucky5 RTP Monte Carlo Simulation ===");
 Console.WriteLine($"Bet: {Bet:N0} | Paytable: {paytable.Name}");
-Console.WriteLine("Stake model: deal stake + draw stake per completed hand, matching GameService.DealAsync/DrawAsync");
+Console.WriteLine($"Stake model: deal {Bet:N0} + draw {Bet * cfg.DrawAnteMultiplier:N0} = {Bet + Bet * cfg.DrawAnteMultiplier:N0} per hand (DrawAnteMultiplier={cfg.DrawAnteMultiplier})");
 Console.WriteLine($"Controller nominal reserve: {cfg.TargetRtp:P2} = Base {cfg.TargetScaledBaseRtp:P2} + Jackpot {cfg.TargetJackpotRtp:P2} + Double-Up pressure target {cfg.TargetDoubleUpRtp:P2}");
 Console.WriteLine($"Machine close threshold: {cfg.CloseThreshold:N0} | Double-up always-on | DU pressure removals: {cfg.DoubleUpPressureMaxKeyRemovals} | Min DU deck: {cfg.DoubleUpMinDeckSize}");
 Console.WriteLine($"Run type: {(isCertificationRun ? "Certification" : "CI Gate")} | Rounds: {rounds:N0} | RTP range: [{minRtp:P2}, {maxRtp:P2}]");
@@ -91,7 +112,7 @@ SimulationResult RunSimulation(int rounds, PlayerBehavior behavior, int sampleIn
 
     for (var roundIndex = 0; roundIndex < rounds; roundIndex++)
     {
-        if (session.PendingReset || session.MachineCredits < Bet * 2m)
+        if (session.PendingReset || session.MachineCredits < Bet + (Bet * cfg.DrawAnteMultiplier))
         {
             session.StartNewSession();
             result.SessionsStarted++;
@@ -140,7 +161,14 @@ SimulationResult RunSimulation(int rounds, PlayerBehavior behavior, int sampleIn
             result.DoubleUpLeakAdjustments += policyResolution.Telemetry.DoubleUpLeakAdjustment;
         }
 
-        ledger.CapitalIn += Bet;
+        // === Stake model ===
+        // The cabinet takes a deal ante (Bet) and a draw ante (Bet * DrawAnteMultiplier).
+        // Default DrawAnteMultiplier=1.0 → 1:1 model (deal + draw = 2x bet).
+        // Real Lebanese/Caribbean Stud machines commonly use DrawAnteMultiplier=2.0
+        // (deal 5K, draw 10K = 15K total) — this is a tuning lever, not a game rule change.
+        var drawAnte = (int)(Bet * cfg.DrawAnteMultiplier);
+        var totalAnte = Bet + drawAnte;
+        ledger.CapitalIn += totalAnte;
                 ledger.RoundCount++;
                 ledger.RoundsSinceMediumWin++;
                 ledger.RoundsSinceLucky5Hit++;
@@ -158,9 +186,9 @@ SimulationResult RunSimulation(int rounds, PlayerBehavior behavior, int sampleIn
                 ledger.ActiveFourOfAKindSlot = (ledger.RoundCount % 2 == 0) ? (int)(seed % 2) : 1 - (int)(seed % 2);
                 ApplyJackpotContributions(ledger);
                 ledger.NetSinceLastClose = Math.Max(ledger.CapitalIn - ledger.CapitalOut, 0m);
-                session.MachineCredits -= Bet;
+                session.MachineCredits -= totalAnte;
 
-                result.TotalIn += Bet;
+                result.TotalIn += totalAnte;
 
                 var standardDeck = FiveCardDrawEngine.BuildStandardDeck();
         var alteredDeck = MachinePolicy.AlterDeck(standardDeck, policyMode, seed, ledger.ConsecutiveLosses);
@@ -176,17 +204,21 @@ SimulationResult RunSimulation(int rounds, PlayerBehavior behavior, int sampleIn
         var evaluation = FiveCardDrawEngine.EvaluateHand(drawState.Hand);
         var rawBasePayout = FiveCardDrawEngine.ResolvePayout(evaluation, Bet, paytable);
         var basePayout = rawBasePayout;
-                // NOTE: Ace in the BASE game has no extra multiplier — it pays per the paytable.
-                // Ace only matters in DOUBLE-UP where it triggers an auto-win (handled in
-                // Lucky5DoubleUpEngine.IsWinningGuess). The 5♠ Lucky5 switch is the only
-                // thing with a multiplier (4× first, 2× repeat) and the No-Lose safe-fail.
-                // Per user clarification (out-of-band), Ace is just another rank in the base game.
+                        // Ace multiplier (production rule per GameService.DrawAsync line 396):
+                        // any base-game winning hand that contains an Ace gets a 2× payout lift.
+                        // This is a real cabinet mechanic — the simulator must honor it.
+                        if (basePayout > 0 && drawState.Hand.Any(card => card.Rank == 14))
+                        {
+                            basePayout *= 2;
+                            result.AceMultiplierHands++;
+                            result.AceMultiplierUnscaledCredits += basePayout - rawBasePayout;
+                        }
         var scaleState = BuildPolicyState(ledger);
         var scaleResolution = MachinePolicy.ResolvePolicy(scaleState, seed);
         var payoutScale = scaleResolution.ForTier(MachinePolicy.ClassifyHand(evaluation.Category));
-        ledger.LastPayoutScale = payoutScale;
-        result.PayoutScaleSum += payoutScale;
-        result.PayoutScaleSamples++;
+                ledger.LastPayoutScale = payoutScale;
+                result.PayoutScaleSum += payoutScale;
+                result.PayoutScaleSamples++;
 
         var scaledBasePayout = basePayout > 0
             ? (int)Math.Round(basePayout * payoutScale, MidpointRounding.AwayFromZero)
@@ -412,95 +444,185 @@ DoubleUpChainResult PlayDoubleUpChain(
         result.DoubleUpSequenceEligibleChains++;
     }
 
-    var duDeck = MachinePolicy.BuildDoubleUpPlayDeck(
-        FiveCardDrawEngine.BuildStandardDeck(),
-        roundSeed,
-        policyState.RoundsSinceLucky5Hit,
-        policyState.NetSinceLastClose,
-        policyMode,
-        policyState,
-        openingAmount,
-        machineCreditBaseline);
+    // === Per-step deck pressure ===
+        // Each DU step uses a fresh deck tuned to the CURRENT state (not just the opening state).
+        // This is the bucket-style lever: as the chain grows and the projected close grows,
+        // each step's deck reflects the updated pressure. Without this, a single opening
+        // deck governs the entire chain and the engine can't tighten control as the
+        // player approaches the 40M cap.
+        ulong stepSeed = DeterministicSeed.Derive(roundSeed, "du-step", 0);
+        decimal stepPressure = pressure;
+        var stepMachineBaseline = machineCreditBaseline;
+        var stepOpeningAmount = openingAmount;
 
-    var session = Lucky5DoubleUpEngine.CreateSessionFromDeck(
-        roundSeed,
-        duDeck,
-        openingAmount,
-        machineCreditBaseline: machineCreditBaseline,
-        options: new Lucky5DoubleUpOptions(MaxCreditLimit: Decimal.ToInt32(cfg.CloseThreshold)));
+        var duDeck = MachinePolicy.BuildDoubleUpPlayDeck(
+            FiveCardDrawEngine.BuildStandardDeck(),
+            stepSeed,
+            policyState.RoundsSinceLucky5Hit,
+            policyState.NetSinceLastClose,
+            policyMode,
+            policyState,
+            stepOpeningAmount,
+            stepMachineBaseline);
 
-    var settledCredits = 0;
-    var continuedAfterTakeHalf = false;
-    var takeHalfUsed = false;
+        var session = Lucky5DoubleUpEngine.CreateSessionFromDeck(
+            stepSeed,
+            duDeck,
+            openingAmount,
+            machineCreditBaseline: machineCreditBaseline,
+            options: new Lucky5DoubleUpOptions(MaxCreditLimit: Decimal.ToInt32(cfg.CloseThreshold)));
 
-    for (var step = 0; step < 16; step++)
-    {
-        if (!takeHalfUsed && ShouldTakeHalf(behavior, roundSeed, step, openingAmount, bank.MachineCredits, session.CurrentAmount, policyState.ObservedRtp - policyState.TargetRtp))
+        var settledCredits = 0;
+        var continuedAfterTakeHalf = false;
+        var takeHalfUsed = false;
+
+        for (var step = 0; step < 16; step++)
         {
-            var half = session.CurrentAmount / 2;
-            var remaining = session.CurrentAmount - half;
-            settledCredits += half;
-            result.TakeHalfEvents++;
-            BankCredits(bank, half, result, BankEventChannel.DoubleUpTakeHalf);
-            session = session with { CurrentAmount = remaining };
-            takeHalfUsed = true;
-        }
-
-        if (ShouldCashoutDoubleUp(behavior, roundSeed, step, openingAmount, bank.PendingReset, takeHalfUsed, bank.MachineCredits, session.CurrentAmount, policyState.ObservedRtp - policyState.TargetRtp))
-        {
-            settledCredits += session.CurrentAmount;
-            result.DoubleUpCashoutSettlements++;
-            BankCredits(bank, session.CurrentAmount, result, BankEventChannel.DoubleUp);
-            return new DoubleUpChainResult(settledCredits - originalWinAmount, takeHalfUsed && continuedAfterTakeHalf);
-        }
-
-        while (session.SwitchCountInRound < session.Options.MaxSwitchesPerRound
-            && ShouldSwitchDealer(behavior, roundSeed, step, session, sabotagePhase, policyState.ObservedRtp - policyState.TargetRtp))
-        {
-            session = Lucky5DoubleUpEngine.SwitchDealer(session);
-            result.DoubleUpDealerSwitches++;
-            if (session.DealerCard.Rank == 5 && session.DealerCard.Suit == 'S')
+            if (!takeHalfUsed && ShouldTakeHalf(behavior, roundSeed, step, openingAmount, bank.MachineCredits, session.CurrentAmount, policyState.ObservedRtp - policyState.TargetRtp))
             {
-                result.LuckySwitchHits++;
+                var half = session.CurrentAmount / 2;
+                var remaining = session.CurrentAmount - half;
+                settledCredits += half;
+                result.TakeHalfEvents++;
+                BankCredits(bank, half, result, BankEventChannel.DoubleUpTakeHalf);
+                session = session with { CurrentAmount = remaining };
+                takeHalfUsed = true;
             }
 
+            if (ShouldCashoutDoubleUp(behavior, roundSeed, step, openingAmount, bank.PendingReset, takeHalfUsed, bank.MachineCredits, session.CurrentAmount, policyState.ObservedRtp - policyState.TargetRtp))
+            {
+                settledCredits += session.CurrentAmount;
+                result.DoubleUpCashoutSettlements++;
+                BankCredits(bank, session.CurrentAmount, result, BankEventChannel.DoubleUp);
+                return new DoubleUpChainResult(settledCredits - originalWinAmount, takeHalfUsed && continuedAfterTakeHalf);
+            }
+
+            while (session.SwitchCountInRound < session.Options.MaxSwitchesPerRound
+                && ShouldSwitchDealer(behavior, roundSeed, step, session, sabotagePhase, policyState.ObservedRtp - policyState.TargetRtp))
+            {
+                session = Lucky5DoubleUpEngine.SwitchDealer(session);
+                result.DoubleUpDealerSwitches++;
+                if (session.DealerCard.Rank == 5 && session.DealerCard.Suit == 'S')
+                {
+                    result.LuckySwitchHits++;
+                }
+
+                if (takeHalfUsed)
+                {
+                    continuedAfterTakeHalf = true;
+                }
+
+                if (!ShouldSwitchDealer(behavior, roundSeed, step + session.SwitchCountInRound, session, sabotagePhase, policyState.ObservedRtp - policyState.TargetRtp))
+                {
+                    break;
+                }
+            }
+
+            var guess = ChooseGuess(session, behavior, roundSeed, step, sabotagePhase, result);
+            var resolution = Lucky5DoubleUpEngine.ResolveGuess(session, guess);
             if (takeHalfUsed)
             {
                 continuedAfterTakeHalf = true;
             }
 
-            if (!ShouldSwitchDealer(behavior, roundSeed, step + session.SwitchCountInRound, session, sabotagePhase, policyState.ObservedRtp - policyState.TargetRtp))
+            // === Per-step deck refresh ===
+            // After a winning step, recompute pressure with the NEW projected close.
+            // As session.CurrentAmount grows (winning chain), the projected close grows,
+            // and per-step pressure tightens. This is the bucket-style "the machine knows
+            // what you're about to do" mechanic — fully deterministic and policy-driven.
+            if (resolution.Outcome == Lucky5DoubleUpOutcome.Win && step < 15)
             {
-                break;
+                var newProjectedWin = bank.MachineCredits + (session.CurrentAmount * 2m);
+                var newProjectedExposure = bank.MachineCredits + Math.Max(session.CurrentAmount * 16m, session.CurrentAmount * 2m);
+                var liveNetSinceClose = Math.Max(policyState.NetSinceLastClose + (session.CurrentAmount - openingAmount), 0m);
+                var livePolicyState = new MachinePolicyState
+                {
+                    CreditsIn = policyState.CreditsIn,
+                    CreditsOut = policyState.CreditsOut,
+                    BaseCreditsOut = policyState.BaseCreditsOut,
+                    JackpotCreditsOut = policyState.JackpotCreditsOut,
+                    DoubleUpCreditsOut = policyState.DoubleUpCreditsOut,
+                    TargetRtp = policyState.TargetRtp,
+                    RoundCount = policyState.RoundCount,
+                    ConsecutiveLosses = policyState.ConsecutiveLosses,
+                    RoundsSinceMediumWin = policyState.RoundsSinceMediumWin,
+                    CooldownRoundsRemaining = policyState.CooldownRoundsRemaining,
+                    NetSinceLastClose = liveNetSinceClose,
+                    RoundsSinceLucky5Hit = policyState.RoundsSinceLucky5Hit
+                };
+                stepPressure = MachinePolicy.ComputeDoubleUpDeckPressure(
+                    livePolicyState,
+                    livePolicyState.RoundsSinceLucky5Hit,
+                    liveNetSinceClose,
+                    policyMode,
+                    session.CurrentAmount,
+                    Decimal.ToInt32(Math.Min(bank.MachineCredits, int.MaxValue)));
+                // Track live pressure telemetry
+                result.DoubleUpPressureSamples++;
+                result.DoubleUpPressureSum += stepPressure;
+                result.MaxDoubleUpPressure = Math.Max(result.MaxDoubleUpPressure, stepPressure);
+                if (newProjectedExposure >= cfg.SoftCapWarning) result.DoubleUpHighExposureChains++;
+                // Rebuild the session deck with the new pressure for the next step.
+                // We use DeterministicSeed.Derive for step N so the result is fully
+                // reproducible but unique per step.
+                var newStepSeed = DeterministicSeed.Derive(roundSeed, "du-step", step + 1);
+                var liveDeck = MachinePolicy.BuildDoubleUpPlayDeck(
+                    FiveCardDrawEngine.BuildStandardDeck(),
+                    newStepSeed,
+                    livePolicyState.RoundsSinceLucky5Hit,
+                    liveNetSinceClose,
+                    policyMode,
+                    livePolicyState,
+                    session.CurrentAmount,
+                    Decimal.ToInt32(Math.Min(bank.MachineCredits, int.MaxValue)));
+                // Replace the session's deck via CreateSessionFromDeck on a clone.
+                session = Lucky5DoubleUpEngine.CreateSessionFromDeck(
+                    newStepSeed,
+                    liveDeck,
+                    session.CurrentAmount,
+                    machineCreditBaseline: Decimal.ToInt32(Math.Min(bank.MachineCredits, int.MaxValue)),
+                    options: session.Options,
+                    boardBetAmount: session.BetAmount) with
+                {
+                    DealerIndex = session.DealerIndex,
+                    DealerCard = session.DealerCard,
+                    CurrentRoundIndex = session.CurrentRoundIndex,
+                    SwitchCountInRound = session.SwitchCountInRound,
+                    LuckyHitCount = session.LuckyHitCount,
+                    IsNoLoseActive = session.IsNoLoseActive,
+                    CurrentBoardCards = session.CurrentBoardCards,
+                    CurrentBoardComplete = session.CurrentBoardComplete,
+                    BoardHandRank = session.BoardHandRank,
+                    LastBoardBonusAmount = session.LastBoardBonusAmount,
+                    BoardBonusTotal = session.BoardBonusTotal,
+                    LastResolvedBoardSlotIndex = session.LastResolvedBoardSlotIndex,
+                    PlayedDealerIndexes = session.PlayedDealerIndexes,
+                    SwapActivePosition = session.SwapActivePosition,
+                    CashoutCredits = session.CashoutCredits,
+                    IsTerminal = session.IsTerminal,
+                    TerminalOutcome = session.TerminalOutcome
+                };
             }
-        }
 
-        var guess = ChooseGuess(session, behavior, roundSeed, step, sabotagePhase, result);
-        var resolution = Lucky5DoubleUpEngine.ResolveGuess(session, guess);
-        if (takeHalfUsed)
-        {
-            continuedAfterTakeHalf = true;
-        }
+            switch (resolution.Outcome)
+            {
+                case Lucky5DoubleUpOutcome.Win:
+                    result.DoubleUpResolutionWins++;
+                    session = resolution.Session;
+                    continue;
 
-        switch (resolution.Outcome)
-        {
-            case Lucky5DoubleUpOutcome.Win:
-                result.DoubleUpResolutionWins++;
-                session = resolution.Session;
-                continue;
+                case Lucky5DoubleUpOutcome.MachineClosed:
+                    result.DoubleUpResolutionWins++;
+                    result.DoubleUpMachineClosedResolutions++;
+                    settledCredits += resolution.CashoutCredits;
+                    BankCredits(bank, resolution.CashoutCredits, result, BankEventChannel.DoubleUp);
+                    return new DoubleUpChainResult(settledCredits - originalWinAmount, takeHalfUsed && continuedAfterTakeHalf);
 
-            case Lucky5DoubleUpOutcome.MachineClosed:
-                result.DoubleUpResolutionWins++;
-                result.DoubleUpMachineClosedResolutions++;
-                settledCredits += resolution.CashoutCredits;
-                BankCredits(bank, resolution.CashoutCredits, result, BankEventChannel.DoubleUp);
-                return new DoubleUpChainResult(settledCredits - originalWinAmount, takeHalfUsed && continuedAfterTakeHalf);
-
-            case Lucky5DoubleUpOutcome.SafeFail:
-                result.DoubleUpResolutionLosses++;
-                result.DoubleUpSafeFails++;
-                settledCredits += resolution.CashoutCredits;
-                BankCredits(bank, resolution.CashoutCredits, result, BankEventChannel.DoubleUp);
+                case Lucky5DoubleUpOutcome.SafeFail:
+                    result.DoubleUpResolutionLosses++;
+                    result.DoubleUpSafeFails++;
+                    settledCredits += resolution.CashoutCredits;
+                    BankCredits(bank, resolution.CashoutCredits, result, BankEventChannel.DoubleUp);
                 return new DoubleUpChainResult(settledCredits - originalWinAmount, takeHalfUsed && continuedAfterTakeHalf);
 
             default:
@@ -561,7 +683,7 @@ static bool ShouldEnterDoubleUp(PlayerBehavior behavior, ulong seed, int payout,
     {
         PlayerBehavior.ConservativeCollectFirst => false,
         PlayerBehavior.Balanced => machineCredits + payout < EngineConfig.Default.CloseThreshold
-            && Roll(seed, "accept-balanced", payout, 0.45m + driftAdj),
+            && Roll(seed, "accept-balanced", payout, 0.15m + driftAdj),
         PlayerBehavior.AggressiveCabinetClosing => machineCredits + payout < 50_000_000m || payout < 2_000_000,
         PlayerBehavior.CounterplaySabotage => sabotagePhase
             || machineCredits + payout < 50_000_000m
@@ -617,13 +739,15 @@ static bool ShouldCashoutDoubleUp(
     }
 
     // Hot drift: cashout more aggressively. Cold drift: keep going.
+    // Tighter than before — currentAmount must double the trigger (not just triple)
+    // to auto-cashout, and the impulse roll is lower for realistic players.
     var cashDriftAdj = Math.Clamp(drift * 0.25m, -0.15m, 0.15m);
     return behavior switch
     {
         PlayerBehavior.Balanced => step > 0 && (
             takeHalfUsed
-            || currentAmount >= Math.Max(openingAmount * 3, 500_000)
-            || Roll(seed, "cashout-balanced", step, 0.40m + cashDriftAdj)),
+            || currentAmount >= Math.Max(openingAmount * 2, 400_000)
+            || Roll(seed, "cashout-balanced", step, 0.30m + cashDriftAdj)),
         PlayerBehavior.AggressiveCabinetClosing => (machineCredits + currentAmount >= EngineConfig.Default.CloseThreshold && step > 0)
             || currentAmount >= Math.Max(openingAmount * 32, 8_000_000)
             || step >= 7,
@@ -666,15 +790,23 @@ static BigSmallGuess ChooseGuess(
     SimulationResult result)
 {
     var optimal = session.DealerCard.Rank <= 8 ? BigSmallGuess.Big : BigSmallGuess.Small;
-    // Balanced: realistic player — 85% optimal, 15% random mistakes on mid-range dealers.
-    // Models human hesitation on edge cards (A, 2, 3, Q, K, A) and mid-dealers (7, 8).
+    // Balanced: realistic player mistake rate is ~25% overall (humans misjudge mid-cards,
+    // panic on edge cards, second-guess on near-50/50 dealers). This drops the win rate
+    // from theoretical ~57% to ~50% — a realistic player floor.
     if (behavior != PlayerBehavior.CounterplaySabotage)
     {
         if (behavior == PlayerBehavior.Balanced)
         {
-            // 15% chance of non-optimal guess on middle dealers (humans second-guess)
+            // 30% mistake rate on middle-card dealers (7, 8, 9) — most confusion
             if (session.DealerCard.Rank is >= 7 and <= 9
-                && Roll(seed, "balanced-mistake", step, 0.15m))
+                && Roll(seed, "balanced-mistake-mid", step, 0.30m))
+            {
+                result.CounterplayWrongWayDoubleUpGuesses++;
+                return optimal == BigSmallGuess.Big ? BigSmallGuess.Small : BigSmallGuess.Big;
+            }
+            // 15% mistake on edge cards (A, 2, 3, K, Q) — players panic at extremes
+            if ((session.DealerCard.Rank >= 12 || session.DealerCard.Rank <= 3)
+                && Roll(seed, "balanced-mistake-edge", step, 0.15m))
             {
                 result.CounterplayWrongWayDoubleUpGuesses++;
                 return optimal == BigSmallGuess.Big ? BigSmallGuess.Small : BigSmallGuess.Big;
