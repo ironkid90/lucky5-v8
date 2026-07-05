@@ -582,9 +582,7 @@
     text-shadow:
         0 0 0.3cqh #9ceaff,
         0 0 1.0cqh rgba(95, 216, 255, 0.9),
-        0 0 2cqh rgba(40, 160, 220, 0.55),
         0 0.2cqh 0 rgba(0, 0, 0, 0.65);
-    -webkit-text-stroke: 0.05cqh #1a5d7a;
     opacity: 0.95;
 }
 #idle-overlay #idle-overlay-text .idle-line-lucky { font-size: 3.5cqh; }

@@ -65,7 +65,7 @@ const GAME_CONFIG = Object.freeze({
         // FAST DEAL (2026-06-28): Reduced stagger for snappier feel.
         // Target: ~15% faster total deal time for more responsive gameplay.
         dealBaseMs:           50,  // pause before first card lands (cabinet "thunk")
-        dealStaggerMs:        180, // ~180ms stagger for mechanical thunk-thunk-thunk feel
+        dealStaggerMs:        350, // ~350ms stagger for mechanical thunk-thunk-thunk feel
         dealAnimDurationMs:   100, // slightly more deliberate settle time
 
         // Draw animation (re-dealing only non-held cards)

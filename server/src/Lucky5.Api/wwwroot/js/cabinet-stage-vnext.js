@@ -412,20 +412,28 @@ window.CabinetStage = (function () {
         const L = normalizedTrail.length;
 
         if (L > 0) {
-            for (let i = 0; i < Math.min(L, 5); i++) {
-                sequence[i] = normalizedTrail[i];
+            const start = L > 5 ? Math.max(0, Math.floor((L - 2) / 4) * 4) : 0;
+            
+            for (let i = 0; i < 5; i++) {
+                if (start + i < L) {
+                    sequence[i] = normalizedTrail[start + i];
+                }
             }
-            dealerIndex = Math.min(L - 1, 4);
-            if (sequence[dealerIndex]) {
+            
+            dealerIndex = L - 1 - start;
+            if (dealerIndex >= 0 && dealerIndex < 5 && sequence[dealerIndex]) {
                 sequence[dealerIndex].label = 'DEALER';
             }
+            
             for (let i = 0; i < dealerIndex; i++) {
                 if (sequence[i]) {
                     sequence[i].label = 'PLAYED';
                 }
             }
-            if (L < 5) {
-                revealIndex = L;
+            
+            const nextIndex = L - start;
+            if (nextIndex < 5) {
+                revealIndex = nextIndex;
             }
         } else if (normalizedDealer) {
             sequence[0] = {

@@ -1125,9 +1125,7 @@ function updateJackpotSelectedRow() {
 function updateBonusHandText() {
     const el = document.getElementById('bonus-hand-text');
     if (!el) return;
-    if (gameState === 'idle') {
-        el.textContent = `FULL HOUSE ${RANK_NAMES[jackpotRank] || 'A'} SELECTED`;
-    } else if (active4kSlot === 0 || active4kSlot === 1) {
+    if (active4kSlot === 0 || active4kSlot === 1) {
         el.textContent = '4  OF  A  KIND    WINS  BONUS';
     } else {
         el.textContent = '';

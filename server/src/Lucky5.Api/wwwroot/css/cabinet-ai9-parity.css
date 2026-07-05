@@ -307,6 +307,11 @@
     box-shadow: none !important;
 }
 
+.cab-btn:disabled {
+    opacity: 0.85 !important;
+    filter: grayscale(0.6) brightness(0.6) !important;
+}
+
 /* Button Image mappings (pure CSS, no JS needed) */
 
 /* HOLD buttons: hold_off.png (idle) / hold_on.png (pressed). Aspect ratio 1024:1536 */
@@ -947,7 +952,7 @@ body {
    ───────────────────────────────────────────────────────────────────────────── */
 
 #card-area.du-mode {
-    justify-content: center !important;
+    justify-content: flex-start !important;
     padding: 0 2% !important;
     gap: 4px !important;
 }
