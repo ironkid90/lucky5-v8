@@ -1,6 +1,7 @@
 using System.Net;
 using System.Security.Claims;
 using System.Text.Json;
+using Lucky5.Api.Observability;
 using Lucky5.Application.Contracts;
 using Lucky5.Application.Dtos;
 using Lucky5.Infrastructure.Services;
@@ -64,6 +65,7 @@ builder.Services.AddCors(options =>
     });
 });
 builder.Services.AddLucky5Infrastructure(builder.Configuration);
+builder.Services.AddLangfuseObservability(builder.Configuration, builder.Environment);
 
 builder.Services.AddHealthChecks()
     .AddCheck("live", () => HealthCheckResult.Healthy("Application is running"));
@@ -158,6 +160,7 @@ app.UseStaticFiles();
 
 app.UseRouting();
 app.UseCors();
+app.UseLangfuseTraceContext();
 // NOTE: Rate limiting disabled for .NET 10 compatibility - re-enable when stable
 // app.UseRateLimiter();
 app.MapControllers();
