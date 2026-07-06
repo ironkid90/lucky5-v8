@@ -882,6 +882,7 @@ window.CabinetStage = (function () {
 
     function showLucky5Active() {
         const banner = document.getElementById('lucky5-banner');
+        const flash = document.getElementById('lucky5-flash');
         const currentToken = {};
         _lucky5Token = currentToken;
 
@@ -889,6 +890,11 @@ window.CabinetStage = (function () {
 
         if (banner) {
             banner.classList.add('active');
+        }
+
+        if (flash) {
+            void flash.offsetWidth;
+            flash.classList.add('active');
         }
 
         document.querySelectorAll('.card-slot, .du-card-slot').forEach(slotEl => {
@@ -900,6 +906,10 @@ window.CabinetStage = (function () {
 
             if (banner) {
                 banner.classList.remove('active');
+            }
+
+            if (flash) {
+                flash.classList.remove('active');
             }
 
             document.querySelectorAll('.card-slot, .du-card-slot').forEach(slotEl => {

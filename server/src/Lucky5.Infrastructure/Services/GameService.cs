@@ -390,16 +390,23 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		var evaluation = FiveCardDrawEngine.EvaluateHand(state.Hand);
 		var basePayout = FiveCardDrawEngine.ResolvePayout(evaluation, (int)round.BetAmount);
 
-		// Ace multiplier logic: if an Ace is in the winning hand, apply multiplier
+		var specialRules = EngineCfg.ResolvedSpecialRules;
 		var aceCard = state.Hand.FirstOrDefault(c => c.Rank == 14);
-		var aceMultiplier = 1;
-		if (basePayout > 0 && aceCard.Rank == 14)
+		var aceMultiplier = basePayout > 0 && aceCard.Rank == 14
+			? Math.Max(1, specialRules.BaseGameAceWinMultiplier)
+			: 1;
+		if (basePayout > 0 && aceCard.Rank == 14 && aceMultiplier > 1)
 		{
-			aceMultiplier = 2; // Ace doubles the payout
 			basePayout *= aceMultiplier;
 			round.AceCard = aceCard.ToLegacyPokerCard();
 			round.AceMultiplier = aceMultiplier;
 			round.AceMultiplierFired = true;
+		}
+		else
+		{
+			round.AceCard = null;
+			round.AceMultiplier = 1;
+			round.AceMultiplierFired = false;
 		}
 
 		decimal payoutScale;
@@ -548,12 +555,18 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 			startingAmount,
 			machineCreditBaseline);
 
+		var specialRules = EngineCfg.ResolvedSpecialRules;
 		var session = Lucky5DoubleUpEngine.CreateSessionFromDeck(
 			round.RoundEntropySeed,
 			playDeck,
 			startingAmount,
 			machineCreditBaseline,
-			new Lucky5DoubleUpOptions(MaxCreditLimit: Decimal.ToInt32(EngineCfg.CloseThreshold)),
+			new Lucky5DoubleUpOptions(
+				FirstLuckyMultiplier: specialRules.LuckyFiveFirstSwitchMultiplier,
+				RepeatLuckyMultiplier: specialRules.LuckyFiveRepeatSwitchMultiplier,
+				MaxCreditLimit: Decimal.ToInt32(EngineCfg.CloseThreshold),
+				AceCountsHiOrLo: specialRules.AceAutoWinsDoubleUp,
+				LuckyFiveArmsNoLose: specialRules.LuckyFiveSwitchArmsNoLose),
 			Decimal.ToInt32(round.BetAmount));
 
 		round.DoubleUpSession = session;
@@ -2414,13 +2427,13 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 			_ => 0
 		};
 
-		// Map suit to base offset: H=0, D=13, C=26, S=39
+		// Map both canonical names and CleanRoom short suits to base offsets.
 		var suitOffset = suit switch
 		{
-			"Hearts" => 0,
-			"Diamonds" => 13,
-			"Clubs" => 26,
-			"Spades" => 39,
+			"H" or "Hearts" => 0,
+			"D" or "Diamonds" => 13,
+			"C" or "Clubs" => 26,
+			"S" or "Spades" => 39,
 			_ => 0
 		};
 

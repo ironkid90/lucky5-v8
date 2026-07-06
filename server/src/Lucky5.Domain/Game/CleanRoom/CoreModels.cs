@@ -226,12 +226,20 @@ public sealed record PaytableProfile(
 	}
 }
 
+public sealed record Lucky5SpecialRules(
+	int BaseGameAceWinMultiplier = 1,
+	bool AceAutoWinsDoubleUp = true,
+	int LuckyFiveFirstSwitchMultiplier = 4,
+	int LuckyFiveRepeatSwitchMultiplier = 2,
+	bool LuckyFiveSwitchArmsNoLose = true);
+
 public sealed record Lucky5DoubleUpOptions(
 	int MaxSwitchesPerRound = 2,
 	int FirstLuckyMultiplier = 4,
 	int RepeatLuckyMultiplier = 2,
 	int MaxCreditLimit = 40_000_000,
-	bool AceCountsHiOrLo = true);
+	bool AceCountsHiOrLo = true,
+	bool LuckyFiveArmsNoLose = true);
 
 public sealed record Lucky5DoubleUpSession(
 	ulong SeedRoot,
@@ -336,6 +344,9 @@ public sealed record EngineConfig(
 	decimal DoubleUpHighExposureSequencePressureStart = 0.22m,
 	decimal DoubleUpSuspenseReleaseChance = 0.12m,
 
+	// === Variant Special Rules ===
+	Lucky5SpecialRules? SpecialRules = null,
+
 	// === Ante Model ===
 	// In real Lebanese cabinets the draw ante can be a multiple of the deal ante
 	// (commonly 1× = standard, 2× = "raise on the draw" common in Caribbean Stud variants).
@@ -407,6 +418,8 @@ public sealed record EngineConfig(
 )
 {
 	public static EngineConfig Default { get; } = new();
+
+	public Lucky5SpecialRules ResolvedSpecialRules => SpecialRules ?? new Lucky5SpecialRules();
 
 	// Computed properties for convenience
 	public decimal TargetJackpotRtp => 0.0325m;

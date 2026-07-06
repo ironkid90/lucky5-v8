@@ -103,7 +103,7 @@ public static class Lucky5DoubleUpEngine
 			CurrentAmount = checked(session.CurrentAmount * multiplier),
 			SwitchCountInRound = session.SwitchCountInRound + 1,
 			LuckyHitCount = luckyHitCount,
-			IsNoLoseActive = session.IsNoLoseActive || isLuckyFive,
+			IsNoLoseActive = session.IsNoLoseActive || (isLuckyFive && session.Options.LuckyFiveArmsNoLose),
 			CurrentBoardCards = board,
 			CurrentBoardComplete = false,
 			BoardHandRank = null,

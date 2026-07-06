@@ -204,15 +204,13 @@ SimulationResult RunSimulation(int rounds, PlayerBehavior behavior, int sampleIn
         var evaluation = FiveCardDrawEngine.EvaluateHand(drawState.Hand);
         var rawBasePayout = FiveCardDrawEngine.ResolvePayout(evaluation, Bet, paytable);
         var basePayout = rawBasePayout;
-                        // Ace multiplier (production rule per GameService.DrawAsync line 396):
-                        // any base-game winning hand that contains an Ace gets a 2× payout lift.
-                        // This is a real cabinet mechanic — the simulator must honor it.
-                        if (basePayout > 0 && drawState.Hand.Any(card => card.Rank == 14))
-                        {
-                            basePayout *= 2;
-                            result.AceMultiplierHands++;
-                            result.AceMultiplierUnscaledCredits += basePayout - rawBasePayout;
-                        }
+        var aceBaseMultiplier = Math.Max(1, cfg.ResolvedSpecialRules.BaseGameAceWinMultiplier);
+        if (basePayout > 0 && aceBaseMultiplier > 1 && drawState.Hand.Any(card => card.Rank == 14))
+        {
+            basePayout *= aceBaseMultiplier;
+            result.AceMultiplierHands++;
+            result.AceMultiplierUnscaledCredits += basePayout - rawBasePayout;
+        }
         var scaleState = BuildPolicyState(ledger);
         var scaleResolution = MachinePolicy.ResolvePolicy(scaleState, seed);
         var payoutScale = scaleResolution.ForTier(MachinePolicy.ClassifyHand(evaluation.Category));
@@ -470,7 +468,12 @@ DoubleUpChainResult PlayDoubleUpChain(
             duDeck,
             openingAmount,
             machineCreditBaseline: machineCreditBaseline,
-            options: new Lucky5DoubleUpOptions(MaxCreditLimit: Decimal.ToInt32(cfg.CloseThreshold)));
+            options: new Lucky5DoubleUpOptions(
+                FirstLuckyMultiplier: cfg.ResolvedSpecialRules.LuckyFiveFirstSwitchMultiplier,
+                RepeatLuckyMultiplier: cfg.ResolvedSpecialRules.LuckyFiveRepeatSwitchMultiplier,
+                MaxCreditLimit: Decimal.ToInt32(cfg.CloseThreshold),
+                AceCountsHiOrLo: cfg.ResolvedSpecialRules.AceAutoWinsDoubleUp,
+                LuckyFiveArmsNoLose: cfg.ResolvedSpecialRules.LuckyFiveSwitchArmsNoLose));
 
         var settledCredits = 0;
         var continuedAfterTakeHalf = false;

@@ -972,7 +972,9 @@ body {
 
 .du-card-slot .du-card-frame {
     width: 100% !important;
+    height: auto !important;
     aspect-ratio: 313 / 528 !important;
+    background: transparent !important;
 }
 
 .du-card-slot .du-card-label {
@@ -1064,6 +1066,263 @@ html, body {
 #bonus-text.clearing {
     opacity: 0 !important;
     pointer-events: none !important;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════════
+   LUCKY 5 FLASH EFFECT — Strobe/flash overlay for extra feedback
+   ───────────────────────────────────────────────────────────────────────────── */
+
+#lucky5-flash {
+    position: absolute !important;
+    inset: 0 !important;
+    background-color: #ffffff !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    z-index: 10000 !important; /* display on top of all screen components */
+}
+
+#lucky5-flash.active {
+    animation: lucky5-strobe-pulse 0.7s cubic-bezier(0.15, 0.85, 0.35, 1) forwards !important;
+}
+
+@keyframes lucky5-strobe-pulse {
+    0% {
+        opacity: 0.9 !important;
+        background-color: #ffffff !important;
+    }
+    12% {
+        opacity: 0.15 !important;
+        background-color: #ffffff !important;
+    }
+    24% {
+        opacity: 0.75 !important;
+        background-color: #ffeedd !important; /* warmer amber/phosphor tone */
+    }
+    40% {
+        opacity: 0.1 !important;
+    }
+    55% {
+        opacity: 0.45 !important;
+        background-color: #ffd8b5 !important;
+    }
+    100% {
+        opacity: 0 !important;
+        background-color: transparent !important;
+    }
+}
+
+/* ═════════════════════════════════════════════════════════════════════════════
+   ADMIN / AGENT PANEL HARDENING & POLISH
+   ═════════════════════════════════════════════════════════════════════════════ */
+
+#admin-screen {
+    background: radial-gradient(ellipse at 50% 10%, rgba(139,105,20,0.12) 0%, transparent 60%), #0a0703 !important;
+}
+
+#admin-screen .wallet-header {
+    background: linear-gradient(180deg, #2a1b07 0%, #150d03 100%) !important;
+    border-bottom: 3px solid #a67c1a !important;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.6) !important;
+}
+
+#admin-screen .wallet-title {
+    color: #FFD700 !important;
+    text-shadow: 0 0 10px rgba(255,215,0,0.4) !important;
+}
+
+#admin-screen .wallet-history-title {
+    color: #FFD700 !important;
+    border-top: 1px dashed rgba(166, 124, 26, 0.3) !important;
+    padding-top: 16px !important;
+    margin-bottom: 10px !important;
+    font-size: 10px !important;
+    text-shadow: 0 0 8px rgba(255, 215, 0, 0.25) !important;
+}
+
+/* Hardened and polished inputs on admin panel */
+#admin-screen .admin-input-lite {
+    background: rgba(0, 0, 0, 0.5) !important;
+    border: 2px solid #554422 !important;
+    border-radius: 6px !important;
+    color: #ffeaad !important;
+    font-size: 8px !important;
+    transition: all 0.25s ease !important;
+}
+
+#admin-screen .admin-input-lite:focus {
+    outline: none !important;
+    border-color: #FFD700 !important;
+    background: rgba(0, 0, 0, 0.7) !important;
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.35), inset 0 0 4px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Styled history rows in admin */
+#admin-screen .wallet-history-row {
+    background: linear-gradient(180deg, rgba(42,28,10,0.45) 0%, rgba(20,12,4,0.6) 100%) !important;
+    border: 1.5px solid rgba(166, 124, 26, 0.25) !important;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.3) !important;
+    padding: 12px 14px !important;
+    margin-bottom: 6px !important;
+    transition: border-color 0.2s, background 0.2s !important;
+}
+
+#admin-screen .wallet-history-row:hover {
+    border-color: rgba(166, 124, 26, 0.5) !important;
+    background: linear-gradient(180deg, rgba(42,28,10,0.65) 0%, rgba(20,12,4,0.8) 100%) !important;
+}
+
+#admin-screen .wallet-history-type {
+    color: #FFD700 !important;
+}
+
+#admin-screen .wallet-history-date {
+    color: #cbb493 !important;
+    font-size: 7px !important;
+    line-height: 1.5 !important;
+}
+
+/* Custom retro dialog overlay and animations */
+.admin-modal-overlay {
+    position: absolute !important;
+    inset: 0 !important;
+    background: rgba(0, 0, 0, 0.85) !important;
+    backdrop-filter: blur(5px) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 15000 !important;
+    animation: modalFadeIn 0.25s cubic-bezier(0.1, 0.8, 0.25, 1) forwards !important;
+}
+
+.admin-modal-box {
+    width: 88% !important;
+    max-width: 440px !important;
+    background: linear-gradient(180deg, #2c1a0a 0%, #110801 100%) !important;
+    border: 4px solid #a67c1a !important;
+    border-radius: 12px !important;
+    padding: 24px 20px !important;
+    box-shadow: 
+        0 15px 45px rgba(0,0,0,0.9), 
+        0 0 25px rgba(166,124,26,0.35), 
+        inset 0 2px 0 rgba(255,255,255,0.1) !important;
+    position: relative !important;
+    font-family: 'Press Start 2P', monospace !important;
+    color: #fff !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
+}
+
+.admin-modal-bezel {
+    position: absolute !important;
+    inset: 2px !important;
+    border: 1px solid rgba(166, 124, 26, 0.15) !important;
+    border-radius: 8px !important;
+    pointer-events: none !important;
+}
+
+.admin-modal-header {
+    text-align: center !important;
+    border-bottom: 2px dashed rgba(166, 124, 26, 0.3) !important;
+    padding-bottom: 14px !important;
+}
+
+#admin-modal-title {
+    font-size: 11px !important;
+    color: #FFD700 !important;
+    letter-spacing: 2px !important;
+    text-shadow: 0 0 8px rgba(255, 215, 0, 0.4) !important;
+}
+
+.admin-modal-body {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
+}
+
+.admin-modal-text {
+    font-size: 8px !important;
+    line-height: 1.7 !important;
+    color: #e8d48b !important;
+    letter-spacing: 1px !important;
+    text-transform: uppercase !important;
+    text-align: center !important;
+}
+
+#admin-modal-inputs {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+}
+
+.admin-modal-error-msg {
+    color: #ff4d4d !important;
+    font-size: 7px !important;
+    line-height: 1.5 !important;
+    background: rgba(255, 51, 51, 0.08) !important;
+    border: 1.5px solid rgba(255, 51, 51, 0.25) !important;
+    padding: 10px !important;
+    border-radius: 6px !important;
+    text-align: center !important;
+    word-break: break-word !important;
+    letter-spacing: 1px !important;
+}
+
+.admin-modal-footer {
+    display: flex !important;
+    justify-content: space-between !important;
+    gap: 14px !important;
+    margin-top: 10px !important;
+}
+
+.admin-modal-btn {
+    flex: 1 !important;
+    padding: 14px 10px !important;
+    font-family: 'Press Start 2P', monospace !important;
+    font-size: 9px !important;
+    font-weight: bold !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    letter-spacing: 1px !important;
+    transition: transform 0.1s, filter 0.2s !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.admin-modal-btn.cancel-btn {
+    background: linear-gradient(180deg, #ff3b30 0%, #aa0000 100%) !important;
+    border: 2px solid #5a0000 !important;
+    color: #fff !important;
+    box-shadow: 0 4px 0 #5a0000, 0 4px 8px rgba(0,0,0,0.5) !important;
+}
+
+.admin-modal-btn.cancel-btn:active {
+    transform: translateY(2px) !important;
+    box-shadow: 0 2px 0 #5a0000, 0 2px 4px rgba(0,0,0,0.5) !important;
+}
+
+.admin-modal-btn.confirm-btn {
+    background: linear-gradient(180deg, #34c759 0%, #007f1f 100%) !important;
+    border: 2px solid #003e07 !important;
+    color: #fff !important;
+    box-shadow: 0 4px 0 #003e07, 0 4px 8px rgba(0,0,0,0.5) !important;
+}
+
+.admin-modal-btn.confirm-btn:active {
+    transform: translateY(2px) !important;
+    box-shadow: 0 2px 0 #003e07, 0 2px 4px rgba(0,0,0,0.5) !important;
+}
+
+@keyframes modalFadeIn {
+    from {
+        opacity: 0 !important;
+        background: rgba(0, 0, 0, 0) !important;
+    }
+    to {
+        opacity: 1 !important;
+        background: rgba(0, 0, 0, 0.85) !important;
+    }
 }
 
 /* ═════════════════════════════════════════════════════════════════════════════

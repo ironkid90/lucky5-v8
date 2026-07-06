@@ -19,12 +19,14 @@ public static class GameServiceRegressionTests
 		await JackpotSnapshotsExposeAuthoritativeMachineIdentityAsync(failures);
 		await ZeroCreditClosedSessionIsNormalizedOnReadAsync(failures);
 		await MachineCloseCashOutAllowsContinuingNewSessionAsync(failures);
+		await DoubleUpCardsExposeCanonicalShortSuitCardIdsAsync(failures);
 		await MachineSessionCashOutEligibilityFollowsRulesAsync(failures);
 		await CashOutRejectsBelowThresholdWhenMachineIsNotClosedAsync(failures);
 		await CompletedButUnsettledRoundRemainsRecoverableAsync(failures);
 		await GetActiveRoundRestoresDealtPhaseAsync(failures);
 		await GetActiveRoundKeepsDrawnStateUntilPayoutSettledAsync(failures);
 		await GetActiveRoundRestoresActiveDoubleUpPhaseAsync(failures);
+		await AceWinningBasePayoutDoesNotApplyExtraMultiplierAsync(failures);
 		await StartDoubleUpUsesAlreadyAceMultipliedWinAmountAsync(failures);
 		await ClosedMachineCashOutIsIdempotentAsync(failures);
 		await PlayerResetAfterClosePreservesClosedSessionUntilExplicitCashOutAsync(failures);
@@ -541,6 +543,46 @@ public static class GameServiceRegressionTests
 			&& active.DoubleUpSession.SlotIndex == 5);
 	}
 
+	private static async Task AceWinningBasePayoutDoesNotApplyExtraMultiplierAsync(List<string> failures)
+	{
+		var store = new InMemoryDataStore();
+		var service = CreateService(store);
+		var userId = Guid.Parse("20000000-0000-0000-0000-000000000022");
+
+		SeedPlayer(store, userId, "ace-no-extra-multiplier", 2_000_000m);
+		var machineId = store.Machines.Values.First(machine => machine.IsOpen).Id;
+		await service.CashInAsync(userId, machineId, 200_000m, CancellationToken.None);
+
+		var dealt = CreateState(RoundPhase.Dealt, RoundState.Hold, ["AS", "AD", "8C", "8H", "2S"]);
+		var round = new GameRound
+		{
+			RoundId = Guid.Parse("30000000-0000-0000-0000-000000000022"),
+			UserId = userId,
+			MachineId = machineId,
+			BetAmount = 5_000m,
+			InitialCards = dealt.Hand.Select(card => card.ToLegacyPokerCard()).ToList(),
+			FinalCards = dealt.Hand.Select(card => card.ToLegacyPokerCard()).ToList(),
+			CleanRoomState = dealt,
+			RoundEntropySeed = 0xACEUL,
+			ActiveFourOfAKindSlotAtDeal = 0
+		};
+		store.ActiveRounds[round.RoundId] = round;
+
+		var draw = await service.DrawAsync(userId, new DrawRequest(round.RoundId, [0, 1, 2, 3, 4]), CancellationToken.None);
+
+		var ledger = store.MachineLedgers[machineId];
+		var expectedScaledTwoPair = Math.Round(20_000m * ledger.LastPayoutScale, MidpointRounding.AwayFromZero);
+
+		Assert(
+			failures,
+			$"Ace-including two-pair should not receive the removed base-game 2x Ace multiplier; actual hand={draw.HandRank}, win={draw.WinAmount}, expectedScaledTwoPair={expectedScaledTwoPair}, scale={ledger.LastPayoutScale}, aceMultiplier={round.AceMultiplier}, fired={round.AceMultiplierFired}, aceCard={(round.AceCard?.Code ?? "null")}",
+			draw.HandRank == "TwoPair"
+			&& draw.WinAmount == expectedScaledTwoPair
+			&& round.AceMultiplier == 1
+			&& !round.AceMultiplierFired
+			&& round.AceCard is null);
+	}
+
 	private static async Task StartDoubleUpUsesAlreadyAceMultipliedWinAmountAsync(List<string> failures)
 	{
 		var store = new InMemoryDataStore();
@@ -998,6 +1040,90 @@ public static class GameServiceRegressionTests
 			&& snapshot.Hand.AdvisedHolds is not null
 			&& snapshot.Hand.HeldIndexes.Count == 0
 			&& snapshot.Hand.AdvisedHolds.SequenceEqual(expected));
+	}
+
+	private static async Task DoubleUpCardsExposeCanonicalShortSuitCardIdsAsync(List<string> failures)
+	{
+		var store = new InMemoryDataStore();
+		var service = CreateService(store);
+		var userId = Guid.Parse("21000000-0000-0000-0000-000000000021");
+
+		SeedPlayer(store, userId, "du-short-suit-card-id", 1_000_000m);
+		var machineId = store.Machines.Values.First(machine => machine.IsOpen).Id;
+		var session = new MachineSessionState
+		{
+			UserId = userId,
+			MachineId = machineId,
+			MachineCredits = 200_000m,
+			TotalCashIn = 200_000m,
+			LastUpdatedUtc = DateTime.UtcNow
+		};
+		store.MachineSessions[session.SessionId] = session;
+
+		var round = new GameRound
+		{
+			UserId = userId,
+			MachineId = machineId,
+			BetAmount = 5_000m,
+			InitialCards = FiveCardDrawEngine.ParseCards(["AS", "AD", "8C", "8H", "2S"]).Select(c => c.ToLegacyPokerCard()).ToList(),
+			FinalCards = FiveCardDrawEngine.ParseCards(["AS", "AD", "8C", "8H", "2S"]).Select(c => c.ToLegacyPokerCard()).ToList(),
+			HandRank = "TwoPair",
+			WinAmount = 10_000m,
+			OriginalWinAmount = 10_000m,
+			IsCompleted = true,
+			CleanRoomState = CreateState(RoundPhase.Drawn, RoundState.Evaluate, ["AS", "AD", "8C", "8H", "2S"]),
+			DoubleUpOffered = true
+		};
+		store.ActiveRounds[round.RoundId] = round;
+
+		var started = await service.StartDoubleUpAsync(userId, round.RoundId, CancellationToken.None);
+		var activeRound = await service.GetActiveRoundAsync(userId, machineId, CancellationToken.None);
+		var cards = new[] { started.DealerCard }
+			.Concat(started.CardTrail ?? [])
+			.Concat(activeRound?.DoubleUpSession?.CardTrail ?? [])
+			.Where(card => card is not null)
+			.Cast<PokerCardDto>()
+			.ToArray();
+
+		Assert(failures, "Double-up regression setup should expose at least one card DTO.", cards.Length > 0);
+		foreach (var card in cards)
+		{
+			var expected = ExpectedShortSuitCardId(card.Rank, card.Suit);
+			Assert(
+				failures,
+				$"Double-up card {card.Code ?? card.Rank + card.Suit} should expose canonical CardId {expected}, not {card.CardId}; otherwise legacy render paths can show a stale/fallback 10 after machine close.",
+				card.CardId == expected);
+		}
+	}
+
+	private static int ExpectedShortSuitCardId(string rank, string suit)
+	{
+		var rankIndex = rank switch
+		{
+			"2" => 0,
+			"3" => 1,
+			"4" => 2,
+			"5" => 3,
+			"6" => 4,
+			"7" => 5,
+			"8" => 6,
+			"9" => 7,
+			"10" => 8,
+			"J" => 9,
+			"Q" => 10,
+			"K" => 11,
+			"A" => 12,
+			_ => 0
+		};
+		var suitOffset = suit switch
+		{
+			"H" => 0,
+			"D" => 13,
+			"C" => 26,
+			"S" => 39,
+			_ => 0
+		};
+		return suitOffset + rankIndex + 1;
 	}
 
 	private static MachineSessionState GetSession(InMemoryDataStore store, Guid userId, int machineId)

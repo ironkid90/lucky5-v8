@@ -3162,6 +3162,162 @@ function formatTransactionDate(utcStr) {
     }
 }
 
+// ── Retro Cabinet Modal Utility ──
+function showCustomModal({
+    title = 'ADMIN CONTROL',
+    message = '',
+    fields = [], // array of { placeholder, value, type, numericOnly, validate }
+    confirmText = 'CONFIRM',
+    cancelText = 'CANCEL',
+    isAlert = false,
+    isConfirm = false
+}) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('admin-modal-container');
+        const titleEl = document.getElementById('admin-modal-title');
+        const msgEl = document.getElementById('admin-modal-message');
+        const inputsContainer = document.getElementById('admin-modal-inputs');
+        const errorEl = document.getElementById('admin-modal-error');
+        const confirmBtn = document.getElementById('admin-modal-btn-confirm');
+        const cancelBtn = document.getElementById('admin-modal-btn-cancel');
+
+        if (!modal) {
+            console.error('Admin modal container not found in DOM.');
+            resolve(null);
+            return;
+        }
+
+        // Reset state
+        titleEl.textContent = title.toUpperCase();
+        msgEl.innerHTML = message.toUpperCase();
+        errorEl.style.display = 'none';
+        errorEl.textContent = '';
+        inputsContainer.innerHTML = '';
+
+        // Configure buttons
+        confirmBtn.textContent = confirmText.toUpperCase();
+        cancelBtn.textContent = cancelText.toUpperCase();
+        cancelBtn.style.display = isAlert ? 'none' : '';
+
+        // Generate inputs
+        const inputElements = [];
+        if (!isAlert && !isConfirm && fields.length > 0) {
+            fields.forEach((field) => {
+                const input = document.createElement('input');
+                input.type = field.type || 'text';
+                input.className = 'admin-input-lite';
+                input.placeholder = (field.placeholder || '').toUpperCase();
+                input.value = field.value || '';
+                input.autocomplete = 'off';
+                input.style.width = '100%';
+                
+                if (field.numericOnly) {
+                    input.addEventListener('input', () => {
+                        input.value = input.value.replace(/[^\d]/g, '');
+                    });
+                }
+                
+                inputsContainer.appendChild(input);
+                inputElements.push({ element: input, config: field });
+            });
+        }
+
+        modal.style.display = 'flex';
+
+        // Focus first input or confirm button
+        if (inputElements.length > 0) {
+            setTimeout(() => inputElements[0].element.focus(), 50);
+        } else {
+            setTimeout(() => confirmBtn.focus(), 50);
+        }
+
+        const close = (value) => {
+            modal.style.display = 'none';
+            confirmBtn.removeEventListener('click', handleConfirm);
+            cancelBtn.removeEventListener('click', handleCancel);
+            document.removeEventListener('keydown', handleKeyDown);
+            resolve(value);
+        };
+
+        const handleConfirm = () => {
+            if (!isAlert && !isConfirm) {
+                const results = [];
+                for (let i = 0; i < inputElements.length; i++) {
+                    const { element, config } = inputElements[i];
+                    const val = element.value.trim();
+                    if (config.validate) {
+                        const errMsg = config.validate(val);
+                        if (errMsg) {
+                            errorEl.textContent = errMsg.toUpperCase();
+                            errorEl.style.display = 'block';
+                            element.focus();
+                            return;
+                        }
+                    }
+                    results.push(val);
+                }
+                close(results);
+            } else {
+                close(true);
+            }
+        };
+
+        const handleCancel = () => {
+            close(null);
+        };
+
+        const handleKeyDown = (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleConfirm();
+            } else if (e.key === 'Escape' && !isAlert) {
+                e.preventDefault();
+                handleCancel();
+            }
+        };
+
+        confirmBtn.addEventListener('click', handleConfirm);
+        cancelBtn.addEventListener('click', handleCancel);
+        document.addEventListener('keydown', handleKeyDown);
+    });
+}
+
+async function customAlert(title, message) {
+    await showCustomModal({
+        title,
+        message,
+        confirmText: 'OK',
+        isAlert: true
+    });
+}
+
+async function customConfirm(title, message) {
+    const res = await showCustomModal({
+        title,
+        message,
+        confirmText: 'YES',
+        cancelText: 'NO',
+        isConfirm: true
+    });
+    return !!res;
+}
+
+async function customPrompt(title, message, defaultValue = '', numericOnly = false, validateFn = null) {
+    const res = await showCustomModal({
+        title,
+        message,
+        fields: [{
+            placeholder: message,
+            value: defaultValue,
+            numericOnly,
+            validate: validateFn
+        }],
+        confirmText: 'SUBMIT',
+        cancelText: 'CANCEL'
+    });
+    return res ? res[0] : null;
+}
+
 function showAdmin() {
     if (currentRole !== 'admin') return;
     activateShellScreen('admin', 'admin');
@@ -3206,24 +3362,62 @@ async function loadAdminUsers(query = '') {
 }
 
 async function adminAdjustWallet(userId, isDebit) {
-    const amountRaw = prompt(isDebit ? 'Debit amount:' : 'Credit amount:', '200000');
-    if (!amountRaw) return;
-    const amount = Number(amountRaw);
-    if (!amount || amount <= 0) return;
-    const reason = prompt('Reason / note:', isDebit ? 'manual debit' : 'manual credit');
-    if (!reason) return;
+    const title = isDebit ? 'DEBIT PLAYER WALLET' : 'CREDIT PLAYER WALLET';
+    const message = `Adjust wallet balance for Player ID:<br><span style="color:#FFD700;">${userId}</span>`;
+    
+    const result = await showCustomModal({
+        title,
+        message,
+        fields: [
+            {
+                placeholder: 'AMOUNT (e.g. 50000)',
+                value: '200000',
+                numericOnly: true,
+                validate: (val) => {
+                    if (!val) return 'Amount is required';
+                    if (!/^\d+$/.test(val)) return 'Amount must contain positive digits only';
+                    const num = Number(val);
+                    if (num <= 0) return 'Amount must be greater than zero';
+                    if (num > 100000000) return 'Amount exceeds limit of 100,000,000';
+                    return null;
+                }
+            },
+            {
+                placeholder: 'REASON / NOTE',
+                value: isDebit ? 'manual debit' : 'manual credit',
+                validate: (val) => {
+                    const clean = val.trim();
+                    if (!clean) return 'Reason is required';
+                    if (clean.length < 3) return 'Reason must be at least 3 characters';
+                    if (clean.length > 100) return 'Reason must be under 100 characters';
+                    if (!/^[a-zA-Z0-9\s._\-()!]+$/.test(clean)) {
+                        return 'Reason contains invalid characters';
+                    }
+                    return null;
+                }
+            }
+        ],
+        confirmText: isDebit ? 'DEBIT' : 'CREDIT',
+        cancelText: 'CANCEL'
+    });
+
+    if (!result) return;
+    const [amountStr, reason] = result;
+    const amount = Number(amountStr);
+
     try {
         await apiCall('POST', GAME_CONFIG.api.adminCredit, {
             targetUserId: userId,
             amount: isDebit ? -amount : amount,
-            reason
+            reason: reason.trim()
         });
+        await customAlert('SUCCESS', `${isDebit ? 'Debited' : 'Credited'} ${formatNum(amount)} successfully.`);
         loadAdminUsers(document.getElementById('admin-user-search')?.value || '');
         const profile = await apiCall('GET', GAME_CONFIG.api.profile);
         walletBalance = profile.walletBalance;
         updateLobbyBalance();
     } catch (e) {
-        alert('Failed: ' + e.message);
+        await customAlert('ERROR', 'Failed: ' + e.message);
     }
 }
 
@@ -3268,43 +3462,104 @@ async function createAdminAgent() {
     const name = nameInput?.value.trim();
     const code = codeInput?.value.trim();
     const phoneNumber = phoneInput?.value.trim();
-    if (!name || !code || !phoneNumber) {
-        alert('Agent name, code, and phone are required.');
+
+    // Validation
+    if (!name) {
+        await customAlert('VALIDATION ERROR', 'Agent Name is required.');
+        nameInput?.focus();
         return;
     }
+    if (name.length < 3 || name.length > 50 || !/^[a-zA-Z0-9\s._\-()]+$/.test(name)) {
+        await customAlert('VALIDATION ERROR', 'Agent Name must be 3-50 characters and contain alphanumeric characters, spaces, or simple dashes.');
+        nameInput?.focus();
+        return;
+    }
+
+    if (!code) {
+        await customAlert('VALIDATION ERROR', 'Agent Code is required.');
+        codeInput?.focus();
+        return;
+    }
+    if (code.length < 2 || code.length > 10 || !/^[A-Z0-9]+$/i.test(code)) {
+        await customAlert('VALIDATION ERROR', 'Agent Code must be 2-10 alphanumeric characters.');
+        codeInput?.focus();
+        return;
+    }
+
+    if (!phoneNumber) {
+        await customAlert('VALIDATION ERROR', 'Phone Number is required.');
+        phoneInput?.focus();
+        return;
+    }
+    if (!/^\+?[0-9\s\-()]{5,20}$/.test(phoneNumber)) {
+        await customAlert('VALIDATION ERROR', 'Phone Number must be a valid format between 5 and 20 digits.');
+        phoneInput?.focus();
+        return;
+    }
+
     try {
-        await apiCall('POST', GAME_CONFIG.api.agents, { name, code, phoneNumber });
+        await apiCall('POST', GAME_CONFIG.api.agents, { 
+            name, 
+            code: code.toUpperCase(), 
+            phoneNumber 
+        });
         if (nameInput) nameInput.value = '';
         if (codeInput) codeInput.value = '';
         if (phoneInput) phoneInput.value = '';
+        await customAlert('SUCCESS', `Agent "${name.toUpperCase()}" has been created.`);
         await loadAdminAgents();
     } catch (e) {
-        alert('Failed: ' + e.message);
+        await customAlert('ERROR', 'Failed: ' + e.message);
     }
 }
 
 async function loadCreditForAgent(agentId) {
-    const amountRaw = prompt('Agent credit amount:', '200000');
+    const amountRaw = await customPrompt(
+        'LOAD AGENT CREDIT POOL',
+        'Enter credit pool load amount:',
+        '200000',
+        true, // numericOnly
+        (val) => {
+            if (!val) return 'Amount is required';
+            if (!/^\d+$/.test(val)) return 'Amount must contain positive digits only';
+            const num = Number(val);
+            if (num <= 0) return 'Amount must be greater than zero';
+            if (num > 10000000) return 'Amount exceeds limit of 10,000,000';
+            return null;
+        }
+    );
     if (!amountRaw) return;
     const amount = Number(amountRaw);
-    if (!amount || amount <= 0) return;
     try {
         await apiCall('POST', GAME_CONFIG.api.agentLoadCredit(agentId), { amount });
+        await customAlert('SUCCESS', `Added ${formatNum(amount)} credits to agent pool successfully.`);
         await loadAdminAgents();
     } catch (e) {
-        alert('Failed: ' + e.message);
+        await customAlert('ERROR', 'Failed: ' + e.message);
     }
 }
 
 async function assignUserToAgent(agentId) {
-    const userId = prompt('User ID to assign to this agent:');
+    const userId = await customPrompt(
+        'ASSIGN PLAYER TO AGENT',
+        'Enter User ID to assign to this agent:',
+        '',
+        false, // text
+        (val) => {
+            const clean = val.trim();
+            if (!clean) return 'User ID is required';
+            if (!/^[a-zA-Z0-9\-]{1,50}$/.test(clean)) return 'Invalid User ID format';
+            return null;
+        }
+    );
     if (!userId) return;
     try {
         await apiCall('POST', GAME_CONFIG.api.agentAssignUser(agentId, userId.trim()));
+        await customAlert('SUCCESS', `User assigned to agent successfully.`);
         await loadAdminAgents();
         await loadAdminUsers(document.getElementById('admin-user-search')?.value || '');
     } catch (e) {
-        alert('Failed: ' + e.message);
+        await customAlert('ERROR', 'Failed: ' + e.message);
     }
 }
 
@@ -3345,12 +3600,14 @@ async function loadAdminMachines() {
             wrap.appendChild(row);
         });
         wrap.querySelectorAll('[data-reset-machine]').forEach(btn => btn.addEventListener('click', async () => {
-            if (!confirm(`Reset machine ${btn.dataset.resetMachine}? Active rounds must be empty.`)) return;
+            const yes = await customConfirm('RESET MACHINE', `Reset machine ${btn.dataset.resetMachine}? Active rounds must be empty.`);
+            if (!yes) return;
             try {
                 await apiCall('POST', getAdminMachineResetPath(btn.dataset.resetMachine));
+                await customAlert('SUCCESS', `Machine ${btn.dataset.resetMachine} has been reset.`);
                 await loadAdminMachines();
             } catch (e) {
-                alert(e.message);
+                await customAlert('ERROR', e.message);
             }
         }));
     } catch (e) {
@@ -3360,7 +3617,8 @@ async function loadAdminMachines() {
 
 async function backToLobbyFromGame() {
     if (gameState !== 'idle' && gameState !== 'win') {
-        if (!confirm('Leave the game? Any current round may be affected.')) return;
+        const yes = await customConfirm('LEAVE GAME', 'Leave the game? Any current round may be affected.');
+        if (!yes) return;
     }
     const previousMachineId = machineId;
     setMenuPanelOpen(false);
@@ -3473,6 +3731,17 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', updateViewportUnit);
     window.addEventListener('orientationchange', updateViewportUnit);
     debugLog('boot', { apiBase: API, userAgent: navigator.userAgent });
+    
+    // Auto-enable wake lock on any user interaction gesture (touch, click, key)
+    const enableWakeLock = () => {
+        if (typeof Wakelock !== 'undefined') {
+            Wakelock.toggle(true).catch(err => console.debug('WakeLock toggle failed:', err));
+        }
+    };
+    window.addEventListener('click', enableWakeLock);
+    window.addEventListener('touchstart', enableWakeLock);
+    window.addEventListener('keydown', enableWakeLock);
+
     if (window.CabinetBonus) CabinetBonus.init();
     const authBtn = $('#auth-submit');
     authBtn.disabled = true;
@@ -3629,11 +3898,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (gameState !== 'idle') throw new Error('Finish the current round first');
                 const maxIn = walletBalance;
                 if (maxIn <= 0) throw new Error('No wallet balance to deposit');
-                const raw = prompt(`Cash in amount (up to ${formatNum(maxIn)}):`, formatNum(Math.min(200000, maxIn)));
+                const raw = await customPrompt(
+                    'CASH IN MACHINE',
+                    `Enter amount to deposit (Max: ${formatNum(maxIn)}):`,
+                    String(Math.min(200000, maxIn)),
+                    true, // numericOnly
+                    (val) => {
+                        if (!val) return 'Amount is required';
+                        if (!/^\d+$/.test(val)) return 'Amount must contain digits only';
+                        const num = Number(val);
+                        if (num <= 0) return 'Amount must be greater than zero';
+                        if (num > maxIn) return `Amount exceeds available wallet balance (${formatNum(maxIn)})`;
+                        return null;
+                    }
+                );
                 if (!raw) return;
-                const amount = Number(raw.replace(/,/g, ''));
-                if (!amount || amount <= 0) throw new Error('Invalid amount');
-                if (amount > maxIn) throw new Error('Amount exceeds wallet balance');
+                const amount = Number(raw);
                 const session = await cashInMachine(amount);
                 await fetchMachineSession();
                 refreshIdleMachineState(`CASHED IN ${formatNum(amount)} - MACHINE ${formatNum(session.machineCredits)}`, 'win');
@@ -3656,7 +3936,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         $('#btn-reset-machine').addEventListener('click', async () => {
-            if (!confirm('Reset machine state only? Active rounds must be empty.')) return;
+            const yes = await customConfirm('RESET MACHINE', 'Reset machine state only? Active rounds must be empty.');
+            if (!yes) return;
             try {
                 await apiCall('POST', getPlayerMachineResetPath());
                 await fetchMachineSession();
