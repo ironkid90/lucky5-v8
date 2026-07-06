@@ -119,7 +119,14 @@ public sealed class AdminService(InMemoryDataStore store, PersistenceStore persi
         if (!store.MemberProfiles.TryGetValue(request.TargetUserId, out var profile))
             throw new KeyNotFoundException("Target user not found");
         if (request.Amount == 0) throw new InvalidOperationException("Amount must be non-zero");
+        var absAmount = Math.Abs(request.Amount);
+        if (absAmount > 100000000m) throw new InvalidOperationException("Amount absolute value cannot exceed 100,000,000");
+
         if (string.IsNullOrWhiteSpace(request.Reason)) throw new InvalidOperationException("Reason is required");
+        var cleanReason = request.Reason.Trim();
+        if (cleanReason.Length < 3 || cleanReason.Length > 100 || !System.Text.RegularExpressions.Regex.IsMatch(cleanReason, @"^[a-zA-Z0-9\s._\-()!]+$"))
+            throw new InvalidOperationException("Reason must be 3-100 characters and contain alphanumeric characters, spaces, or simple punctuation (dots, underscores, dashes, parens, exclamation).");
+
         if (profile.WalletBalance + request.Amount < 0) throw new InvalidOperationException("Insufficient wallet balance for debit");
 
         profile.WalletBalance += request.Amount;
@@ -269,6 +276,11 @@ public sealed class AdminService(InMemoryDataStore store, PersistenceStore persi
 
     public async Task<WalletLedgerEntryDto> RechargeBonusAsync(Guid userId, decimal rechargeAmount, CancellationToken cancellationToken)
     {
+        if (userId == Guid.Empty)
+            throw new ArgumentException("User ID cannot be empty.");
+        if (rechargeAmount <= 0 || rechargeAmount > 100000000m)
+            throw new ArgumentException("Recharge amount must be between 0.01 and 100,000,000.");
+
         if (!store.MemberProfiles.TryGetValue(userId, out var profile))
             throw new KeyNotFoundException("Profile not found");
 

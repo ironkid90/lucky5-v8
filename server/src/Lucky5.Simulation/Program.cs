@@ -10,6 +10,7 @@ var behavior = PlayerBehavior.Balanced;
 var varianceReport = false;
 decimal drawAnteMultiplier = 1.0m;
 decimal minPayoutScaleOverride = -1m;
+decimal targetRtpOverride = -1m;
 
 for (int i = 0; i < args.Length; i++)
 {
@@ -33,7 +34,14 @@ for (int i = 0; i < args.Length; i++)
             break;
         case "--behavior":
             if (i + 1 < args.Length && TryParseBehavior(args[i + 1], out var parsedBehavior))
+            {
                 behavior = parsedBehavior;
+            }
+            else
+            {
+                Console.Error.WriteLine($"Unsupported --behavior value: {(i + 1 < args.Length ? args[i + 1] : "<missing>")}");
+                Environment.Exit(2);
+            }
             break;
         case "--variance-report":
             varianceReport = true;
@@ -45,6 +53,10 @@ for (int i = 0; i < args.Length; i++)
         case "--min-scale":
             if (i + 1 < args.Length && decimal.TryParse(args[i + 1], out var mps))
                 minPayoutScaleOverride = mps;
+            break;
+        case "--target-rtp":
+            if (i + 1 < args.Length && decimal.TryParse(args[i + 1], out var trtp))
+                targetRtpOverride = trtp;
             break;
     }
 }
@@ -58,6 +70,10 @@ const int Bet = 5_000;
 
 var cfg = EngineConfig.Default;
 // Apply CLI overrides (allow sweep-style calibration without recompiling).
+if (targetRtpOverride > 0m)
+{
+    cfg = cfg with { TargetRtp = targetRtpOverride };
+}
 if (drawAnteMultiplier != 1.0m)
 {
     cfg = cfg with { DrawAnteMultiplier = drawAnteMultiplier };
@@ -481,7 +497,9 @@ DoubleUpChainResult PlayDoubleUpChain(
 
         for (var step = 0; step < 16; step++)
         {
-            if (!takeHalfUsed && ShouldTakeHalf(behavior, roundSeed, step, openingAmount, bank.MachineCredits, session.CurrentAmount, policyState.ObservedRtp - policyState.TargetRtp))
+            var noisePlan = PresentationNoiseGenerator.Build(roundSeed, step);
+
+            if (!takeHalfUsed && ShouldTakeHalf(behavior, roundSeed, step, openingAmount, bank.MachineCredits, session.CurrentAmount, policyState.ObservedRtp - policyState.TargetRtp, noisePlan))
             {
                 var half = session.CurrentAmount / 2;
                 var remaining = session.CurrentAmount - half;
@@ -492,7 +510,7 @@ DoubleUpChainResult PlayDoubleUpChain(
                 takeHalfUsed = true;
             }
 
-            if (ShouldCashoutDoubleUp(behavior, roundSeed, step, openingAmount, bank.PendingReset, takeHalfUsed, bank.MachineCredits, session.CurrentAmount, policyState.ObservedRtp - policyState.TargetRtp))
+            if (ShouldCashoutDoubleUp(behavior, roundSeed, step, openingAmount, bank.PendingReset, takeHalfUsed, bank.MachineCredits, session.CurrentAmount, policyState.ObservedRtp - policyState.TargetRtp, noisePlan))
             {
                 settledCredits += session.CurrentAmount;
                 result.DoubleUpCashoutSettlements++;
@@ -695,15 +713,17 @@ static bool ShouldEnterDoubleUp(PlayerBehavior behavior, ulong seed, int payout,
     };
 }
 
-static bool ShouldTakeHalf(PlayerBehavior behavior, ulong seed, int step, int openingAmount, decimal machineCredits, int currentAmount, decimal drift)
+static bool ShouldTakeHalf(PlayerBehavior behavior, ulong seed, int step, int openingAmount, decimal machineCredits, int currentAmount, decimal drift, PresentationNoisePlan noisePlan)
 {
     // Hot drift: take-half more often. Cold drift: gamble more.
+    // Presentation decoys model hesitation: more decoys nudges realistic players toward taking half.
     var driftAdj = Math.Clamp(drift * 0.20m, -0.10m, 0.10m);
+    var noiseAdj = Math.Clamp(noisePlan.DecoySwaps * 0.015m, 0m, 0.045m);
     return behavior switch
     {
         PlayerBehavior.Balanced => currentAmount >= Math.Max(openingAmount * 6, 750_000)
             && machineCredits + currentAmount < EngineConfig.Default.CloseThreshold
-            && Roll(seed, "take-half-balanced", step, 0.20m + driftAdj),
+            && Roll(seed, "take-half-balanced", step, 0.20m + driftAdj + noiseAdj),
         PlayerBehavior.AggressiveCabinetClosing => currentAmount >= Math.Max(openingAmount * 8, 1_000_000)
             && machineCredits + currentAmount >= EngineConfig.Default.CloseThreshold * 0.65m
             && Roll(seed, "take-half-aggressive", step, 0.60m),
@@ -734,7 +754,8 @@ static bool ShouldCashoutDoubleUp(
     bool takeHalfUsed,
     decimal machineCredits,
     int currentAmount,
-    decimal drift)
+    decimal drift,
+    PresentationNoisePlan noisePlan)
 {
     if (machineAlreadyClosed && behavior != PlayerBehavior.AggressiveCabinetClosing)
     {
@@ -745,12 +766,13 @@ static bool ShouldCashoutDoubleUp(
     // Tighter than before — currentAmount must double the trigger (not just triple)
     // to auto-cashout, and the impulse roll is lower for realistic players.
     var cashDriftAdj = Math.Clamp(drift * 0.25m, -0.15m, 0.15m);
+    var noiseCashoutAdj = Math.Clamp((noisePlan.DecoySwaps * 0.02m) + ((noisePlan.SuspenseMs - 250m) / 20_000m), 0m, 0.07m);
     return behavior switch
     {
         PlayerBehavior.Balanced => step > 0 && (
             takeHalfUsed
             || currentAmount >= Math.Max(openingAmount * 2, 400_000)
-            || Roll(seed, "cashout-balanced", step, 0.30m + cashDriftAdj)),
+            || Roll(seed, "cashout-balanced", step, 0.30m + cashDriftAdj + noiseCashoutAdj)),
         PlayerBehavior.AggressiveCabinetClosing => (machineCredits + currentAmount >= EngineConfig.Default.CloseThreshold && step > 0)
             || currentAmount >= Math.Max(openingAmount * 32, 8_000_000)
             || step >= 7,
@@ -1089,7 +1111,13 @@ static string DescribeBehavior(PlayerBehavior behavior) => behavior switch
 
 static bool TryParseBehavior(string value, out PlayerBehavior behavior)
 {
-    behavior = value.Trim().ToLowerInvariant() switch
+    var normalized = value.Trim();
+    if (Enum.TryParse<PlayerBehavior>(normalized, ignoreCase: true, out behavior))
+    {
+        return true;
+    }
+
+    behavior = normalized.ToLowerInvariant() switch
     {
         "conservative" or "collect" or "collect-first" => PlayerBehavior.ConservativeCollectFirst,
         "balanced" => PlayerBehavior.Balanced,
@@ -1099,7 +1127,7 @@ static bool TryParseBehavior(string value, out PlayerBehavior behavior)
     };
 
     return behavior != PlayerBehavior.Balanced
-        || value.Trim().Equals("balanced", StringComparison.OrdinalIgnoreCase);
+        || normalized.Equals("balanced", StringComparison.OrdinalIgnoreCase);
 }
 
 enum PlayerBehavior

@@ -22,6 +22,15 @@ public sealed class AgentService(IDataStore store) : IAgentService
 
     public Task<AgentDto> CreateAgentAsync(CreateAgentRequest request, CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Length < 3 || request.Name.Length > 50 || !System.Text.RegularExpressions.Regex.IsMatch(request.Name, @"^[a-zA-Z0-9\s._\-()]+$"))
+            throw new ArgumentException("Agent Name must be 3-50 characters and contain alphanumeric characters, spaces, or simple dashes/dots/underscores/parens.");
+
+        if (string.IsNullOrWhiteSpace(request.Code) || request.Code.Length < 2 || request.Code.Length > 10 || !System.Text.RegularExpressions.Regex.IsMatch(request.Code, @"^[a-zA-Z0-9]+$"))
+            throw new ArgumentException("Agent Code must be 2-10 alphanumeric characters.");
+
+        if (string.IsNullOrWhiteSpace(request.PhoneNumber) || !System.Text.RegularExpressions.Regex.IsMatch(request.PhoneNumber, @"^\+?[0-9\s\-()]{5,20}$"))
+            throw new ArgumentException("Phone Number has an invalid format (must be 5 to 20 digits with optional +/spaces/dashes/parens).");
+
         if (_agents.Values.Any(a => a.Code.Equals(request.Code, StringComparison.OrdinalIgnoreCase)))
             throw new InvalidOperationException($"Agent code '{request.Code}' already exists");
 
@@ -41,14 +50,17 @@ public sealed class AgentService(IDataStore store) : IAgentService
     {
         if (!_agents.TryGetValue(agentId, out var agent))
             throw new KeyNotFoundException($"Agent {agentId} not found");
-        if (amount <= 0)
-            throw new InvalidOperationException("Amount must be positive");
+        if (amount <= 0 || amount > 10000000m)
+            throw new ArgumentException("Load credit amount must be between 0.01 and 10,000,000.");
         agent.CreditPool += amount;
         return Task.FromResult(ToDto(agent));
     }
 
     public async Task AssignUserToAgentAsync(Guid userId, int agentId, CancellationToken cancellationToken)
     {
+        if (userId == Guid.Empty)
+            throw new ArgumentException("User ID cannot be an empty GUID.");
+
         var profile = await store.GetProfileAsync(userId)
             ?? throw new KeyNotFoundException("User profile not found");
         if (!_agents.ContainsKey(agentId))

@@ -1895,9 +1895,8 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 
 	private static PresentationNoiseDto GenerateNoise(ulong seed, int roundIndex)
 	{
-		var noiseSeed = DeterministicSeed.Derive(seed, "noise", roundIndex);
-		var rng = new SplitMix64Rng(noiseSeed);
-		return new PresentationNoiseDto(400 + rng.NextInt(800), 200 + rng.NextInt(400), 8 + rng.NextInt(8), 4 + rng.NextInt(6));
+		var plan = PresentationNoiseGenerator.Build(seed, roundIndex);
+		return new PresentationNoiseDto(plan.SuspenseMs, plan.RevealMs, plan.FlipFrames, plan.PulseFrames);
 	}
 
 	private static JackpotInfoDto SnapshotJackpots(MachineLedgerState ledger) =>

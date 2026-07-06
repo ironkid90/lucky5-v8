@@ -824,6 +824,16 @@ function formatNum(n) {
     return Math.floor(n).toLocaleString();
 }
 
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 function updateCredits() {
     $('#credits span').textContent = formatNum(balance);
 }
@@ -3344,7 +3354,7 @@ async function loadAdminUsers(query = '') {
             row.className = 'wallet-history-row';
             row.innerHTML = `
                 <div class="wallet-history-info">
-                    <div class="wallet-history-type">${user.username.toUpperCase()} • ${(user.role || 'player').toUpperCase()}</div>
+                    <div class="wallet-history-type">${escapeHtml(user.username).toUpperCase()} • ${escapeHtml(user.role || 'player').toUpperCase()}</div>
                     <div class="wallet-history-date">${formatNum(user.walletBalance)} • ${formatTransactionDate(user.lastSeenUtc)}</div>
                 </div>
                 <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
@@ -3357,7 +3367,7 @@ async function loadAdminUsers(query = '') {
         wrap.querySelectorAll('[data-credit]').forEach(btn => btn.addEventListener('click', () => adminAdjustWallet(btn.dataset.credit, false)));
         wrap.querySelectorAll('[data-debit]').forEach(btn => btn.addEventListener('click', () => adminAdjustWallet(btn.dataset.debit, true)));
     } catch (e) {
-        wrap.innerHTML = `<div class="wallet-history-empty">${e.message}</div>`;
+        wrap.innerHTML = `<div class="wallet-history-empty">${escapeHtml(e.message)}</div>`;
     }
 }
 
@@ -3437,8 +3447,8 @@ async function loadAdminAgents() {
             row.className = 'wallet-history-row';
             row.innerHTML = `
                 <div class="wallet-history-info">
-                    <div class="wallet-history-type">${(agent.name || 'AGENT').toUpperCase()} • ${String(agent.code || '').toUpperCase()}</div>
-                    <div class="wallet-history-date">${agent.phoneNumber || 'NO PHONE'} • POOL ${formatNum(agent.creditPool || 0)}</div>
+                    <div class="wallet-history-type">${escapeHtml(agent.name || 'AGENT').toUpperCase()} • ${escapeHtml(agent.code || '').toUpperCase()}</div>
+                    <div class="wallet-history-date">${escapeHtml(agent.phoneNumber || 'NO PHONE')} • POOL ${formatNum(agent.creditPool || 0)}</div>
                     <div class="wallet-history-date">${agent.isActive ? 'ACTIVE' : 'INACTIVE'} • CREATED ${formatTransactionDate(agent.createdUtc)}</div>
                 </div>
                 <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
@@ -3451,7 +3461,7 @@ async function loadAdminAgents() {
         wrap.querySelectorAll('[data-agent-credit]').forEach(btn => btn.addEventListener('click', () => loadCreditForAgent(btn.dataset.agentCredit)));
         wrap.querySelectorAll('[data-agent-assign]').forEach(btn => btn.addEventListener('click', () => assignUserToAgent(btn.dataset.agentAssign)));
     } catch (e) {
-        wrap.innerHTML = `<div class="wallet-history-empty">${e.message}</div>`;
+        wrap.innerHTML = `<div class="wallet-history-empty">${escapeHtml(e.message)}</div>`;
     }
 }
 
@@ -3580,12 +3590,12 @@ async function loadAdminMachines() {
             const obsRtp = (Number(machine.observedRtp || 0) * 100).toFixed(2);
             const tgtRtp = (Number(machine.targetRtp || 0) * 100).toFixed(2);
             const sessionsHtml = (machine.sessions || []).map(s =>
-                `<div class="wallet-history-date">\u25B6 ${(s.username || 'unknown').toUpperCase()} \u2022 ${formatNum(s.machineCredits)} CR \u2022 IN ${formatNum(s.totalCashIn)}${s.isMachineClosed ? ' \u2022 CLOSED' : ''}</div>`
+                `<div class="wallet-history-date">\u25B6 ${escapeHtml(s.username || 'unknown').toUpperCase()} \u2022 ${formatNum(s.machineCredits)} CR \u2022 IN ${formatNum(s.totalCashIn)}${s.isMachineClosed ? ' \u2022 CLOSED' : ''}</div>`
             ).join('');
             row.innerHTML = `
                 <div class="wallet-history-info">
-                    <div class="wallet-history-type">#${machine.machineId} ${machine.name || 'MACHINE'}</div>
-                    <div class="wallet-history-date">RTP ${obsRtp}% / TGT ${tgtRtp}% / ${machine.phase || 'N/A'}</div>
+                    <div class="wallet-history-type">#${machine.machineId} ${escapeHtml(machine.name || 'MACHINE')}</div>
+                    <div class="wallet-history-date">RTP ${obsRtp}% / TGT ${tgtRtp}% / ${escapeHtml(machine.phase || 'N/A')}</div>
                     <div class="wallet-history-date">NET ${formatNum(machine.netSinceLastClose || 0)}</div>
                     <div class="wallet-history-date">5\u2660 DROUGHT ${machine.roundsSinceLucky5Hit || 0} \u2022 LIVE ${machine.activeRounds || 0}</div>
                     <div class="wallet-history-date">FH ${formatNum(machine.jackpotFullHouse || 0)} (${RANK_NAMES[machine.jackpotFullHouseRank] || 'A'})</div>
@@ -3611,7 +3621,7 @@ async function loadAdminMachines() {
             }
         }));
     } catch (e) {
-        wrap.innerHTML = `<div class="wallet-history-empty">${e.message}</div>`;
+        wrap.innerHTML = `<div class="wallet-history-empty">${escapeHtml(e.message)}</div>`;
     }
 }
 
