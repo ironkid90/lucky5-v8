@@ -705,7 +705,10 @@ static bool ShouldEnterDoubleUp(PlayerBehavior behavior, ulong seed, int payout,
         PlayerBehavior.ConservativeCollectFirst => false,
         PlayerBehavior.Balanced => machineCredits + payout < EngineConfig.Default.CloseThreshold
             && Roll(seed, "accept-balanced", payout, 0.15m + driftAdj),
-        PlayerBehavior.AggressiveCabinetClosing => machineCredits + payout < 50_000_000m || payout < 2_000_000,
+        PlayerBehavior.AggressiveCabinetClosing => machineCredits + payout < EngineConfig.Default.CloseThreshold
+            && (payout < 250_000
+                || machineCredits >= EngineConfig.Default.CloseThreshold * 0.55m
+                || Roll(seed, "accept-aggressive", payout, 0.42m + Math.Clamp(-drift * 0.20m, -0.12m, 0.08m))),
         PlayerBehavior.CounterplaySabotage => sabotagePhase
             || machineCredits + payout < 50_000_000m
             || payout < 2_000_000,
@@ -724,9 +727,9 @@ static bool ShouldTakeHalf(PlayerBehavior behavior, ulong seed, int step, int op
         PlayerBehavior.Balanced => currentAmount >= Math.Max(openingAmount * 6, 750_000)
             && machineCredits + currentAmount < EngineConfig.Default.CloseThreshold
             && Roll(seed, "take-half-balanced", step, 0.20m + driftAdj + noiseAdj),
-        PlayerBehavior.AggressiveCabinetClosing => currentAmount >= Math.Max(openingAmount * 8, 1_000_000)
-            && machineCredits + currentAmount >= EngineConfig.Default.CloseThreshold * 0.65m
-            && Roll(seed, "take-half-aggressive", step, 0.60m),
+        PlayerBehavior.AggressiveCabinetClosing => currentAmount >= Math.Max(openingAmount * 4, 600_000)
+            && machineCredits + currentAmount >= EngineConfig.Default.CloseThreshold * 0.45m
+            && Roll(seed, "take-half-aggressive", step, 0.75m),
         PlayerBehavior.CounterplaySabotage => currentAmount >= Math.Max(openingAmount * 10, 1_500_000)
             && machineCredits + currentAmount >= EngineConfig.Default.CloseThreshold * 0.70m
             && Roll(seed, "take-half-counterplay", step, 0.45m),
@@ -774,8 +777,8 @@ static bool ShouldCashoutDoubleUp(
             || currentAmount >= Math.Max(openingAmount * 2, 400_000)
             || Roll(seed, "cashout-balanced", step, 0.30m + cashDriftAdj + noiseCashoutAdj)),
         PlayerBehavior.AggressiveCabinetClosing => (machineCredits + currentAmount >= EngineConfig.Default.CloseThreshold && step > 0)
-            || currentAmount >= Math.Max(openingAmount * 32, 8_000_000)
-            || step >= 7,
+            || currentAmount >= Math.Max(openingAmount * 8, 2_000_000)
+            || step >= 4,
         PlayerBehavior.CounterplaySabotage => (machineCredits + currentAmount >= EngineConfig.Default.CloseThreshold && step > 0)
             || currentAmount >= Math.Max(openingAmount * 40, 10_000_000)
             || step >= 8,
