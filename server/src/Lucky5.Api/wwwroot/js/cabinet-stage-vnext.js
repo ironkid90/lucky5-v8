@@ -20,13 +20,13 @@ window.CabinetStage = (function () {
         // Highly responsive, fast-paced timings matching the AI9 poker reference.
         const next = {
             cardBack: assets.cardBack || '/assets/images/cards/bside.png',
-            dealBaseMs: Number(timing.dealBaseMs) || 60,
-            dealStaggerMs: Number(timing.dealStaggerMs) || 120,
-            dealDurationMs: Number(timing.dealAnimDurationMs) || 120,
-            drawOutMs: Number(timing.drawOutMs) || 60,
+            dealBaseMs: Number(timing.dealBaseMs) || 50,
+            dealStaggerMs: Number(timing.dealStaggerMs) || 250,
+            dealDurationMs: Number(timing.dealAnimDurationMs) || 100,
+            drawOutMs: Number(timing.drawOutMs) || 50,
             drawInMs: Number(timing.drawInMs) || 80,
-            drawStaggerMs: Number(timing.drawStaggerMs) || 60,
-            drawRevealStartMs: Number(timing.drawRevealStartMs) || 60,
+            drawStaggerMs: Number(timing.drawStaggerMs) || 250,
+            drawRevealStartMs: Number(timing.drawRevealStartMs) || 50,
             shuffleFrameMs: Number(timing.shuffleFrameMs) || 130,
             lucky5ActiveMs: Number(timing.lucky5FlashDurationMs) || 1000
         };
@@ -399,7 +399,7 @@ window.CabinetStage = (function () {
         }
     }
 
-    function _getVisibleDoubleUpWindow(trailCards, dealerCard) {
+    function _getVisibleDoubleUpWindow(trailCards, dealerCard, isPending) {
         const normalizedTrail = Array.isArray(trailCards)
             ? trailCards.map(_asTrailEntry).filter(Boolean)
             : [];
@@ -412,7 +412,7 @@ window.CabinetStage = (function () {
         const L = normalizedTrail.length;
 
         if (L > 0) {
-            const start = L > 5 ? Math.max(0, Math.floor((L - 2) / 4) * 4) : 0;
+            const start = Math.max(0, Math.floor((L - 1) / 4) * 4);
             
             for (let i = 0; i < 5; i++) {
                 if (start + i < L) {
@@ -434,6 +434,12 @@ window.CabinetStage = (function () {
             const nextIndex = L - start;
             if (nextIndex < 5) {
                 revealIndex = nextIndex;
+                if (isPending === false && normalizedDealer) {
+                    sequence[revealIndex] = {
+                        card: normalizedDealer,
+                        label: ''
+                    };
+                }
             }
         } else if (normalizedDealer) {
             sequence[0] = {
@@ -519,10 +525,19 @@ window.CabinetStage = (function () {
         }
     }
 
+    function syncDoubleUpTrailFromServer(trailCards, dealerCard, isPending, outcome, options) {
+        const key = JSON.stringify({ trailCards, dealerCard, isPending, outcome, options });
+        if (_lastSyncKey === key) return;
+        _lastSyncKey = key;
+
+        const view = _getVisibleDoubleUpWindow(trailCards, dealerCard, isPending);
+        _renderDoubleUpSequence(view.sequence, view.dealerIndex, view.revealIndex, Object.assign({ outcome }, options || {}));
+    }
+
     function _beginSequentialShuffle(trailCards, dealerCard, options) {
         _stopShuffle();
 
-        const view = _getVisibleDoubleUpWindow(trailCards, dealerCard);
+        const view = _getVisibleDoubleUpWindow(trailCards, dealerCard, true);
         _renderDoubleUpSequence(view.sequence, view.dealerIndex, view.revealIndex, Object.assign({ pending: true }, options || {}));
 
         const slotEl = _duSlot(view.revealIndex);
@@ -688,9 +703,9 @@ window.CabinetStage = (function () {
                         return;
                     }
 
-                    // Animate the card IN: fade + slide down to final position
+                    // Animate the card IN: slide down to final position
                     const durationSec = (Number(_config.dealDurationMs) || 100) / 1000;
-                    slotEl.style.transition = `transform ${durationSec}s ease-out, opacity ${durationSec}s ease-out`;
+                    slotEl.style.transition = `transform ${durationSec}s ease-out`;
                     slotEl.style.transform = 'translateY(0)';
                     slotEl.style.opacity = '1';
 
@@ -724,7 +739,7 @@ window.CabinetStage = (function () {
             }
         });
 
-        // Phase 1: render new cards instantly at opacity 0, slide up
+        // Phase 1: clear unheld slots instantly so they disappear
         cards.forEach((card, i) => {
             const slotEl = _slot(i);
             const img = _cardImg(slotEl);
@@ -739,11 +754,14 @@ window.CabinetStage = (function () {
 
             slotEl.classList.remove('held');
             
-            // Set initial state for replaced cards: invisible + above
+            // Instantly apply the final card face but at opacity 0 / translated to pre-render without flickers
             _applyCardFace(slotEl, img, card, { requireFace: true });
             slotEl.style.transition = 'none';
             slotEl.style.transform = 'translateY(-12%)';
             slotEl.style.opacity = '0';
+            
+            // Force reflow
+            void slotEl.offsetWidth;
         });
 
         if (pending === 0 && onComplete) {
@@ -768,7 +786,7 @@ window.CabinetStage = (function () {
                     return;
                 }
                 const durationSec = (Number(_config.dealDurationMs) || 100) / 1000;
-                slotEl.style.transition = `transform ${durationSec}s ease-out, opacity ${durationSec}s ease-out`;
+                slotEl.style.transition = `transform ${durationSec}s ease-out`;
                 slotEl.style.transform = 'translateY(0)';
                 slotEl.style.opacity = '1';
                 completedCount++;

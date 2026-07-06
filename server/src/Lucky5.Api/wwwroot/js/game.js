@@ -293,46 +293,22 @@ function normalizeDoubleUpTrailEntry(entry) {
 }
 
 function getCabinetDoubleUpTrailEntries() {
-    const trail = Array.isArray(duCardTrail)
+    return Array.isArray(duCardTrail)
         ? duCardTrail.map(normalizeDoubleUpTrailEntry).filter(Boolean)
         : [];
-
-    if (!duDealerCard || trail.length === 0) {
-        return trail;
-    }
-
-    const lastEntry = trail[trail.length - 1];
-    return lastEntry?.card?.code === duDealerCard?.code
-        ? trail.slice(0, -1)
-        : trail;
 }
 
 function syncDoubleUpTrailFromServer(cardTrail, dealerCard, fallbackTrail = duCardTrail) {
-    const normalizedFallback = Array.isArray(fallbackTrail)
-        ? fallbackTrail.map(normalizeDoubleUpTrailEntry).filter(Boolean)
-        : [];
-
     const normalizedServer = Array.isArray(cardTrail)
-        ? cardTrail
-            .filter(card => Boolean(card?.code))
-            .map((card, index, all) => {
-                const directMatch = normalizedFallback[index];
-                const fallbackMatch = directMatch?.card?.code === card.code
-                    ? directMatch
-                    : normalizedFallback.find(entry => entry?.card?.code === card.code && entry.label && entry.label !== 'DEALER');
-                const isDealer = dealerCard?.code && card.code === dealerCard.code && index === all.length - 1;
-                return {
-                    card,
-                    label: isDealer ? 'DEALER' : (fallbackMatch?.label || '')
-                };
-            })
+        ? cardTrail.filter(card => Boolean(card?.code)).map((card, index, all) => {
+            const isDealer = dealerCard?.code && card.code === dealerCard.code && index === all.length - 1;
+            return { card, label: isDealer ? 'DEALER' : 'PLAYED' };
+        })
         : [];
-
     if (normalizedServer.length > 0) {
         return normalizedServer;
     }
-
-    return normalizedFallback;
+    return fallbackTrail && fallbackTrail.length > 0 ? fallbackTrail : [];
 }
 
 function getCabinetDoubleUpTrailCards() {
@@ -1084,7 +1060,6 @@ function updateJackpotDisplay(jp) {
     if (rankEl) rankEl.textContent = RANK_NAMES[jackpotRank] || 'A';
     updateJackpotSelectedRow();
     updateActive4kHighlight();
-    updateBonusHandText();
     if (gameState === 'idle') {
         showIdleTitle();
     }
@@ -1122,15 +1097,7 @@ function updateJackpotSelectedRow() {
     if (fhRow) fhRow.classList.add('jackpot-selected');
 }
 
-function updateBonusHandText() {
-    const el = document.getElementById('bonus-hand-text');
-    if (!el) return;
-    if (active4kSlot === 0 || active4kSlot === 1) {
-        el.textContent = '4  OF  A  KIND    WINS  BONUS';
-    } else {
-        el.textContent = '';
-    }
-}
+
 
 function getFourOfAKindSlotTag(handRank = currentHandRank) {
     if (handRank !== 'FourOfAKind') {
@@ -1177,7 +1144,6 @@ function updateBonusBar(handRank, jackpotWon) {
                 : HAND_DISPLAY[handRank] || 'JACKPOT';
         const jackpotMessage = `${handLabel} JACKPOT WON`;
         if (el) el.textContent = jackpotMessage;
-        if (handTextEl) handTextEl.textContent = jackpotMessage;
     } else if (handRank && JACKPOT_HANDS.includes(handRank)) {
         const msg = handRank === 'FullHouse'
             ? `FH ${RANK_NAMES[jackpotRank]} JACKPOT`
@@ -1185,7 +1151,6 @@ function updateBonusBar(handRank, jackpotWon) {
         if (el) el.textContent = msg;
     } else {
         if (el) el.textContent = '';
-        updateBonusHandText();
     }
 }
 
@@ -3794,4 +3759,12 @@ function scaleCabinet() {
     // This function is kept as a no-op for backward compatibility.
 }
 
+function updateBonusHandText() {
+    const el = document.getElementById('bonus-hand-text');
+    if (el) {
+        el.textContent = "4 OF A KIND WINS BONUS";
+    }
+}
+
 window.addEventListener('resize', scaleCabinet);
+

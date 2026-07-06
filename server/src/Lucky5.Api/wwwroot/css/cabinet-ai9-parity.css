@@ -961,9 +961,9 @@ body {
     flex: 0 0 16% !important;
     width: 16% !important;
     max-width: 120px !important;
-    min-width: 60px !important;
+    min-width: 90px !important;
     height: auto !important;
-    aspect-ratio: 313 / 528 !important;
+    aspect-ratio: none !important;
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
@@ -972,8 +972,7 @@ body {
 
 .du-card-slot .du-card-frame {
     width: 100% !important;
-    height: 100% !important;
-    flex: 1 !important;
+    aspect-ratio: 313 / 528 !important;
 }
 
 .du-card-slot .du-card-label {
