@@ -3735,6 +3735,17 @@ async function initGame(options = {}) {
 
 // ── 11. DOM BOOTSTRAP ──────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlToken = urlParams.get('token') || urlParams.get('auth');
+    if (urlToken) {
+        storeToken(urlToken);
+        urlParams.delete('token');
+        urlParams.delete('auth');
+        const newSearch = urlParams.toString();
+        const newUrl = window.location.pathname + (newSearch ? '?' + newSearch : '');
+        window.history.replaceState({}, '', newUrl);
+    }
+
     applyDoubleUpInfoCopy();
     updateDoubleUpInfoPanel();
     updateViewportUnit();
