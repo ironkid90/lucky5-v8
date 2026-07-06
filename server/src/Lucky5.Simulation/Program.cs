@@ -776,9 +776,9 @@ static bool ShouldCashoutDoubleUp(
             takeHalfUsed
             || currentAmount >= Math.Max(openingAmount * 2, 400_000)
             || Roll(seed, "cashout-balanced", step, 0.30m + cashDriftAdj + noiseCashoutAdj)),
-        PlayerBehavior.AggressiveCabinetClosing => (machineCredits + currentAmount >= EngineConfig.Default.CloseThreshold && step > 0)
-            || currentAmount >= Math.Max(openingAmount * 8, 2_000_000)
-            || step >= 4,
+        PlayerBehavior.AggressiveCabinetClosing => (machineCredits + currentAmount >= EngineConfig.Default.CloseThreshold * 0.85m && step > 0)
+                    || currentAmount >= Math.Max(openingAmount * 4, 1_200_000)
+                    || step >= 3,
         PlayerBehavior.CounterplaySabotage => (machineCredits + currentAmount >= EngineConfig.Default.CloseThreshold && step > 0)
             || currentAmount >= Math.Max(openingAmount * 40, 10_000_000)
             || step >= 8,

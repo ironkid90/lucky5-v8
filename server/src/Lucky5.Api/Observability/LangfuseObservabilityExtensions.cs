@@ -159,11 +159,11 @@ public static class LangfuseObservabilityExtensions
         var feature = InferFeature(context.Request.Path.Value ?? string.Empty);
         var release = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "unknown";
 
-        activity.SetDisplayName(traceName);
         activity.SetTag("langfuse.trace.name", traceName);
         activity.SetTag("langfuse.trace.tags", new[] { "lucky5", "api", feature });
         activity.SetTag("langfuse.release", release);
         activity.SetTag("langfuse.trace.metadata.feature", feature);
+        activity.SetTag("langfuse.display-name", traceName);
 
         AddBaggage(activity, "langfuse.release", release);
         AddBaggage(activity, "langfuse.trace.metadata.feature", feature);

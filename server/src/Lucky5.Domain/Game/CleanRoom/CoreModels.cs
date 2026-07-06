@@ -370,9 +370,9 @@ public sealed record EngineConfig(
 	int CooldownLength = 2,
 
 	// === Soft Caps ===
-	decimal SoftCapWarning = 15_000_000m,
-	decimal SoftCapHard = 22_000_000m,
-	decimal CloseThreshold = 30_000_000m,
+	decimal SoftCapWarning = 12_000_000m,
+	decimal SoftCapHard = 18_000_000m,
+	decimal CloseThreshold = 24_000_000m,
 
 	// === Jackpots (Fixed Increment Mode) ===
 	// Jackpots increase by fixed increments each round (not % of bet).
