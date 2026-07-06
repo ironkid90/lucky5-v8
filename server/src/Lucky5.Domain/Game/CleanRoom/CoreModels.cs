@@ -338,9 +338,9 @@ public sealed record EngineConfig(
 	int DoubleUpPressureMaxKeyRemovals = 29,
 	int DoubleUpPressureRecoveryDroughtRounds = 28,
 	int DoubleUpMinDeckSize = 23,
-	decimal DoubleUpCloseCallPressureStart = 0.70m,
-	decimal DoubleUpSequencePressureStart = 0.72m,
-	decimal DoubleUpSequenceCreditStart = 0.60m,
+	decimal DoubleUpCloseCallPressureStart = 0.45m,
+	decimal DoubleUpSequencePressureStart = 0.47m,
+	decimal DoubleUpSequenceCreditStart = 0.40m,
 	decimal DoubleUpHighExposureSequencePressureStart = 0.22m,
 	decimal DoubleUpSuspenseReleaseChance = 0.12m,
 
@@ -370,9 +370,9 @@ public sealed record EngineConfig(
 	int CooldownLength = 2,
 
 	// === Soft Caps ===
-	decimal SoftCapWarning = 28_000_000m,
-	decimal SoftCapHard = 35_000_000m,
-	decimal CloseThreshold = 40_000_000m,
+	decimal SoftCapWarning = 15_000_000m,
+	decimal SoftCapHard = 22_000_000m,
+	decimal CloseThreshold = 30_000_000m,
 
 	// === Jackpots (Fixed Increment Mode) ===
 	// Jackpots increase by fixed increments each round (not % of bet).
