@@ -976,6 +976,19 @@ body {
     height: auto !important;
     aspect-ratio: 313 / 528 !important;
     background: transparent !important;
+    overflow: hidden !important;
+}
+
+/* DU card frame inner content: ensure card faces fill properly */
+.du-card-slot .du-card-frame > .card-front,
+.du-card-slot .du-card-frame > .card-back-pattern {
+    width: 100% !important;
+    height: 100% !important;
+    position: absolute !important;
+    inset: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
 }
 
 .du-card-slot .du-card-label {

@@ -23,6 +23,7 @@ window.CabinetStage = (function () {
             staggerFrames:        Number(timing.staggerFrames)        || 12,
             dealBaseFrames:       Number(timing.dealBaseFrames)       || 5,
             dealDurationFrames:   Number(timing.dealDurationFrames)   || 11,
+            drawStaggerFrames:    Number(timing.drawStaggerFrames)    || 18,
             drawOutFrames:        Number(timing.drawOutFrames)        || 1,
             drawDurationFrames:   Number(timing.drawDurationFrames)   || 11,
             drawRevealStartFrames:Number(timing.drawRevealStartFrames)|| 3,
@@ -597,6 +598,7 @@ window.CabinetStage = (function () {
             staggerFrames: _config.staggerFrames,
             dealBaseFrames: _config.dealBaseFrames,
             dealDurationFrames: _config.dealDurationFrames,
+            drawStaggerFrames: _config.drawStaggerFrames,
             drawOutFrames: _config.drawOutFrames,
             drawDurationFrames: _config.drawDurationFrames,
             drawRevealStartFrames: _config.drawRevealStartFrames,
@@ -732,7 +734,7 @@ window.CabinetStage = (function () {
         let pending = 0;
 
         const baseFrames = Math.max(0, Number(_config.drawRevealStartFrames) !== undefined ? Number(_config.drawRevealStartFrames) : 3);
-        const staggerFrames = Math.max(1, Number(_config.staggerFrames) || 12);
+        const staggerFrames = Math.max(1, Number(_config.drawStaggerFrames) || 18);
 
         cards.forEach((card, i) => {
             if (!held.has(i)) {

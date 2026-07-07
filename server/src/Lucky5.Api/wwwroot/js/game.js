@@ -2254,6 +2254,7 @@ async function doDoubleUp(guess) {
             if (duCallToken !== myToken) return;
 
             syncDoubleUpPanelState(result, { preserveMultiplier: true });
+            duDealerCard = result.dealerCard;  // Update dealer card: challenger becomes new dealer on win
             renderDoubleUpCards(duDealerCard, false, result.challengerCard, {
                 challengerLabel,
                 outcome: result.status
