@@ -377,6 +377,9 @@ window.advanceTime = function advanceTime(ms) {
 
 function setActiveScreen(screenName) {
     debugLog('setActiveScreen', { screenName });
+    if (screenName === 'admin' && currentRole !== 'admin') {
+        screenName = 'lobby';
+    }
     ['lobby','wallet','admin','game'].forEach(name => {
         const el = document.getElementById(`${name}-screen`);
         if (!el) return;
@@ -403,6 +406,10 @@ function setMenuPanelOpen(isOpen) {
 }
 
 function activateShellScreen(screenName, navTarget = screenName === 'game' ? null : screenName) {
+    if (screenName === 'admin' && currentRole !== 'admin') {
+        screenName = 'lobby';
+        navTarget = 'lobby';
+    }
     setMenuPanelOpen(false);
     setActiveScreen(screenName);
     setLobbyNavActive(navTarget);
@@ -2946,6 +2953,11 @@ async function doLogout() {
     setActiveScreen(null);
     $('#auth-screen').style.display = '';
     $('#auth-error').textContent = '';
+    
+    // Reset admin/modal UI states on logout
+    updateLobbyUsername();
+    const adminModal = document.getElementById('admin-modal-container');
+    if (adminModal) adminModal.style.display = 'none';
 }
 
 async function addDemoCredits() {
@@ -3957,6 +3969,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         $('#btn-reset-machine').addEventListener('click', async () => {
+            if (currentRole !== 'admin') return;
             const yes = await customConfirm('RESET MACHINE', 'Reset machine state only? Active rounds must be empty.');
             if (!yes) return;
             try {
