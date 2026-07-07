@@ -397,6 +397,7 @@ function setLobbyNavActive(target) {
 }
 
 function setMenuPanelOpen(isOpen) {
+    if (isOpen && !token) return;
     const menuPanel = document.getElementById('menu-panel');
     if (!menuPanel) return;
     const nextOpen = Boolean(isOpen);
@@ -2861,6 +2862,7 @@ async function doVerifyOtp(username, otpCode) {
 function storeToken(t) {
     token = t;
     sessionStorage.setItem('lucky5_token', t);
+    updateMenuVisibility();
 }
 
 function storeUserInfo(username, role) {
@@ -2868,6 +2870,7 @@ function storeUserInfo(username, role) {
     currentRole = normalizeRole(role);
     sessionStorage.setItem('lucky5_username', currentUsername);
     sessionStorage.setItem('lucky5_role', currentRole);
+    updateLobbyUsername();
 }
 
 function clearToken() {
@@ -2878,6 +2881,8 @@ function clearToken() {
     sessionStorage.removeItem('lucky5_username');
     sessionStorage.removeItem('lucky5_role');
     sessionStorage.removeItem('lucky5_machineId');
+    updateMenuVisibility();
+    updateLobbyUsername();
 }
 
 async function setupSignalR() {
@@ -3027,6 +3032,13 @@ function updateLobbyUsername() {
     if (navAdmin) navAdmin.style.display = currentRole === 'admin' ? '' : 'none';
     const resetBtn = document.getElementById('btn-reset-machine');
     if (resetBtn) resetBtn.style.display = currentRole === 'admin' ? '' : 'none';
+}
+
+function updateMenuVisibility() {
+    const menuBtn = document.getElementById('btn-menu');
+    if (menuBtn) {
+        menuBtn.style.display = token ? '' : 'none';
+    }
 }
 
 function renderGameGrid() {
@@ -3776,6 +3788,8 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', updateViewportUnit);
     window.addEventListener('orientationchange', updateViewportUnit);
     debugLog('boot', { apiBase: API, userAgent: navigator.userAgent });
+    updateMenuVisibility();
+    updateLobbyUsername();
     
     // Auto-enable wake lock on any user interaction gesture (touch, click, key)
     const enableWakeLock = () => {

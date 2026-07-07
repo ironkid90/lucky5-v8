@@ -193,6 +193,7 @@ window.CabinetShell = (function () {
 
         const setOpen = function (isOpen) {
             const nextOpen = Boolean(isOpen);
+            if (nextOpen && !sessionStorage.getItem('lucky5_token')) return;
             panel.classList.toggle('is-open', nextOpen);
             panel.classList.toggle('visible', nextOpen);
             document.body.classList.toggle('menu-open', nextOpen);
