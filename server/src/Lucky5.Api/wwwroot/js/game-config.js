@@ -65,19 +65,19 @@ const GAME_CONFIG = Object.freeze({
         // FAST DEAL (2026-06-28): Reduced stagger for snappier feel.
         // Target: ~15% faster total deal time for more responsive gameplay.
         dealBaseMs:           50,  // pause before first card lands (cabinet "thunk")
-        dealStaggerMs:        240, // calibrated to 240ms
+        dealStaggerMs:        80,  // AI9 parity: 50-80ms fast snap (was 240ms)
         dealAnimDurationMs:   100, // slightly more deliberate settle time
 
         // Draw animation (re-dealing only non-held cards)
         // Held cards stay put visibly. Replaced cards flip out, new cards flip in.
         drawOutMs:            50,  // fade-out / flip-out duration on replaced cards
         drawInMs:             80,  // fade-in / flip-in duration on new cards
-        drawStaggerMs:        240, // calibrated to 240ms
+        drawStaggerMs:        80,  // AI9 parity: 50-80ms fast snap (was 240ms)
         drawRevealStartMs:    50,  // delay before first replaced card starts dropping
 
         // Double-up: shuffle animation
         // The active slot cycles through card faces visibly, like a spinning reel.
-        shuffleFrameMs:       130, // distinct slower shuffle frame cycle for readable spinning reel effect
+        shuffleFrameMs:       30,  // AI9 parity: 16-33ms rapid reel blur (was 130ms)
 
         // Double-up: reveal sequence
         duRevealDelayMs:      150,  // wait after server responds before showing challenger card

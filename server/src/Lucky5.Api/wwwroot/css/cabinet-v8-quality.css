@@ -316,8 +316,16 @@
 
 #paytable .pay-row.active,
 #paytable .pay-row[data-attract-active="1"] {
-    outline: 0.2cqh solid #fff !important;
-    background: rgba(255,255,255,0.08) !important;
+    background: #ffffff !important;
+    text-shadow: none !important;
+}
+
+#paytable .pay-row.active .hand-name,
+#paytable .pay-row[data-attract-active="1"] .hand-name,
+#paytable .pay-row.active .pay-amount,
+#paytable .pay-row[data-attract-active="1"] .pay-amount {
+    color: #000000 !important;
+    text-shadow: none !important;
 }
 
 /* FH jackpot tag: standalone white row directly below 2 PAIR */
@@ -462,7 +470,7 @@
     min-width: 0;
     min-height: 0;
     max-width: 18%;
-    border-radius: 0.8cqh;
+    border-radius: 0;
     background: #111;
     box-shadow:
         inset 0 0 0 1px rgba(255,255,255,0.08),
@@ -479,7 +487,8 @@
     min-height: 0;
     width: 100%;
     background: #fff;
-    border-radius: 0.5cqh;
+    border: 1px solid #000;
+    border-radius: 0;
     overflow: hidden;
     display: block;
 }
@@ -663,10 +672,10 @@ button.cab-btn.asset-button {
     position: relative;
     width: 100%;
     height: 100%;
-    background-color: #fffaf0; /* Ivory/white */
+    background-color: #fff;
     box-sizing: border-box;
-    border: 0.3cqh solid #e5c158; /* Gold inner border */
-    border-radius: 0.5cqh;
+    border: 1px solid #000;
+    border-radius: 0;
     font-family: var(--v8-btn-font); /* Retro font */
     display: flex;
     align-items: center;

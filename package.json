@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "@newrelic/browser-agent": "^1.317.0",
+    "@openrouter/agent": "^0.7.2",
     "@vscode/ripgrep": "^1.18.0",
     "grep": "^0.1.0",
     "hermes-cli": "^1.0.0",

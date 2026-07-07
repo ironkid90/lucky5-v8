@@ -135,7 +135,8 @@
     bottom: 0 !important;
     flex: none !important;
     overflow: hidden !important;
-    border-radius: 4px !important;
+    border-radius: 0 !important;  /* AI9: sharp edges */
+    border: 1px solid #000 !important;  /* AI9: 1px solid black border */
 }
 
 /* Win amount display row: below cards, centered. */
@@ -1035,6 +1036,14 @@ html, body {
     transform-origin: center center !important;
 }
 
+/* ═════════════════════════════════════════════════════════════════════════════
+   BUTTON TRANSITIONS — AI9 parity: instant snap (no easing)
+   ───────────────────────────────────────────────────────────────────────────── */
+.cab-btn,
+.cab-btn:active:not(:disabled),
+.cab-btn.is-pressed:not(:disabled) {
+    transition: none !important;  /* AI9: instant mechanical snap, not eased */
+}
 /* ═════════════════════════════════════════════════════════════════════════════
    PAYTABLE MULTIPLIER — Highlighted row reflects doubling (Bug #9)
    When .du-highlight is set, the pay-amount doubles each HI win.

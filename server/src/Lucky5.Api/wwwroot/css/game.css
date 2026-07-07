@@ -494,8 +494,7 @@ body {
 
 .pay-row.active .hand-name,
 .pay-row.active .pay-amount {
-    color: #0ff !important;
-    text-shadow: 0 0 8px rgba(0,255,255,0.6);
+    /* Styling delegated to cabinet-v8-quality.css — no glow or color-only effect */
 }
 
 .pay-row.jackpot-selected {
@@ -632,7 +631,8 @@ body {
     width: 100%;
     flex: 1;
     min-height: 0;
-    border-radius: 4px;
+    border-radius: 0;
+    border: 1px solid #000;
     overflow: hidden;
     box-shadow: 2px 2px 6px rgba(0,0,0,0.8);
     background: #fff;
@@ -888,7 +888,8 @@ body {
 .du-card-slot .du-card-frame {
     width: 100%;
     height: calc(100% - 18px);
-    border-radius: 4px;
+    border-radius: 0;
+    border: 1px solid #000;
     overflow: hidden;
     box-shadow: 2px 2px 6px rgba(0,0,0,0.8);
     background: #fff;

@@ -21,13 +21,13 @@ window.CabinetStage = (function () {
         const next = {
             cardBack: assets.cardBack || '/assets/images/cards/bside.png',
             dealBaseMs: Number(timing.dealBaseMs) || 50,
-            dealStaggerMs: Number(timing.dealStaggerMs) || 240,
+            dealStaggerMs: Number(timing.dealStaggerMs) || 50,
             dealDurationMs: Number(timing.dealAnimDurationMs) || 100,
             drawOutMs: Number(timing.drawOutMs) || 50,
             drawInMs: Number(timing.drawInMs) || 80,
-            drawStaggerMs: Number(timing.drawStaggerMs) || 240,
+            drawStaggerMs: Number(timing.drawStaggerMs) || 50,
             drawRevealStartMs: Number(timing.drawRevealStartMs) || 50,
-            shuffleFrameMs: Number(timing.shuffleFrameMs) || 130,
+            shuffleFrameMs: Number(timing.shuffleFrameMs) || 30,
             lucky5ActiveMs: Number(timing.lucky5FlashDurationMs) || 1000
         };
 
@@ -550,7 +550,7 @@ window.CabinetStage = (function () {
 
         slotEl.classList.add('du-shuffling');
 
-        const frameMs = Math.max(60, Number(_config.shuffleFrameMs) || 80);
+        const frameMs = Number(_config.shuffleFrameMs) || 30;
         const frameTicks = window.CabinetClock.msToTicks(frameMs);
         const frameEl = _duFrame(slotEl);
         let lastCode = '';
