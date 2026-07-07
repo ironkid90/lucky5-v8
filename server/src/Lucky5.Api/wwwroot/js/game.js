@@ -1603,9 +1603,14 @@ function computeAutoHold(cardList) {
     const sortedRanks = parsed.map(c => c.rank).sort((a, b) => a - b);
     const uniqueRanks = [...new Set(sortedRanks)];
     if (uniqueRanks.length === 5) {
+        // Check for regular straight (including Ace-high: 10,J,Q,K,A)
         const isStraight = (uniqueRanks[4] - uniqueRanks[0] === 4) &&
             uniqueRanks.every((r, i) => i === 0 || r === sortedRanks[i - 1] + 1);
         if (isStraight) {
+            return new Set([0, 1, 2, 3, 4]);
+        }
+        // Check for Ace-low straight (A,2,3,4,5) - Ace is rank 14, so check for 14,2,3,4,5
+        if (uniqueRanks.includes(14) && uniqueRanks.includes(2) && uniqueRanks.includes(3) && uniqueRanks.includes(4) && uniqueRanks.includes(5)) {
             return new Set([0, 1, 2, 3, 4]);
         }
     }
@@ -1662,6 +1667,13 @@ function computeAutoHold(cardList) {
 }
 
 function applyAutoHold(cardList) {
+    // Clear previous holds before applying new auto-holds
+    holdIndexes.clear();
+    $$('.cab-hold').forEach(btn => btn.classList.remove('active'));
+    if (window.CabinetStage) {
+        for (let i = 0; i < 5; i++) CabinetStage.setHold(i, false);
+    }
+
     const autoHolds = computeAutoHold(cardList);
     if (autoHolds.size === 0) return;
 

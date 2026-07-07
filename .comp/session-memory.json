@@ -20439,7 +20439,7 @@
             "server/src/Lucky5.Api/wwwroot/js/cabinet-v8-effects.js"
           ],
           "tokens": 7018,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783202766233
         },
         {
@@ -67763,7 +67763,7 @@
             "server/src/Lucky5.Api/wwwroot/js/game.js"
           ],
           "tokens": 7981,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783394880797
         }
       ]

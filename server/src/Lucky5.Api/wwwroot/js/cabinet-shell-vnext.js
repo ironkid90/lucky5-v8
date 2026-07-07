@@ -185,6 +185,7 @@ window.CabinetShell = (function () {
      * Wire menu overlay behavior that is safe even if game.js has not bound yet.
      * The CASH IN / CASH OUT / BACK TO LOBBY / RESET / LOGOUT buttons
      * keep their existing game.js handlers — this only adds open and close chrome.
+     * Menu is accessible during gameplay (not blocked by game state).
      */
     function initMenuOverlay() {
         const panel = document.getElementById('menu-panel');
@@ -200,7 +201,8 @@ window.CabinetShell = (function () {
         const menuBtn = document.getElementById('btn-menu');
         if (menuBtn && !menuBtn.dataset.shellMenuBound) {
             menuBtn.dataset.shellMenuBound = '1';
-            menuBtn.addEventListener('click', function () {
+            menuBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
                 setOpen(true);
             });
         }
@@ -208,7 +210,8 @@ window.CabinetShell = (function () {
         const closeBtn = document.getElementById('btn-close-menu');
         if (closeBtn && !closeBtn.dataset.shellMenuBound) {
             closeBtn.dataset.shellMenuBound = '1';
-            closeBtn.addEventListener('click', function () {
+            closeBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
                 setOpen(false);
             });
         }
