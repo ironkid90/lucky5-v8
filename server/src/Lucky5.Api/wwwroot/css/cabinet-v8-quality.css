@@ -85,8 +85,8 @@
 }
 
 .cab-btn:disabled {
-    filter: grayscale(0.55) brightness(0.7);
-    opacity: 0.55;
+    filter: grayscale(0.3) brightness(0.85);
+    opacity: 0.75;
     cursor: not-allowed;
 }
 
@@ -727,10 +727,41 @@ button.cab-btn.asset-button {
     display: flex;
     align-items: center;
     justify-content: center;
+    overflow: hidden;
+    max-width: 100%;
+    max-height: 100%;
 }
 
 .card-suit-large {
     font-size: 6.5cqh;
+    max-width: 100%;
+    max-height: 100%;
+    overflow: hidden;
+    line-height: 1;
+}
+
+/* ── DU card frame: constrain card faces so they don't overflow ── */
+.du-card-slot .card-front,
+.du-card-slot .card-back-pattern {
+    max-width: 100%;
+    max-height: 100%;
+    overflow: hidden;
+}
+
+.du-card-slot .card-suit-large {
+    font-size: clamp(12px, 4.5cqh, 40px);
+}
+
+.du-card-slot .card-rank {
+    font-size: clamp(8px, 2cqh, 18px);
+}
+
+.du-card-slot .card-suit {
+    font-size: clamp(7px, 1.5cqh, 14px);
+}
+
+.du-card-slot .card-corner {
+    line-height: 1;
 }
 
 .card-back-pattern {

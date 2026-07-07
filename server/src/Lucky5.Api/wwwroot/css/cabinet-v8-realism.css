@@ -130,7 +130,7 @@ body {
 
 .cab-btn[disabled],
 .cab-btn.disabled {
-    filter: grayscale(0.55) brightness(0.5);
+    filter: grayscale(0.3) brightness(0.7);
 }
 
 /* Hold button - solid amber ring when toggled */
