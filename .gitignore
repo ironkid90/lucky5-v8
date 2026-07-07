@@ -192,3 +192,11 @@ ai9/*.aab
 /db-context-enrichment
 /.ionide
 *.binlog
+*.binlog
+.comp/session-memory.json
+.ionide/Lucky5.Api.binlog
+.ionide/Lucky5.Application.binlog
+.ionide/Lucky5.Domain.binlog
+.ionide/Lucky5.Infrastructure.binlog
+.ionide/Lucky5.Realtime.binlog
+.ionide/Lucky5.Tests.binlog
