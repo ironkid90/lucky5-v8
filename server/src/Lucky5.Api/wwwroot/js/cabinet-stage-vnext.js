@@ -21,11 +21,11 @@ window.CabinetStage = (function () {
         const next = {
             cardBack: assets.cardBack || '/assets/images/cards/bside.png',
             dealBaseMs: Number(timing.dealBaseMs) || 50,
-            dealStaggerMs: Number(timing.dealStaggerMs) || 250,
+            dealStaggerMs: Number(timing.dealStaggerMs) || 240,
             dealDurationMs: Number(timing.dealAnimDurationMs) || 100,
             drawOutMs: Number(timing.drawOutMs) || 50,
             drawInMs: Number(timing.drawInMs) || 80,
-            drawStaggerMs: Number(timing.drawStaggerMs) || 250,
+            drawStaggerMs: Number(timing.drawStaggerMs) || 240,
             drawRevealStartMs: Number(timing.drawRevealStartMs) || 50,
             shuffleFrameMs: Number(timing.shuffleFrameMs) || 130,
             lucky5ActiveMs: Number(timing.lucky5FlashDurationMs) || 1000
@@ -739,7 +739,8 @@ window.CabinetStage = (function () {
             }
         });
 
-        // Phase 1: clear unheld slots instantly so they disappear
+        // Phase 1: Set held states and update held card faces.
+        // Keep old unheld card faces visible on screen so they do not instantly vanish.
         cards.forEach((card, i) => {
             const slotEl = _slot(i);
             const img = _cardImg(slotEl);
@@ -753,15 +754,6 @@ window.CabinetStage = (function () {
             }
 
             slotEl.classList.remove('held');
-            
-            // Instantly apply the final card face but at opacity 0 / translated to pre-render without flickers
-            _applyCardFace(slotEl, img, card, { requireFace: true });
-            slotEl.style.transition = 'none';
-            slotEl.style.transform = 'translateY(-12%)';
-            slotEl.style.opacity = '0';
-            
-            // Force reflow
-            void slotEl.offsetWidth;
         });
 
         if (pending === 0 && onComplete) {
@@ -773,7 +765,7 @@ window.CabinetStage = (function () {
         let unheldSeqIndex = 0;
         cards.forEach((card, i) => {
             if (_activeDrawToken !== drawToken) return;
-            if (held.has(i)) return; // Already rendered
+            if (held.has(i)) return; // Already handled
             const currentSeq = unheldSeqIndex++;
             window.CabinetClock.delayMs(baseDelay + (currentSeq * stagger), () => {
                 if (_activeDrawToken !== drawToken) return;
@@ -785,10 +777,25 @@ window.CabinetStage = (function () {
                     }
                     return;
                 }
+
+                const img = _cardImg(slotEl);
+                if (img) {
+                    // Instantly hide the old card, position it above, and apply the new face
+                    slotEl.style.transition = 'none';
+                    slotEl.style.transform = 'translateY(-12%)';
+                    slotEl.style.opacity = '0';
+                    _applyCardFace(slotEl, img, card, { requireFace: true });
+
+                    // Force reflow
+                    void slotEl.offsetWidth;
+                }
+
+                // Animate the card IN: slide down to final position
                 const durationSec = (Number(_config.dealDurationMs) || 100) / 1000;
                 slotEl.style.transition = `transform ${durationSec}s ease-out`;
                 slotEl.style.transform = 'translateY(0)';
                 slotEl.style.opacity = '1';
+
                 completedCount++;
                 if (completedCount === pending && onComplete) {
                     window.CabinetClock.delayMs(20, onComplete);

@@ -2362,7 +2362,7 @@
             "server/src/Lucky5.Api/wwwroot/js/cabinet-state-vnext.js"
           ],
           "tokens": 4696,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782663220336
         },
         {
@@ -2911,7 +2911,7 @@
             "server/src/Lucky5.Api/wwwroot/js/game-config.js"
           ],
           "tokens": 5159,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782663614783
         },
         {
@@ -3672,7 +3672,7 @@
             "server/src/Lucky5.Api/wwwroot/js/game-config.js"
           ],
           "tokens": 5683,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782664203038
         },
         {
@@ -3975,7 +3975,7 @@
             "server/src/Lucky5.Api/wwwroot/js/game-config.js"
           ],
           "tokens": 4872,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782664254833
         },
         {
@@ -4230,7 +4230,7 @@
             "server/src/Lucky5.Api/wwwroot/js/cabinet-v8-effects.js"
           ],
           "tokens": 4809,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782664923693
         },
         {
@@ -4299,7 +4299,7 @@
             "server/src/Lucky5.Api/wwwroot/js/cabinet-v8-effects.js"
           ],
           "tokens": 4797,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782664945602
         },
         {
@@ -4360,7 +4360,7 @@
             "server/src/Lucky5.Api/wwwroot/js/cabinet-v8-effects.js"
           ],
           "tokens": 5159,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782665003295
         },
         {
@@ -4646,7 +4646,7 @@
             "server/src/Lucky5.Api/wwwroot/js/cabinet-bonus.js"
           ],
           "tokens": 4359,
-          "stale": false,
+          "stale": true,
           "timestamp": 1782670658135
         }
       ]
@@ -12922,7 +12922,7 @@
             "server/src/Lucky5.Simulation/Program.cs"
           ],
           "tokens": 7956,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783186921540
         },
         {
@@ -13245,7 +13245,7 @@
             "server/src/Lucky5.Simulation/Program.cs"
           ],
           "tokens": 7981,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783186998669
         },
         {
@@ -13506,7 +13506,7 @@
             "server/src/Lucky5.Simulation/Program.cs"
           ],
           "tokens": 6705,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783187052783
         },
         {
@@ -13612,7 +13612,7 @@
             "server/src/Lucky5.Simulation/Program.cs"
           ],
           "tokens": 7994,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783187059425
         },
         {
@@ -13800,7 +13800,7 @@
             "server/src/Lucky5.Simulation/Program.cs"
           ],
           "tokens": 7944,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783187101156
         },
         {
@@ -13890,7 +13890,7 @@
             "server/src/Lucky5.Simulation/Program.cs"
           ],
           "tokens": 7931,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783187110966
         },
         {
@@ -13968,7 +13968,7 @@
             "server/src/Lucky5.Simulation/Program.cs"
           ],
           "tokens": 6718,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783187121092
         },
         {
@@ -14071,7 +14071,7 @@
             "server/src/Lucky5.Simulation/Program.cs"
           ],
           "tokens": 7969,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783187136407
         },
         {
@@ -16022,7 +16022,7 @@
             "server/tests/Lucky5.Tests/Program.cs"
           ],
           "tokens": 7992,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783200920854
         },
         {
@@ -16276,7 +16276,7 @@
             "server/tests/Lucky5.Tests/Program.cs"
           ],
           "tokens": 7045,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783201012443
         },
         {
@@ -17070,7 +17070,7 @@
             "server/src/Lucky5.Api/wwwroot/js/du-board-canvas.js"
           ],
           "tokens": 7992,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783201223186
         },
         {
@@ -17153,7 +17153,7 @@
             "server/src/Lucky5.Api/wwwroot/js/cabinet-v8-effects.js"
           ],
           "tokens": 7868,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783201229103
         },
         {
@@ -17498,7 +17498,7 @@
             "server/src/Lucky5.Api/wwwroot/js/cabinet-v8-effects.js"
           ],
           "tokens": 7892,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783201399477
         },
         {
@@ -17902,7 +17902,7 @@
             "repositoryguide-important-read-before-search.md"
           ],
           "tokens": 7955,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783201633023
         },
         {
@@ -18059,7 +18059,7 @@
             "server/src/Lucky5.Api/Properties/launchSettings.json"
           ],
           "tokens": 6981,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783201678831
         },
         {
@@ -18129,7 +18129,7 @@
             "server/src/Lucky5.Api/wwwroot/js/cabinet-stage-vnext.js"
           ],
           "tokens": 7994,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783201683379
         },
         {
@@ -18232,7 +18232,7 @@
             "server/src/Lucky5.Api/wwwroot/js/paytable-canvas.js"
           ],
           "tokens": 7966,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783201689020
         },
         {
@@ -18330,7 +18330,7 @@
             "server/src/Lucky5.Api/wwwroot/js/cabinet-v8-effects.js"
           ],
           "tokens": 7892,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783201696207
         },
         {
@@ -19013,7 +19013,7 @@
             "server/src/Lucky5.Api/wwwroot/js/cabinet-v8-effects.js"
           ],
           "tokens": 7993,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783202226805
         },
         {
@@ -19241,7 +19241,7 @@
             "server/src/Lucky5.Api/wwwroot/js/cabinet-v8-effects.js"
           ],
           "tokens": 7994,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783202341236
         },
         {
@@ -19366,7 +19366,7 @@
             "server/src/Lucky5.Api/Properties/launchSettings.json"
           ],
           "tokens": 7968,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783202359262
         },
         {
@@ -19486,7 +19486,7 @@
             "server/src/Lucky5.Api/wwwroot/js/cabinet-v8-effects.js"
           ],
           "tokens": 7994,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783202431334
         },
         {
@@ -19799,7 +19799,7 @@
             "server/src/Lucky5.Api/wwwroot/js/cabinet-v8-effects.js"
           ],
           "tokens": 7906,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783202467607
         },
         {
@@ -20264,7 +20264,7 @@
             "server/src/Lucky5.Api/wwwroot/js/du-board-canvas.js"
           ],
           "tokens": 7992,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783202735843
         },
         {
@@ -21050,7 +21050,7 @@
             "server/src/Lucky5.Api/wwwroot/js/du-board-canvas.js"
           ],
           "tokens": 7992,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783203037303
         },
         {
@@ -21193,7 +21193,7 @@
             "server/src/Lucky5.Api/wwwroot/js/cabinet-stage-vnext.js"
           ],
           "tokens": 7996,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783203073615
         },
         {
@@ -21654,7 +21654,7 @@
             "server/src/Lucky5.Api/wwwroot/js/cabinet-v8-effects.js"
           ],
           "tokens": 7293,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783203247074
         },
         {
@@ -21908,7 +21908,7 @@
             "server/src/Lucky5.Api/Properties/launchSettings.json"
           ],
           "tokens": 7995,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783203340631
         },
         {
@@ -22167,7 +22167,7 @@
             "server/src/Lucky5.Api/wwwroot/js/cabinet-v8-effects.js"
           ],
           "tokens": 5557,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783203464616
         },
         {
@@ -22427,7 +22427,7 @@
             "repositoryguide-important-read-before-search.md"
           ],
           "tokens": 7882,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783203569468
         },
         {
@@ -22613,7 +22613,7 @@
             "server/src/Lucky5.Api/wwwroot/js/cabinet-stage-vnext.js"
           ],
           "tokens": 7982,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783203788488
         },
         {
@@ -22687,7 +22687,7 @@
             "server/src/Lucky5.Api/wwwroot/js/cabinet-v8-effects.js"
           ],
           "tokens": 7629,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783203794776
         },
         {
@@ -23897,7 +23897,7 @@
             "server/src/Lucky5.Api/wwwroot/js/cabinet-v8-effects.js"
           ],
           "tokens": 7230,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783204264011
         },
         {
@@ -24272,7 +24272,7 @@
             "server/src/Lucky5.Api/Properties/launchSettings.json"
           ],
           "tokens": 7396,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783204292232
         },
         {
@@ -24724,7 +24724,7 @@
             "server/src/Lucky5.Api/wwwroot/js/du-board-canvas.js"
           ],
           "tokens": 7992,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783204663260
         },
         {
@@ -25276,7 +25276,7 @@
             "server/src/Lucky5.Api/wwwroot/js/du-board-canvas.js"
           ],
           "tokens": 7992,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783204850739
         },
         {
@@ -25966,7 +25966,7 @@
             "server/src/Lucky5.Api/wwwroot/js/cabinet-v8-effects.js"
           ],
           "tokens": 5568,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783205111813
         },
         {
@@ -26063,7 +26063,7 @@
             "server/src/Lucky5.Api/wwwroot/js/cabinet-v8-effects.js"
           ],
           "tokens": 7983,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783205209442
         },
         {
@@ -26130,7 +26130,7 @@
             "server/src/Lucky5.Api/wwwroot/js/cabinet-v8-effects.js"
           ],
           "tokens": 5756,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783205517761
         },
         {
@@ -26560,7 +26560,7 @@
             "server/src/Lucky5.Api/wwwroot/js/cabinet-state-vnext.js"
           ],
           "tokens": 7780,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783205807542
         },
         {
@@ -27089,7 +27089,7 @@
             "server/src/Lucky5.Api/wwwroot/js/cabinet-v8-effects.js"
           ],
           "tokens": 5406,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783206066826
         },
         {
@@ -27379,7 +27379,7 @@
             "server/src/Lucky5.Infrastructure/Services/GameService.cs"
           ],
           "tokens": 7830,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783206462063
         },
         {
@@ -27790,7 +27790,7 @@
             "server/src/Lucky5.Infrastructure/Services/GameService.cs"
           ],
           "tokens": 7532,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783206582921
         },
         {
@@ -27850,7 +27850,7 @@
             "server/src/Lucky5.Infrastructure/Services/GameService.cs"
           ],
           "tokens": 6406,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783206590223
         },
         {
@@ -28091,7 +28091,7 @@
             "server/src/Lucky5.Infrastructure/Services/GameService.cs"
           ],
           "tokens": 7996,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783206654538
         },
         {
@@ -28732,7 +28732,7 @@
             "server/src/Lucky5.Infrastructure/Services/GameService.cs"
           ],
           "tokens": 7982,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783206715009
         },
         {
@@ -28971,7 +28971,7 @@
             "server/src/Lucky5.Infrastructure/Services/GameService.cs"
           ],
           "tokens": 7880,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783206791931
         },
         {
@@ -30526,7 +30526,7 @@
             "server/src/Lucky5.Infrastructure/Services/GameService.cs"
           ],
           "tokens": 7980,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783207630881
         },
         {
@@ -30585,7 +30585,7 @@
             "server/src/Lucky5.Infrastructure/Services/GameService.cs"
           ],
           "tokens": 6781,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783207656002
         },
         {
@@ -30991,7 +30991,7 @@
             "server/src/Lucky5.Infrastructure/Services/GameService.cs"
           ],
           "tokens": 7944,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783207795724
         },
         {
@@ -31226,7 +31226,7 @@
             "server/src/Lucky5.Infrastructure/Services/GameService.cs"
           ],
           "tokens": 7980,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783207876489
         },
         {
@@ -43116,7 +43116,7 @@
             "server/src/Lucky5.Api/wwwroot/js/paytable-canvas.js"
           ],
           "tokens": 7969,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783300843315
         },
         {
@@ -43192,7 +43192,7 @@
             "server/src/Lucky5.Api/wwwroot/js/paytable-canvas.js"
           ],
           "tokens": 7954,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783300957184
         },
         {
@@ -43257,7 +43257,7 @@
             "server/src/Lucky5.Api/wwwroot/js/paytable-canvas.js"
           ],
           "tokens": 6266,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783301018604
         },
         {
@@ -48503,7 +48503,7 @@
             "server/src/Lucky5.Api/wwwroot/js/paytable-canvas.js"
           ],
           "tokens": 7982,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783303809584
         },
         {
@@ -48833,7 +48833,7 @@
             "server/src/Lucky5.Infrastructure/Services/GameService.cs"
           ],
           "tokens": 7994,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783303913678
         },
         {
@@ -49387,7 +49387,7 @@
             "server/src/Lucky5.Simulation/Program.cs"
           ],
           "tokens": 7995,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783304386562
         },
         {
@@ -52000,7 +52000,7 @@
             "server/src/Lucky5.Simulation/Program.cs"
           ],
           "tokens": 7992,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783317538080
         },
         {
@@ -52068,7 +52068,7 @@
             "server/src/Lucky5.Simulation/Program.cs"
           ],
           "tokens": 7956,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783317593374
         },
         {
@@ -56378,7 +56378,7 @@
             "server/src/Lucky5.Simulation/Program.cs"
           ],
           "tokens": 6882,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783319117826
         },
         {
@@ -61559,7 +61559,7 @@
             "server/src/Lucky5.Api/appsettings.json"
           ],
           "tokens": 6629,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783326683702
         },
         {
@@ -61736,7 +61736,7 @@
             "server/src/Lucky5.Api/wwwroot/js/cabinet-v8-effects.js"
           ],
           "tokens": 7995,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783326719891
         },
         {
@@ -61791,7 +61791,7 @@
             "server/src/Lucky5.Api/Properties/launchSettings.json"
           ],
           "tokens": 5995,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783326794621
         },
         {
@@ -61856,7 +61856,7 @@
             "server/src/Lucky5.Api/wwwroot/js/cabinet-v8-effects.js"
           ],
           "tokens": 7965,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783326807469
         },
         {
@@ -63338,7 +63338,7 @@
             "repositoryguide-important-read-before-search.md"
           ],
           "tokens": 7082,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783327504736
         },
         {
@@ -63428,7 +63428,7 @@
             "server/src/Lucky5.Api/wwwroot/js/cabinet-v8-effects.js"
           ],
           "tokens": 7969,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783327517825
         },
         {
@@ -63830,7 +63830,7 @@
             "server/src/Lucky5.Api/wwwroot/js/cabinet-v8-effects.js"
           ],
           "tokens": 7969,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783394038773
         },
         {
@@ -66159,7 +66159,7 @@
             "repositoryguide-important-read-before-search.md"
           ],
           "tokens": 7419,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783394528398
         },
         {
@@ -66794,7 +66794,7 @@
             "server/src/Lucky5.Api/wwwroot/js/cabinet-bonus.js"
           ],
           "tokens": 7729,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783394631126
         },
         {
@@ -67765,6 +67765,808 @@
           "tokens": 7981,
           "stale": true,
           "timestamp": 1783394880797
+        },
+        {
+          "query": "find card deal or draw stagger animation times and card drawing logic in cabinet-stage-vnext.js or game.js",
+          "symbols": [
+            "--- Stage 1: Get Python Flex Template Launcher Binary ---",
+            "--- Stage 2: Build Application Image ---",
+            "1. Layout Geometry (`cabinet-ai9-parity.css`)",
+            "1. Visual Discrepancies and Structural Changes",
+            "1.1 Global Layout and Proportions",
+            "1.3 Card Rendering",
+            "2. CRT Screen Colors (`cabinet-ai9-parity.css`)",
+            "2. Timing and Gameplay Adjustments",
+            "2.1 Deal and Draw Stagger",
+            "2.2 Double-Up Reel Animation",
+            "3. Base Game Flow (Five-Card Draw Poker)",
+            "3. Button Rendering (`cabinet-ai9-parity.css` + `cabinet-ai9-button-images.js`)",
+            "3. The Service Layer (GameService.cs)",
+            "3.2 Cards (313×528 PNG pixel-art faces) in `cards/`",
+            "4. Animation Timing (`js/game-config.js`)",
+            "4. Sequential Pacing and Animation Sync",
+            "4.2 Cards (dealt)",
+            "7. Card-Dealing Animation Spec (Classic Arcade Feel)",
+            "7.1 Base game deal (5 cards)",
+            "7.2 Draw (replace non-held cards)",
+            "7.5 Settlement-drain animations (TAKE SCORE / TAKE HALF / Jackpot)",
+            "AI9 Cabinet Overhaul Specification",
+            "Cabinet Variant Architecture (Video Poker Multi-Game Engine)",
+            "Card Draw",
+            "Card deck deliverables (DOM/CSS Based)",
+            "Commands",
+            "Configuration Files (to be consolidated and deleted)",
+            "Core Job Metrics",
+            "Example 2: Finding and Removing Duplicates",
+            "Find a specific page on a large site",
+            "Key Findings",
+            "Lucky5 Cabinet Card and Button Asset Spec",
+            "Major reasoning journey and findings",
+            "Personal App Skill Routing Logic",
+            "Rule & Context Files (to be merged and deleted)",
+            "Standard Operating Procedure: Adding a New Arcade Game",
+            "Step 1: Fix Cabinet Geometry and Overlaps",
+            "Step 4: Adjust Deal/Draw Timing Parity",
+            "`job/per_stage_data_watermark_age`",
+            "`job/per_stage_system_lag`",
+            "`job/pubsub/timestamp_events`",
+            "`job/streaming_engine/stage_end_to_end_latencies`",
+            "resetGameRuntimeState",
+            "resolveApiBase"
+          ],
+          "files": [
+            "//?/C:/Users/Gabi.WIN-CD45QMUUPFF/Documents/GitHub/lucky5-v8/lucky5-v8/server/src/Lucky5.Api/wwwroot/js/game.js",
+            "AGENTS.md",
+            "BRAIN.md",
+            "GEMINI.md",
+            "IDEA.md",
+            "README.md",
+            "docs/AI9_OVERHAUL_SPECIFICATION.md",
+            "docs/AI9_PARITY_AGENT_IMPLEMENTATION_GUIDE.md",
+            "docs/AI9_PARITY_GROUND_TRUTH_AND_WORKLOG.md",
+            "docs/AI9_PARITY_IMPLEMENTATION_SUMMARY.md",
+            "docs/CABINET_VARIANT_ARCHITECTURE.md",
+            "docs/DEVELOPMENT_HISTORY_AND_CURRENT_STATE.md",
+            "docs/GAME_FEEL_REFERENCE.md",
+            "docs/LUCKY5_AUTHORITATIVE_GAMEPLAY_REFERENCE.md",
+            "docs/MACHINE_BEHAVIOR_REFERENCE.md",
+            "docs/NATIVE_PACKAGING.md",
+            "docs/README.md",
+            "docs/RTP_CLEANROOM_IMPLEMENTATION_HANDOFF.md",
+            "docs/WEB_NATIVE_STRATEGY.md",
+            "docs/assets/lucky5-cabinet-assets.md",
+            "mem.md",
+            "plugins/skills/chief-architect/SKILL.md",
+            "plugins/skills/file-organizer/SKILL.md",
+            "plugins/skills/firecrawl-deep-research/SKILL.md",
+            "plugins/skills/firecrawl-demo-walkthrough/SKILL.md",
+            "plugins/skills/firecrawl-map/SKILL.md",
+            "plugins/skills/gcp-dataflow/references/dataflow_metrics_core_job.md",
+            "plugins/skills/gcp-dataflow/references/dataflow_metrics_pubsub.md",
+            "plugins/skills/gcp-dataflow/references/dataflow_metrics_streaming_engine.md",
+            "plugins/skills/gcp-dataflow/references/python_flex_template_reference.md",
+            "repositoryguide-important-read-before-search.md",
+            "server/src/Lucky5.Api/wwwroot/js/game.js"
+          ],
+          "tokens": 7996,
+          "stale": true,
+          "timestamp": 1783397998048
+        },
+        {
+          "query": "find deal and draw card rendering functions in cabinet-stage-vnext.js",
+          "symbols": [
+            "--- Stage 1: Get Python Flex Template Launcher Binary ---",
+            "--- Stage 2: Build Application Image ---",
+            "1. Layout Geometry (`cabinet-ai9-parity.css`)",
+            "1. Visual Discrepancies and Structural Changes",
+            "1.1 Global Layout and Proportions",
+            "1.3 Card Rendering",
+            "2. CRT Screen Colors (`cabinet-ai9-parity.css`)",
+            "2.1 Deal and Draw Stagger",
+            "3. Base Game Flow (Five-Card Draw Poker)",
+            "3. BigQuery ML & AI Functions (BQML SQL)",
+            "3. Button Rendering (`cabinet-ai9-parity.css` + `cabinet-ai9-button-images.js`)",
+            "3.2 Cards (313×528 PNG pixel-art faces) in `cards/`",
+            "4.2 Cards (dealt)",
+            "7. Card-Dealing Animation Spec (Classic Arcade Feel)",
+            "7.1 Base game deal (5 cards)",
+            "7.2 Draw (replace non-held cards)",
+            "AI9 Cabinet Overhaul Specification",
+            "BigQuery ML (BQML) & AI Functions",
+            "Card Draw",
+            "Card deck deliverables (DOM/CSS Based)",
+            "Commands",
+            "Configuration Files (to be consolidated and deleted)",
+            "Core Job Metrics",
+            "Example 2: Finding and Removing Duplicates",
+            "Factory Functions for Sub-agents",
+            "Find a specific page on a large site",
+            "Key Findings",
+            "Lucky5 Cabinet Card and Button Asset Spec",
+            "Major reasoning journey and findings",
+            "Rule & Context Files (to be merged and deleted)",
+            "Run as dedicated server (no rendering)",
+            "Step 1: Fix Cabinet Geometry and Overlaps",
+            "Step 4: Adjust Deal/Draw Timing Parity",
+            "`job/per_stage_data_watermark_age`",
+            "`job/per_stage_system_lag`",
+            "`job/streaming_engine/stage_end_to_end_latencies`",
+            "resolveApiBase"
+          ],
+          "files": [
+            "AGENTS.md",
+            "BRAIN.md",
+            "GEMINI.md",
+            "docs/AI9_OVERHAUL_SPECIFICATION.md",
+            "docs/AI9_PARITY_AGENT_IMPLEMENTATION_GUIDE.md",
+            "docs/AI9_PARITY_GROUND_TRUTH_AND_WORKLOG.md",
+            "docs/AI9_PARITY_IMPLEMENTATION_SUMMARY.md",
+            "docs/CABINET_VARIANT_ARCHITECTURE.md",
+            "docs/DEVELOPMENT_HISTORY_AND_CURRENT_STATE.md",
+            "docs/GAME_FEEL_REFERENCE.md",
+            "docs/LUCKY5_AUTHORITATIVE_GAMEPLAY_REFERENCE.md",
+            "docs/MACHINE_BEHAVIOR_REFERENCE.md",
+            "docs/NATIVE_PACKAGING.md",
+            "docs/README.md",
+            "docs/RTP_CLEANROOM_IMPLEMENTATION_HANDOFF.md",
+            "docs/assets/lucky5-cabinet-assets.md",
+            "mem.md",
+            "plugins/skills/developing-with-bigquery/SKILL.md",
+            "plugins/skills/developing-with-bigquery/references/BQML.md",
+            "plugins/skills/file-organizer/SKILL.md",
+            "plugins/skills/firecrawl-deep-research/SKILL.md",
+            "plugins/skills/firecrawl-demo-walkthrough/SKILL.md",
+            "plugins/skills/firecrawl-map/SKILL.md",
+            "plugins/skills/firecrawl-scrape/SKILL.md",
+            "plugins/skills/gcp-dataflow/references/bottlenecks_and_parallelism_context.md",
+            "plugins/skills/gcp-dataflow/references/dataflow_metrics_core_job.md",
+            "plugins/skills/gcp-dataflow/references/dataflow_metrics_streaming_engine.md",
+            "plugins/skills/gcp-dataflow/references/python_flex_template_reference.md",
+            "plugins/skills/godot/SKILL.md",
+            "plugins/skills/google-agents-cli-adk-code/references/adk-python.md",
+            "repositoryguide-important-read-before-search.md",
+            "server/src/Lucky5.Api/wwwroot/js/game.js"
+          ],
+          "tokens": 7881,
+          "stale": true,
+          "timestamp": 1783398013734
+        },
+        {
+          "query": "FIX THE stagger times into the same with draw and redraw at 240ms and same animations just not held cards dissapear and in their place draw new cards",
+          "symbols": [
+            "1. Create the AWS IAM role with a placeholder trust policy",
+            "1. KPI Cards",
+            "1. Unified Fixed-Viewport Architecture",
+            "1. Visual Discrepancies and Structural Changes",
+            "1.1 Global Layout and Proportions",
+            "14. What NOT to Change",
+            "2. Timing and Gameplay Adjustments",
+            "2.1 Deal and Draw Stagger",
+            "3. Base Game Flow (Five-Card Draw Poker)",
+            "3. Notable Technical Achievements",
+            "3. The Service Layer (GameService.cs)",
+            "3.1 Buttons (1024×1536 PNG, wooden socket frame + glossy illuminated face with baked label)",
+            "3.2 Cards (313×528 PNG pixel-art faces) in `cards/`",
+            "3.3 Other key art",
+            "4.2 Cards (dealt)",
+            "4x throughput: scale every param, not just one",
+            "6. Double-Up Bonus Round (CRITICAL — This Is Not Just Hi-Lo)",
+            "7.1 Base game deal (5 cards)",
+            "7.2 Draw (replace non-held cards)",
+            "7.5 Settlement-drain animations (TAKE SCORE / TAKE HALF / Jackpot)",
+            "9. Identity Rules — Do Not Modernize",
+            "AI9 Parity Implementation Guide for Agents",
+            "Basic — generate 3 default scenarios (up to 5 turns each) into artifacts/traces/",
+            "Card Draw",
+            "Checklist for New Dashboards",
+            "Commands",
+            "Concatenating Catalog and Namespace Into Schema",
+            "Configuration Files (to be consolidated and deleted)",
+            "Create New Workflow",
+            "DU with 5♠ Never Lose",
+            "Example 1: Organizing Downloads (From Justin Dielmann)",
+            "Fix Dependabot PRs",
+            "Getting Started with VS Code",
+            "GitHub Agentic Workflows Agent",
+            "Guestbook with Cloud Code",
+            "If Continuing the Overhaul:",
+            "Lookup environment resources instead of using placeholder values",
+            "New Files (Additive, Reversible)",
+            "Personal App Architect - Strategic Development Orchestrator",
+            "Replace <ENV_NAME> with the actual environment name",
+            "Replace <ORCHESTRATION_PIPELINE_NAME> with the actual name",
+            "Rule & Context Files (to be merged and deleted)",
+            "Run the app locally with minikube",
+            "Standard Operating Procedure: Adding a New Arcade Game",
+            "Step 1: Fix Cabinet Geometry and Overlaps",
+            "Step 1: Spawn all runs (with-skill AND baseline) in the same turn",
+            "Step 2: Discover & Validate Parameters (New Transfers)",
+            "Step 2: Fix Missing Button Textures (The Blank Squares Issue)",
+            "Step 3: Fix Non-Functioning Menu Key and Buttons",
+            "Step 4: Adjust Deal/Draw Timing Parity",
+            "The Global Brain Hub",
+            "The Identity Rule: Do Not Modernize",
+            "To insert into an `audit` branch",
+            "`job/pubsub/timestamp_events`",
+            "applyHeldIndexes",
+            "resetGameRuntimeState",
+            "them into the system instruction. Alternative: LoadMemoryTool() — the model"
+          ],
+          "files": [
+            "//?/C:/Users/Gabi.WIN-CD45QMUUPFF/Documents/GitHub/lucky5-v8/lucky5-v8/server/src/Lucky5.Api/wwwroot/js/game.js",
+            "AGENTS.md",
+            "BRAIN.md",
+            "GEMINI.md",
+            "docs/AI9_OVERHAUL_SPECIFICATION.md",
+            "docs/AI9_PARITY_AGENT_IMPLEMENTATION_GUIDE.md",
+            "docs/AI9_PARITY_GROUND_TRUTH_AND_WORKLOG.md",
+            "docs/AI9_PARITY_IMPLEMENTATION_SUMMARY.md",
+            "docs/CABINET_VARIANT_ARCHITECTURE.md",
+            "docs/DEVELOPMENT_HISTORY_AND_CURRENT_STATE.md",
+            "docs/GAME_FEEL_REFERENCE.md",
+            "docs/LUCKY5_AUTHORITATIVE_GAMEPLAY_REFERENCE.md",
+            "docs/MACHINE_BEHAVIOR_REFERENCE.md",
+            "docs/RTP_CLEANROOM_IMPLEMENTATION_HANDOFF.md",
+            "docs/assets/lucky5-cabinet-assets.md",
+            "guestbook-1/README.md",
+            "mem.md",
+            "plugins/agents/agentic-workflows.agent.md",
+            "plugins/skills/bigquery-data-transfer-service/SKILL.md",
+            "plugins/skills/building-data-apps/references/react_framework.md",
+            "plugins/skills/building-data-apps/references/streamlit_framework.md",
+            "plugins/skills/chief-architect/SKILL.md",
+            "plugins/skills/dataform-bigquery/SKILL.md",
+            "plugins/skills/dbt-bigquery/SKILL.md",
+            "plugins/skills/discovering-gcp-data-assets/SKILL.md",
+            "plugins/skills/federate-lakehouse-catalog/SKILL.md",
+            "plugins/skills/file-organizer/SKILL.md",
+            "plugins/skills/firecrawl-website-design-clone/SKILL.md",
+            "plugins/skills/gcp-dataflow/SKILL.md",
+            "plugins/skills/gcp-dataflow/references/dataflow_metrics_pubsub.md",
+            "plugins/skills/gcp-pipeline-orchestration/SKILL.md",
+            "plugins/skills/gcp-spark/references/read_write_data.md",
+            "plugins/skills/google-agents-cli-adk-code/references/adk-python.md",
+            "plugins/skills/google-agents-cli-deploy/SKILL.md",
+            "plugins/skills/google-agents-cli-eval/SKILL.md",
+            "plugins/skills/google-agents-cli-workflow/SKILL.md",
+            "plugins/skills/skill-creator/SKILL.md",
+            "repositoryguide-important-read-before-search.md",
+            "server/src/Lucky5.Api/wwwroot/js/game.js"
+          ],
+          "tokens": 7984,
+          "stale": true,
+          "timestamp": 1783398045397
+        },
+        {
+          "query": "Inspect cabinet-stage-vnext.js timing and card animations",
+          "symbols": [
+            "--- Stage 1: Get Python Flex Template Launcher Binary ---",
+            "--- Stage 2: Build Application Image ---",
+            "1. Layout Geometry (`cabinet-ai9-parity.css`)",
+            "1. Visual Discrepancies and Structural Changes",
+            "1.1 Global Layout and Proportions",
+            "1.3 Card Rendering",
+            "2. CRT Screen Colors (`cabinet-ai9-parity.css`)",
+            "2. Timing and Gameplay Adjustments",
+            "3. Button Rendering (`cabinet-ai9-parity.css` + `cabinet-ai9-button-images.js`)",
+            "3.2 Cards (313×528 PNG pixel-art faces) in `cards/`",
+            "4. Animation Timing (`js/game-config.js`)",
+            "4.2 Cards (dealt)",
+            "4.9 Timing",
+            "7.5 Settlement-drain animations (TAKE SCORE / TAKE HALF / Jackpot)",
+            "AI9 Cabinet Overhaul Specification",
+            "Card deck deliverables (DOM/CSS Based)",
+            "Commands",
+            "Configuration Files (to be consolidated and deleted)",
+            "Core Job Metrics",
+            "Direct Inspection of table schema",
+            "Inspect",
+            "Inspecting ADK Source Code",
+            "Lucky5 Cabinet Card and Button Asset Spec",
+            "Manage and inspect",
+            "Rule & Context Files (to be merged and deleted)",
+            "Step 1: Fix Cabinet Geometry and Overlaps",
+            "Step 4: Adjust Deal/Draw Timing Parity",
+            "Timing (TBD)",
+            "`job/per_stage_data_watermark_age`",
+            "`job/per_stage_system_lag`",
+            "`job/streaming_engine/stage_end_to_end_latencies`",
+            "resolveApiBase"
+          ],
+          "files": [
+            "AGENTS.md",
+            "BRAIN.md",
+            "GEMINI.md",
+            "IDEA.md",
+            "docs/AI9_OVERHAUL_SPECIFICATION.md",
+            "docs/AI9_PARITY_AGENT_IMPLEMENTATION_GUIDE.md",
+            "docs/AI9_PARITY_GROUND_TRUTH_AND_WORKLOG.md",
+            "docs/AI9_PARITY_IMPLEMENTATION_SUMMARY.md",
+            "docs/CABINET_VARIANT_ARCHITECTURE.md",
+            "docs/DEVELOPMENT_HISTORY_AND_CURRENT_STATE.md",
+            "docs/GAME_FEEL_REFERENCE.md",
+            "docs/LUCKY5_AUTHORITATIVE_GAMEPLAY_REFERENCE.md",
+            "docs/MACHINE_BEHAVIOR_REFERENCE.md",
+            "docs/NATIVE_PACKAGING.md",
+            "docs/README.md",
+            "docs/WEB_NATIVE_STRATEGY.md",
+            "docs/assets/lucky5-cabinet-assets.md",
+            "plugins/skills/firecrawl-monitor/SKILL.md",
+            "plugins/skills/flutter-development/SKILL.md",
+            "plugins/skills/gcp-dataflow/references/dataflow_metrics_core_job.md",
+            "plugins/skills/gcp-dataflow/references/dataflow_metrics_streaming_engine.md",
+            "plugins/skills/gcp-dataflow/references/python_flex_template_reference.md",
+            "plugins/skills/gcp-spark/references/schema_direct_inspection.md",
+            "plugins/skills/google-agents-cli-adk-code/references/adk-python.md",
+            "plugins/skills/google-agents-cli-publish/SKILL.md",
+            "repositoryguide-important-read-before-search.md",
+            "server/src/Lucky5.Api/wwwroot/js/game.js"
+          ],
+          "tokens": 7895,
+          "stale": true,
+          "timestamp": 1783398049831
+        },
+        {
+          "query": "Search for drawCards in game.js",
+          "symbols": [
+            "2. Timing and Gameplay Adjustments",
+            "3. The Service Layer (GameService.cs)",
+            "4. Animation Timing (`js/game-config.js`)",
+            "8. Actionable Guidelines for Coding Agents",
+            "AI9 Parity Implementation Guide for Agents",
+            "Agentic Search",
+            "Agentic search",
+            "Cabinet Variant Architecture (Video Poker Multi-Game Engine)",
+            "Duration Formula",
+            "Handoff Instructions for Next Agent",
+            "Lessons Carried Forward",
+            "Sign up for User Research",
+            "Standard Operating Procedure: Adding a New Arcade Game",
+            "drawCards"
+          ],
+          "files": [
+            "AGENTS.md",
+            "BRAIN.md",
+            "GEMINI.md",
+            "IDEA.md",
+            "README.md",
+            "docs/AI9_OVERHAUL_SPECIFICATION.md",
+            "docs/AI9_PARITY_AGENT_IMPLEMENTATION_GUIDE.md",
+            "docs/AI9_PARITY_GROUND_TRUTH_AND_WORKLOG.md",
+            "docs/AI9_PARITY_IMPLEMENTATION_SUMMARY.md",
+            "docs/CABINET_VARIANT_ARCHITECTURE.md",
+            "docs/DEVELOPMENT_HISTORY_AND_CURRENT_STATE.md",
+            "docs/GAME_FEEL_REFERENCE.md",
+            "docs/LUCKY5_AUTHORITATIVE_GAMEPLAY_REFERENCE.md",
+            "docs/MACHINE_BEHAVIOR_REFERENCE.md",
+            "docs/NATIVE_PACKAGING.md",
+            "docs/README.md",
+            "docs/RTP_CLEANROOM_IMPLEMENTATION_HANDOFF.md",
+            "docs/WEB_NATIVE_STRATEGY.md",
+            "guestbook-1/README.md",
+            "mem.md",
+            "plugins/skills/godot/SKILL.md",
+            "repositoryguide-important-read-before-search.md",
+            "server/src/Lucky5.Api/wwwroot/js/cabinet-stage-vnext.js"
+          ],
+          "tokens": 6094,
+          "stale": true,
+          "timestamp": 1783398084622
+        },
+        {
+          "query": "find the exact lines where CabinetStage.drawCards or CabinetStage.dealCards is used in game.js",
+          "symbols": [
+            "(where eval grade reads from by default, so synthesize → grade works without flags)",
+            "2. Timing and Gameplay Adjustments",
+            "3. The Service Layer (GameService.cs)",
+            "3.3 Other key art",
+            "4. Animation Timing (`js/game-config.js`)",
+            "8. Actionable Guidelines for Coding Agents",
+            "Agents Core Runtime Guidelines",
+            "Cabinet Variant Architecture (Video Poker Multi-Game Engine)",
+            "Callbacks are invoked by keyword — parameter names must match exactly.",
+            "Example 2: Finding and Removing Duplicates",
+            "Find a specific page on a large site",
+            "Guidelines",
+            "If Continuing the Overhaul:",
+            "Key Findings",
+            "Major reasoning journey and findings",
+            "Pull Request & Commit Guidelines",
+            "Solution & Project Structure",
+            "Standard Operating Procedure: Adding a New Arcade Game",
+            "Step 2: Fix Missing Button Textures (The Blank Squares Issue)",
+            "The Global Brain Hub",
+            "Verification commands used / recommended",
+            "When you respond with a solution follow these design guidelines:",
+            "Where to Put Custom Terraform",
+            "`job/worker_utilization_hint_is_actively_used`",
+            "dealCards",
+            "drawCards",
+            "hasCabinetStage",
+            "resolveApiBase"
+          ],
+          "files": [
+            "//?/C:/Users/Gabi.WIN-CD45QMUUPFF/Documents/GitHub/lucky5-v8/lucky5-v8/server/src/Lucky5.Api/wwwroot/js/game.js",
+            "BRAIN.md",
+            "GEMINI.md",
+            "docs/AI9_OVERHAUL_SPECIFICATION.md",
+            "docs/AI9_PARITY_AGENT_IMPLEMENTATION_GUIDE.md",
+            "docs/AI9_PARITY_GROUND_TRUTH_AND_WORKLOG.md",
+            "docs/AI9_PARITY_IMPLEMENTATION_SUMMARY.md",
+            "docs/CABINET_VARIANT_ARCHITECTURE.md",
+            "docs/DEVELOPMENT_HISTORY_AND_CURRENT_STATE.md",
+            "docs/LUCKY5_AUTHORITATIVE_GAMEPLAY_REFERENCE.md",
+            "docs/MACHINE_BEHAVIOR_REFERENCE.md",
+            "docs/RTP_CLEANROOM_IMPLEMENTATION_HANDOFF.md",
+            "mem.md",
+            "plugins/agents/agent-governance-reviewer.agent.md",
+            "plugins/agents/api-architect.agent.md",
+            "plugins/rules/coder.instructions.md",
+            "plugins/skills/developing-with-bigquery/references/vector-search.md",
+            "plugins/skills/discovering-gcp-data-assets/SKILL.md",
+            "plugins/skills/file-organizer/SKILL.md",
+            "plugins/skills/firecrawl-deep-research/SKILL.md",
+            "plugins/skills/firecrawl-demo-walkthrough/SKILL.md",
+            "plugins/skills/firecrawl-map/SKILL.md",
+            "plugins/skills/firecrawl-research-index/SKILL.md",
+            "plugins/skills/gcp-dataflow/references/dataflow_metrics_streaming_engine.md",
+            "plugins/skills/godot/SKILL.md",
+            "plugins/skills/google-agents-cli-adk-code/references/adk-python.md",
+            "plugins/skills/google-agents-cli-deploy/references/terraform-patterns.md",
+            "plugins/skills/google-agents-cli-eval/SKILL.md",
+            "plugins/skills/skill-creator/SKILL.md",
+            "plugins/skills/skill-repair/SKILL.md",
+            "repositoryguide-important-read-before-search.md",
+            "server/src/Lucky5.Api/wwwroot/js/cabinet-stage-vnext.js",
+            "server/src/Lucky5.Api/wwwroot/js/game.js"
+          ],
+          "tokens": 7957,
+          "stale": true,
+          "timestamp": 1783398090251
+        },
+        {
+          "query": "find occurrences of CabinetStage.drawCards in game.js and view surrounding lines",
+          "symbols": [
+            "1. Project Overview & Architecture",
+            "1. Project Overview & Core Philosophy",
+            "1. Unified Fixed-Viewport Architecture",
+            "1. Visual Discrepancies and Structural Changes",
+            "1.1 Global Layout and Proportions",
+            "2. Timing and Gameplay Adjustments",
+            "3. The Service Layer (GameService.cs)",
+            "4. Animation Timing (`js/game-config.js`)",
+            "8. Actionable Guidelines for Coding Agents",
+            "Agents Core Runtime Guidelines",
+            "Cabinet Variant Architecture (Video Poker Multi-Game Engine)",
+            "Commands",
+            "Configuration Files (to be consolidated and deleted)",
+            "Example 2: Finding and Removing Duplicates",
+            "Find a specific page on a large site",
+            "Guidelines",
+            "Key Findings",
+            "Major reasoning journey and findings",
+            "Overview",
+            "Pull Request & Commit Guidelines",
+            "Rule & Context Files (to be merged and deleted)",
+            "Solution & Project Structure",
+            "Standard Operating Procedure: Adding a New Arcade Game",
+            "When Reviewing Code",
+            "When you respond with a solution follow these design guidelines:",
+            "drawCards",
+            "hasCabinetStage",
+            "resolveApiBase"
+          ],
+          "files": [
+            "//?/C:/Users/Gabi.WIN-CD45QMUUPFF/Documents/GitHub/lucky5-v8/lucky5-v8/server/src/Lucky5.Api/wwwroot/js/game.js",
+            "AGENTS.md",
+            "BRAIN.md",
+            "GEMINI.md",
+            "README.md",
+            "docs/AI9_OVERHAUL_SPECIFICATION.md",
+            "docs/AI9_PARITY_GROUND_TRUTH_AND_WORKLOG.md",
+            "docs/AI9_PARITY_IMPLEMENTATION_SUMMARY.md",
+            "docs/CABINET_VARIANT_ARCHITECTURE.md",
+            "docs/DEVELOPMENT_HISTORY_AND_CURRENT_STATE.md",
+            "docs/LUCKY5_AUTHORITATIVE_GAMEPLAY_REFERENCE.md",
+            "docs/MACHINE_BEHAVIOR_REFERENCE.md",
+            "docs/README.md",
+            "docs/RTP_CLEANROOM_IMPLEMENTATION_HANDOFF.md",
+            "guestbook-1/README.md",
+            "plugins/agents/agent-governance-reviewer.agent.md",
+            "plugins/agents/api-architect.agent.md",
+            "plugins/rules/coder.instructions.md",
+            "plugins/skills/accidental-data-loss-prevention/SKILL.md",
+            "plugins/skills/dbt-bigquery/SKILL.md",
+            "plugins/skills/developing-with-bigquery/references/OPTIMIZATION.md",
+            "plugins/skills/file-organizer/SKILL.md",
+            "plugins/skills/firecrawl-deep-research/SKILL.md",
+            "plugins/skills/firecrawl-demo-walkthrough/SKILL.md",
+            "plugins/skills/firecrawl-map/SKILL.md",
+            "plugins/skills/firecrawl-workflows/SKILL.md",
+            "plugins/skills/gcp-dataflow/references/dataflow_metrics_bigquery.md",
+            "plugins/skills/godot/SKILL.md",
+            "plugins/skills/google-agents-cli-observability/references/cloud-trace-and-logging.md",
+            "repositoryguide-important-read-before-search.md",
+            "server/src/Lucky5.Api/wwwroot/js/cabinet-stage-vnext.js",
+            "server/src/Lucky5.Api/wwwroot/js/game.js"
+          ],
+          "tokens": 7995,
+          "stale": true,
+          "timestamp": 1783398110769
+        },
+        {
+          "query": "get file content of game.js around CabinetStage.drawCards and CabinetStage.dealCards",
+          "symbols": [
+            "1. Visual Discrepancies and Structural Changes",
+            "1.1 Global Layout and Proportions",
+            "2. The Aesthetic Target (`ai9poker.com`)",
+            "2. Timing and Gameplay Adjustments",
+            "3. The Service Layer (GameService.cs)",
+            "4. Animation Timing (`js/game-config.js`)",
+            "6. Planned implementation targets `[WIP]`",
+            "Building with React + Vite",
+            "Cabinet Variant Architecture (Video Poker Multi-Game Engine)",
+            "Commands",
+            "Configuration Files (to be consolidated and deleted)",
+            "Directory contents",
+            "Files Created / Modified",
+            "Getting Started with VS Code",
+            "Handling Fetched Web Content",
+            "Modified Files",
+            "New Files (Additive, Reversible)",
+            "Rule & Context Files (to be merged and deleted)",
+            "Solution & Project Structure",
+            "Standard Operating Procedure: Adding a New Arcade Game",
+            "Table of Contents",
+            "Target RTP: 80%",
+            "_createPreviewCard",
+            "_fmt",
+            "_resolveConfig",
+            "ai9poker Clone Visual Reference (Authoritative Target)",
+            "dealCards",
+            "drawCards",
+            "hasCabinetStage",
+            "init",
+            "resolveApiBase"
+          ],
+          "files": [
+            "//?/C:/Users/Gabi.WIN-CD45QMUUPFF/Documents/GitHub/lucky5-v8/lucky5-v8/server/src/Lucky5.Api/wwwroot/js/game.js",
+            "AGENTS.md",
+            "BRAIN.md",
+            "GEMINI.md",
+            "IDEA.md",
+            "README.md",
+            "docs/AI9_OVERHAUL_SPECIFICATION.md",
+            "docs/AI9_PARITY_AGENT_IMPLEMENTATION_GUIDE.md",
+            "docs/AI9_PARITY_GROUND_TRUTH_AND_WORKLOG.md",
+            "docs/AI9_PARITY_IMPLEMENTATION_SUMMARY.md",
+            "docs/CABINET_VARIANT_ARCHITECTURE.md",
+            "docs/GAME_FEEL_REFERENCE.md",
+            "docs/LUCKY5_AUTHORITATIVE_GAMEPLAY_REFERENCE.md",
+            "docs/MACHINE_BEHAVIOR_REFERENCE.md",
+            "docs/RTP_CLEANROOM_IMPLEMENTATION_HANDOFF.md",
+            "docs/WEB_NATIVE_STRATEGY.md",
+            "guestbook-1/README.md",
+            "plugins/agents/agent-governance-reviewer.agent.md",
+            "plugins/rules/coder.instructions.md",
+            "plugins/skills/building-data-apps/references/react_framework.md",
+            "plugins/skills/firecrawl-scrape/SKILL.md",
+            "plugins/skills/firecrawl-search/SKILL.md",
+            "plugins/skills/firecrawl-website-design-clone/SKILL.md",
+            "plugins/skills/firecrawl/SKILL.md",
+            "plugins/skills/firecrawl/rules/security.md",
+            "plugins/skills/gcp-composer-troubleshooting/SKILL.md",
+            "plugins/skills/godot/SKILL.md",
+            "plugins/skills/google-agents-cli-eval/references/metrics-guide.md",
+            "repositoryguide-important-read-before-search.md",
+            "server/src/Lucky5.Api/wwwroot/js/cabinet-orchestrator-vnext.js",
+            "server/src/Lucky5.Api/wwwroot/js/cabinet-shell-vnext.js",
+            "server/src/Lucky5.Api/wwwroot/js/cabinet-stage-vnext.js",
+            "server/src/Lucky5.Api/wwwroot/js/du-board-canvas.js",
+            "server/src/Lucky5.Api/wwwroot/js/game.js"
+          ],
+          "tokens": 7996,
+          "stale": true,
+          "timestamp": 1783398122921
+        },
+        {
+          "query": "FIX THE stagger times into the same with draw and redraw at 240ms and same animations just not held cards dissapear and in their place draw new cards",
+          "symbols": [
+            "1. Create the AWS IAM role with a placeholder trust policy",
+            "1. KPI Cards",
+            "1. Unified Fixed-Viewport Architecture",
+            "1. Visual Discrepancies and Structural Changes",
+            "1.1 Global Layout and Proportions",
+            "14. What NOT to Change",
+            "2. Timing and Gameplay Adjustments",
+            "2.1 Deal and Draw Stagger",
+            "3. Base Game Flow (Five-Card Draw Poker)",
+            "3. Notable Technical Achievements",
+            "3. The Service Layer (GameService.cs)",
+            "3.1 Buttons (1024×1536 PNG, wooden socket frame + glossy illuminated face with baked label)",
+            "3.2 Cards (313×528 PNG pixel-art faces) in `cards/`",
+            "3.3 Other key art",
+            "4.2 Cards (dealt)",
+            "4x throughput: scale every param, not just one",
+            "6. Double-Up Bonus Round (CRITICAL — This Is Not Just Hi-Lo)",
+            "7.1 Base game deal (5 cards)",
+            "7.2 Draw (replace non-held cards)",
+            "7.5 Settlement-drain animations (TAKE SCORE / TAKE HALF / Jackpot)",
+            "9. Identity Rules — Do Not Modernize",
+            "AI9 Parity Implementation Guide for Agents",
+            "Basic — generate 3 default scenarios (up to 5 turns each) into artifacts/traces/",
+            "Card Draw",
+            "Checklist for New Dashboards",
+            "Commands",
+            "Concatenating Catalog and Namespace Into Schema",
+            "Configuration Files (to be consolidated and deleted)",
+            "Create New Workflow",
+            "DU with 5♠ Never Lose",
+            "Example 1: Organizing Downloads (From Justin Dielmann)",
+            "Fix Dependabot PRs",
+            "Getting Started with VS Code",
+            "GitHub Agentic Workflows Agent",
+            "Guestbook with Cloud Code",
+            "If Continuing the Overhaul:",
+            "Lookup environment resources instead of using placeholder values",
+            "New Files (Additive, Reversible)",
+            "Personal App Architect - Strategic Development Orchestrator",
+            "Replace <ENV_NAME> with the actual environment name",
+            "Replace <ORCHESTRATION_PIPELINE_NAME> with the actual name",
+            "Rule & Context Files (to be merged and deleted)",
+            "Run the app locally with minikube",
+            "Standard Operating Procedure: Adding a New Arcade Game",
+            "Step 1: Fix Cabinet Geometry and Overlaps",
+            "Step 1: Spawn all runs (with-skill AND baseline) in the same turn",
+            "Step 2: Discover & Validate Parameters (New Transfers)",
+            "Step 2: Fix Missing Button Textures (The Blank Squares Issue)",
+            "Step 3: Fix Non-Functioning Menu Key and Buttons",
+            "Step 4: Adjust Deal/Draw Timing Parity",
+            "The Global Brain Hub",
+            "The Identity Rule: Do Not Modernize",
+            "To insert into an `audit` branch",
+            "`job/pubsub/timestamp_events`",
+            "applyHeldIndexes",
+            "resetGameRuntimeState",
+            "them into the system instruction. Alternative: LoadMemoryTool() — the model"
+          ],
+          "files": [
+            "//?/C:/Users/Gabi.WIN-CD45QMUUPFF/Documents/GitHub/lucky5-v8/lucky5-v8/server/src/Lucky5.Api/wwwroot/js/game.js",
+            "AGENTS.md",
+            "BRAIN.md",
+            "GEMINI.md",
+            "docs/AI9_OVERHAUL_SPECIFICATION.md",
+            "docs/AI9_PARITY_AGENT_IMPLEMENTATION_GUIDE.md",
+            "docs/AI9_PARITY_GROUND_TRUTH_AND_WORKLOG.md",
+            "docs/AI9_PARITY_IMPLEMENTATION_SUMMARY.md",
+            "docs/CABINET_VARIANT_ARCHITECTURE.md",
+            "docs/DEVELOPMENT_HISTORY_AND_CURRENT_STATE.md",
+            "docs/GAME_FEEL_REFERENCE.md",
+            "docs/LUCKY5_AUTHORITATIVE_GAMEPLAY_REFERENCE.md",
+            "docs/MACHINE_BEHAVIOR_REFERENCE.md",
+            "docs/RTP_CLEANROOM_IMPLEMENTATION_HANDOFF.md",
+            "docs/assets/lucky5-cabinet-assets.md",
+            "guestbook-1/README.md",
+            "mem.md",
+            "plugins/agents/agentic-workflows.agent.md",
+            "plugins/skills/bigquery-data-transfer-service/SKILL.md",
+            "plugins/skills/building-data-apps/references/react_framework.md",
+            "plugins/skills/building-data-apps/references/streamlit_framework.md",
+            "plugins/skills/chief-architect/SKILL.md",
+            "plugins/skills/dataform-bigquery/SKILL.md",
+            "plugins/skills/dbt-bigquery/SKILL.md",
+            "plugins/skills/discovering-gcp-data-assets/SKILL.md",
+            "plugins/skills/federate-lakehouse-catalog/SKILL.md",
+            "plugins/skills/file-organizer/SKILL.md",
+            "plugins/skills/firecrawl-website-design-clone/SKILL.md",
+            "plugins/skills/gcp-dataflow/SKILL.md",
+            "plugins/skills/gcp-dataflow/references/dataflow_metrics_pubsub.md",
+            "plugins/skills/gcp-pipeline-orchestration/SKILL.md",
+            "plugins/skills/gcp-spark/references/read_write_data.md",
+            "plugins/skills/google-agents-cli-adk-code/references/adk-python.md",
+            "plugins/skills/google-agents-cli-deploy/SKILL.md",
+            "plugins/skills/google-agents-cli-eval/SKILL.md",
+            "plugins/skills/google-agents-cli-workflow/SKILL.md",
+            "plugins/skills/skill-creator/SKILL.md",
+            "repositoryguide-important-read-before-search.md",
+            "server/src/Lucky5.Api/wwwroot/js/game.js"
+          ],
+          "tokens": 7984,
+          "stale": true,
+          "timestamp": 1783398174455
+        },
+        {
+          "query": "Find transitions and styles for card slots and animations in css/cabinet-v8-quality.css or other CSS files",
+          "symbols": [
+            "1. Layout Geometry (`cabinet-ai9-parity.css`)",
+            "1. Visual Discrepancies and Structural Changes",
+            "1.1 Global Layout and Proportions",
+            "1.3 Card Rendering",
+            "2. CRT Screen Colors (`cabinet-ai9-parity.css`)",
+            "2. Lucky5 v8 codebase facts (from docs read in phase 1) `[DONE]`",
+            "3. Button Rendering (`cabinet-ai9-parity.css` + `cabinet-ai9-button-images.js`)",
+            "3. Pure CSS 3D-Beveled Buttons",
+            "3.2 Cards (313×528 PNG pixel-art faces) in `cards/`",
+            "3.3 Other key art",
+            "4.2 Cards (dealt)",
+            "7.5 Settlement-drain animations (TAKE SCORE / TAKE HALF / Jackpot)",
+            "8. Actionable Guidelines for Coding Agents",
+            "AI9 Cabinet Overhaul Specification",
+            "AI9 Parity Implementation Guide for Agents",
+            "Card deck deliverables (DOM/CSS Based)",
+            "Commands",
+            "Configuration Files (to be consolidated and deleted)",
+            "Duration Formula",
+            "Example 2: Finding and Removing Duplicates",
+            "Example: Evaluating Forecast Quality",
+            "Files Created / Modified",
+            "Find a specific page on a large site",
+            "Handoff Instructions for Next Agent",
+            "Key Findings",
+            "Lessons Carried Forward",
+            "Lucky5 Cabinet Card and Button Asset Spec",
+            "Lucky5 v8",
+            "Lucky5 v8 Docs",
+            "Lucky5 v8 Native Desktop Packaging Feasibility & Guide",
+            "Lucky5 v8 Project Memory",
+            "Lucky5 v8 Web-Native Strategy",
+            "Lucky5 v8: Comprehensive Development History, Architectural Decisions, and Technical State",
+            "Major reasoning journey and findings",
+            "Modified Files",
+            "New Files (Additive, Reversible)",
+            "Other Models via LiteLLM",
+            "Other actions",
+            "Other records in this file",
+            "Quality Bar",
+            "Quality Review Profiling Evidence",
+            "Rule & Context Files (to be merged and deleted)",
+            "Step 1: Fix Cabinet Geometry and Overlaps",
+            "Step 3.5: Quality Review Evidence Requirements",
+            "Step 3: Quality Review & Profiling",
+            "Workspace: Lucky5 v8 (Agent Onboarding Guide)",
+            "_clearDoubleUpSlots",
+            "_ensureDoubleUpSlots",
+            "_ensureMainSlots",
+            "initCardSlots"
+          ],
+          "files": [
+            "AGENTS.md",
+            "BRAIN.md",
+            "GEMINI.md",
+            "IDEA.md",
+            "README.md",
+            "docs/AI9_OVERHAUL_SPECIFICATION.md",
+            "docs/AI9_PARITY_AGENT_IMPLEMENTATION_GUIDE.md",
+            "docs/AI9_PARITY_GROUND_TRUTH_AND_WORKLOG.md",
+            "docs/AI9_PARITY_IMPLEMENTATION_SUMMARY.md",
+            "docs/DEVELOPMENT_HISTORY_AND_CURRENT_STATE.md",
+            "docs/GAME_FEEL_REFERENCE.md",
+            "docs/LUCKY5_AUTHORITATIVE_GAMEPLAY_REFERENCE.md",
+            "docs/MACHINE_BEHAVIOR_REFERENCE.md",
+            "docs/NATIVE_PACKAGING.md",
+            "docs/README.md",
+            "docs/RTP_CLEANROOM_IMPLEMENTATION_HANDOFF.md",
+            "docs/WEB_NATIVE_STRATEGY.md",
+            "docs/assets/lucky5-cabinet-assets.md",
+            "mem.md",
+            "plugins/skills/building-data-apps/SKILL.md",
+            "plugins/skills/building-data-apps/references/streamlit_framework.md",
+            "plugins/skills/data-autocleaning/SKILL.md",
+            "plugins/skills/developing-with-bigquery/references/ai-evaluate.md",
+            "plugins/skills/file-organizer/SKILL.md",
+            "plugins/skills/firecrawl-company-directories/SKILL.md",
+            "plugins/skills/firecrawl-deep-research/SKILL.md",
+            "plugins/skills/firecrawl-demo-walkthrough/SKILL.md",
+            "plugins/skills/firecrawl-map/SKILL.md",
+            "plugins/skills/gcp-pipeline-orchestration/SKILL.md",
+            "plugins/skills/google-agents-cli-adk-code/references/adk-python.md",
+            "plugins/skills/ui-design-system/SKILL.md",
+            "repositoryguide-important-read-before-search.md",
+            "server/src/Lucky5.Api/wwwroot/js/cabinet-stage-vnext.js"
+          ],
+          "tokens": 7980,
+          "stale": true,
+          "timestamp": 1783398222323
         }
       ]
     }
