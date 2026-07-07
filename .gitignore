@@ -190,3 +190,5 @@ ai9/*.aab
 .ionide/Lucky5.Tests.binlog
 .ionide/Lucky5.Infrastructure.binlog
 /db-context-enrichment
+/.ionide
+*.binlog
