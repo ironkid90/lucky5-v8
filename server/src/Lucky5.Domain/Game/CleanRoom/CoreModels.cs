@@ -338,10 +338,10 @@ public sealed record EngineConfig(
 	int DoubleUpPressureMaxKeyRemovals = 29,
 	int DoubleUpPressureRecoveryDroughtRounds = 28,
 	int DoubleUpMinDeckSize = 23,
-	decimal DoubleUpCloseCallPressureStart = 0.45m,
-	decimal DoubleUpSequencePressureStart = 0.47m,
-	decimal DoubleUpSequenceCreditStart = 0.40m,
-	decimal DoubleUpHighExposureSequencePressureStart = 0.22m,
+	decimal DoubleUpCloseCallPressureStart = 0.55m,
+		decimal DoubleUpSequencePressureStart = 0.58m,
+		decimal DoubleUpSequenceCreditStart = 0.50m,
+		decimal DoubleUpHighExposureSequencePressureStart = 0.30m,
 	decimal DoubleUpSuspenseReleaseChance = 0.12m,
 
 	// === Variant Special Rules ===
