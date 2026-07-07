@@ -1,0 +1,99 @@
+{
+  "budget_adjusted": true,
+  "budget_exceeded_by_rules": false,
+  "compression_level_applied": 2,
+  "compression_rules_applied": false,
+  "coverage": {
+    "bm25_hits": 20,
+    "git_diff_boosted": 0,
+    "indexed_doc_files": 156,
+    "pivot_file_types": {
+      "js": 1,
+      "md": 9
+    }
+  },
+  "estimated_cost": "$0.02",
+  "full_workspace_tokens": 980696,
+  "max_tokens": 8000,
+  "pivot_files": [
+    {
+      "path": "docs/MACHINE_BEHAVIOR_REFERENCE.md",
+      "symbols": 62,
+      "tokens": 1281
+    },
+    {
+      "path": "docs/WEB_NATIVE_STRATEGY.md",
+      "symbols": 7,
+      "tokens": 111
+    },
+    {
+      "path": "README.md",
+      "symbols": 9,
+      "tokens": 131
+    },
+    {
+      "path": "repositoryguide-important-read-before-search.md",
+      "symbols": 35,
+      "tokens": 4313
+    },
+    {
+      "path": "server/src/Lucky5.Api/wwwroot/js/cabinet-pace-vnext.js",
+      "symbols": 13,
+      "tokens": 690
+    },
+    {
+      "path": "docs/README.md",
+      "symbols": 3,
+      "tokens": 79
+    },
+    {
+      "path": "docs/NATIVE_PACKAGING.md",
+      "symbols": 14,
+      "tokens": 396
+    },
+    {
+      "path": "GEMINI.md",
+      "symbols": 6,
+      "tokens": 170
+    },
+    {
+      "path": "IDEA.md",
+      "symbols": 16,
+      "tokens": 384
+    },
+    {
+      "path": "AGENTS.md",
+      "symbols": 17,
+      "tokens": 422
+    }
+  ],
+  "related_files": [
+    {
+      "edge_count": 5,
+      "path": "server/src/Lucky5.Api/wwwroot/js/cabinet-clock.js"
+    },
+    {
+      "edge_count": 3,
+      "path": "server/src/Lucky5.Api/wwwroot/js/cabinet-transition-vnext.js"
+    },
+    {
+      "edge_count": 1,
+      "path": "server/src/Lucky5.Api/wwwroot/js/cabinet-image-cache.js"
+    },
+    {
+      "edge_count": 1,
+      "path": "server/src/Lucky5.Api/wwwroot/js/cabinet-stage-vnext.js"
+    },
+    {
+      "edge_count": 1,
+      "path": "server/src/Lucky5.Api/wwwroot/js/cabinet-state-vnext.js"
+    },
+    {
+      "edge_count": 1,
+      "path": "server/src/Lucky5.Api/wwwroot/js/game.js"
+    }
+  ],
+  "savings": "99%",
+  "task": "lucky5",
+  "total_tokens": 7977
+}

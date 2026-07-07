@@ -1,0 +1,126 @@
+[m[1mNAME[m
+    gcloud compute instances create - create Compute Engine virtual machine
+        instances
+
+[m[1mSYNOPSIS[m
+    [1mgcloud compute instances create[m [4mINSTANCE_NAMES[m [[4mINSTANCE_NAMES[m ...]
+        [[1m--accelerator[m=[[4mcount[m=[4mCOUNT[m],[[4mtype[m=[4mTYPE[m]] [[1m--async[m]
+        [[1m--availability-domain[m=[4mAVAILABILITY_DOMAIN[m]
+        [[1m--no-boot-disk-auto-delete[m]
+        [[1m--boot-disk-device-name[m=[4mBOOT_DISK_DEVICE_NAME[m]
+        [[1m--boot-disk-interface[m=[4mBOOT_DISK_INTERFACE[m]
+        [[1m--boot-disk-provisioned-iops[m=[4mBOOT_DISK_PROVISIONED_IOPS[m]
+        [[1m--boot-disk-provisioned-throughput[m=[4mBOOT_DISK_PROVISIONED_THROUGHPUT[m]
+        [[1m--boot-disk-size[m=[4mBOOT_DISK_SIZE[m] [[1m--boot-disk-type[m=[4mBOOT_DISK_TYPE[m]
+        [[1m--can-ip-forward[m] [[1m--create-disk[m=[[4mPROPERTY[m=[4mVALUE[m,...]]
+        [[1m--csek-key-file[m=[4mFILE[m] [[1m--deletion-protection[m]
+        [[1m--description[m=[4mDESCRIPTION[m]
+        [[1m--discard-local-ssds-at-termination-timestamp[m=[4mDISCARD_LOCAL_SSDS_AT_TERMINATION_TIMESTAMP[m]
+        [[1m--disk[m=[[4mauto-delete[m=[4mAUTO-DELETE[m],[[4mboot[m=[4mBOOT[m],[[4mdevice-name[m=[4mDEVICE-NAME[m],
+          [[4mforce-attach[m=[4mFORCE-ATTACH[m],
+          [[4minterface[m=[4mINTERFACE[m],[[4mmode[m=[4mMODE[m],[[4mname[m=[4mNAME[m],[[4mscope[m=[4mSCOPE[m]]
+        [[1m--enable-display-device[m] [[1m--[no-]enable-nested-virtualization[m]
+        [[1m--[no-]enable-uefi-networking[m] [[1m--erase-windows-vss-signature[m]
+        [[1m--external-ipv6-address[m=[4mEXTERNAL_IPV6_ADDRESS[m]
+        [[1m--external-ipv6-prefix-length[m=[4mEXTERNAL_IPV6_PREFIX_LENGTH[m]
+        [[1m--host-error-timeout-seconds[m=[4mHOST_ERROR_TIMEOUT_SECONDS[m]
+        [[1m--hostname[m=[4mHOSTNAME[m]
+        [[1m--instance-termination-action[m=[4mINSTANCE_TERMINATION_ACTION[m]
+        [[1m--internal-ipv6-address[m=[4mINTERNAL_IPV6_ADDRESS[m]
+        [[1m--internal-ipv6-prefix-length[m=[4mINTERNAL_IPV6_PREFIX_LENGTH[m]
+        [[1m--ipv6-network-tier[m=[4mIPV6_NETWORK_TIER[m]
+        [[1m--ipv6-public-ptr-domain[m=[4mIPV6_PUBLIC_PTR_DOMAIN[m]
+        [[1m--key-revocation-action-type[m=[4mPOLICY[m] [[1m--labels[m=[[4mKEY[m=[4mVALUE[m,...]]
+        [[1m--local-ssd[m=[[4mdevice-name[m=[4mDEVICE-NAME[m],
+          [[4minterface[m=[4mINTERFACE[m],[[4msize[m=[4mSIZE[m]]
+        [[1m--local-ssd-recovery-timeout[m=[4mLOCAL_SSD_RECOVERY_TIMEOUT[m]
+        [[1m--machine-type[m=[4mMACHINE_TYPE[m] [[1m--maintenance-policy[m=[4mMAINTENANCE_POLICY[m]
+        [[1m--max-run-duration[m=[4mMAX_RUN_DURATION[m]
+        [[1m--metadata[m=[4mKEY[m=[4mVALUE[m,[[4mKEY[m=[4mVALUE[m,...]]
+        [[1m--metadata-from-file[m=[4mKEY[m=[4mLOCAL_FILE_PATH[m,[...]]
+        [[1m--min-cpu-platform[m=[4mPLATFORM[m] [[1m--min-node-cpu[m=[4mMIN_NODE_CPU[m]
+        [[1m--network[m=[4mNETWORK[m] [[1m--network-interface[m=[[4mPROPERTY[m=[4mVALUE[m,...]]
+        [[1m--network-performance-configs[m=[[4mPROPERTY[m=[4mVALUE[m,...]]
+        [[1m--network-tier[m=[4mNETWORK_TIER[m] [[1m--node-project[m=[4mNODE_PROJECT[m]
+        [[1m--performance-monitoring-unit[m=[4mPERFORMANCE_MONITORING_UNIT[m]
+        [[1m--preemptible[m]
+        [[1m--private-ipv6-google-access-type[m=[4mPRIVATE_IPV6_GOOGLE_ACCESS_TYPE[m]
+        [[1m--private-network-ip[m=[4mPRIVATE_NETWORK_IP[m]
+        [[1m--provisioning-model[m=[4mPROVISIONING_MODEL[m]
+        [[1m--request-valid-for-duration[m=[4mREQUEST_VALID_FOR_DURATION[m]
+        [[1m--no-require-csek-key-create[m]
+        [[1m--resource-manager-tags[m=[[4mKEY[m=[4mVALUE[m,...]]
+        [[1m--resource-policies[m=[[4mRESOURCE_POLICY[m,...]] [[1m--no-restart-on-failure[m]
+        [[1m--shielded-integrity-monitoring[m] [[1m--shielded-secure-boot[m]
+        [[1m--shielded-vtpm[m] [[1m--[no-]skip-guest-os-shutdown[m]
+        [[1m--source-instance-template[m=[4mSOURCE_INSTANCE_TEMPLATE[m]
+        [[1m--source-machine-image[m=[4mSOURCE_MACHINE_IMAGE[m]
+        [[1m--source-machine-image-csek-key-file[m=[4mFILE[m] [[1m--stack-type[m=[4mSTACK_TYPE[m]
+        [[1m--subnet[m=[4mSUBNET[m] [[1m--tags[m=[4mTAG[m,[[4mTAG[m,...]]
+        [[1m--termination-time[m=[4mTERMINATION_TIME[m]
+        [[1m--threads-per-core[m=[4mTHREADS_PER_CORE[m] [[1m--turbo-mode[m=[4mTURBO_MODE[m]
+        [[1m--visible-core-count[m=[4mVISIBLE_CORE_COUNT[m] [[1m--zone[m=[4mZONE[m]
+        [[1m--address[m=[4mADDRESS[m | [1m--no-address[m]
+        [[1m--boot-disk-kms-key[m=[4mBOOT_DISK_KMS_KEY[m
+          : [1m--boot-disk-kms-keyring[m=[4mBOOT_DISK_KMS_KEYRING[m
+          [1m--boot-disk-kms-location[m=[4mBOOT_DISK_KMS_LOCATION[m
+          [1m--boot-disk-kms-project[m=[4mBOOT_DISK_KMS_PROJECT[m]
+        [[1m--confidential-compute[m
+          | [1m--confidential-compute-type[m=[4mCONFIDENTIAL_COMPUTE_TYPE[m]
+        [[1m--custom-cpu[m=[4mCUSTOM_CPU[m [1m--custom-memory[m=[4mCUSTOM_MEMORY[m
+          : [1m--custom-extensions[m [1m--custom-vm-type[m=[4mCUSTOM_VM_TYPE[m]
+        [[1m--image-family-scope[m=[4mIMAGE_FAMILY_SCOPE[m
+          [1m--image-project[m=[4mIMAGE_PROJECT[m [1m--image[m=[4mIMAGE[m
+          | [1m--image-family[m=[4mIMAGE_FAMILY[m | [1m--source-snapshot[m=[4mSOURCE_SNAPSHOT[m]
+        [[1m--instance-kms-key[m=[4mINSTANCE_KMS_KEY[m
+          : [1m--instance-kms-keyring[m=[4mINSTANCE_KMS_KEYRING[m
+          [1m--instance-kms-location[m=[4mINSTANCE_KMS_LOCATION[m
+          [1m--instance-kms-project[m=[4mINSTANCE_KMS_PROJECT[m]
+        [[1m--node[m=[4mNODE[m | [1m--node-affinity-file[m=[4mPATH_TO_FILE[m
+          | [1m--node-group[m=[4mNODE_GROUP[m] [[1m--public-ptr[m | [1m--no-public-ptr[m]
+        [[1m--public-ptr-domain[m=[4mPUBLIC_PTR_DOMAIN[m | [1m--no-public-ptr-domain[m]
+        [[1m--reservation[m=[4mRESERVATION[m
+          [1m--reservation-affinity[m=[4mRESERVATION_AFFINITY[m; default="any"]
+        [[1m--scopes[m=[[4mSCOPE[m,...] | [1m--no-scopes[m]
+        [[1m--service-account[m=[4mSERVICE_ACCOUNT[m | [1m--no-service-account[m]
+        [[4mGCLOUD_WIDE_FLAG ...[m]
+
+[m[1mDESCRIPTION[m
+    [1mgcloud compute instances create[m facilitates the creation of Compute Engine
+    virtual machines.
+
+    When an instance is in RUNNING state and the system begins to boot, the
+    instance creation is considered finished, and the command returns with a
+    list of new virtual machines. Note that you usually cannot log into a new
+    instance until it finishes booting. Check the progress of an instance using
+    [1mgcloud compute instances get-serial-port-output[m.
+
+    For more examples, refer to the [1mEXAMPLES[m section below.
+
+[m[1mEXAMPLES[m
+    To create an instance with the latest 'Red Hat Enterprise Linux 8' image
+    available, run:
+
+        $ gcloud compute instances create example-instance \
+            --image-family=rhel-8 --image-project=rhel-cloud \
+            --zone=us-central1-a
+
+    To create instances called 'example-instance-1', 'example-instance-2', and
+    'example-instance-3' in the 'us-central1-a' zone, run:
+
+        $ gcloud compute instances create example-instance-1 \
+            example-instance-2 example-instance-3 --zone=us-central1-a
+
+    To create an instance called 'instance-1' from a source snapshot called
+    'instance-snapshot' in zone 'us-central1-a' and attached regional disk
+    'disk-1', run:
+
+        $ gcloud compute instances create instance-1 \
+            --source-snapshot=https://compute.googleapis.com/compute/v1/\
+        projects/myproject/global/snapshots/instance-snapshot \
+            --zone=us-central1-a --disk=name=disk1,scope=regional
+
+    To create an instance called instance-1 as a Shielded VM instance with
+    Secure Boot, virtual trusted platform module (vTPM) enabled and integrity
+    monitoring, run:
+
