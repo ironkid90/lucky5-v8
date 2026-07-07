@@ -348,12 +348,18 @@ public sealed record EngineConfig(
 	Lucky5SpecialRules? SpecialRules = null,
 
 	// === Ante Model ===
-	// In real Lebanese cabinets the draw ante can be a multiple of the deal ante
-	// (commonly 1× = standard, 2× = "raise on the draw" common in Caribbean Stud variants).
-	// This tuning lever dramatically shifts RTP without changing any game rules.
-	//   DrawAnteMultiplier = 1.0  → standard 1:1 model (deal ante + draw ante = 2×)
-	//   DrawAnteMultiplier = 2.0  → draw costs 2× the deal (total stake = 3× deal ante)
-	decimal DrawAnteMultiplier = 1.0m,
+		// In real Lebanese cabinets the draw ante can be a multiple of the deal ante
+		// (commonly 1× = standard, 2× = "raise on the draw" common in Caribbean Stud variants).
+		// This tuning lever dramatically shifts RTP without changing any game rules.
+		//   DrawAnteMultiplier = 1.0  → standard 1:1 model (deal ante + draw ante = 2×)
+		//   DrawAnteMultiplier = 2.0  → draw costs 2× the deal (total stake = 3× deal ante)
+		//
+		// Two-tier draw model: the game deducts a deal ante (Bet) plus two draw antes.
+		// FirstDrawAnteMultiplier applies to the initial 5-card draw.
+		// SecondDrawAnteMultiplier applies to the second draw phase (bigger stake, more pressure).
+		// Default: 5K deal + 5K first draw + 10K second draw = 20K total per hand.
+		decimal FirstDrawAnteMultiplier = 1.0m,
+		decimal SecondDrawAnteMultiplier = 2.0m,
 
 	// === Deck Alteration Bounds ===
 	int MaxColdRemovals = 1,

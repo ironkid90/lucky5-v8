@@ -59689,7 +59689,7 @@
             "server/src/Lucky5.Api/wwwroot/js/paytable-canvas.js"
           ],
           "tokens": 6280,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783325954186
         },
         {
@@ -70816,7 +70816,7 @@
             "server/src/Lucky5.Api/wwwroot/js/no_sleep.js"
           ],
           "tokens": 7966,
-          "stale": false,
+          "stale": true,
           "timestamp": 1783399822032
         },
         {
