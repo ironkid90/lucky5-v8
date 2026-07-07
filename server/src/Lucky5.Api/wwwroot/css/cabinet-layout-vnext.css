@@ -27,8 +27,8 @@
     /* Responsive scaling: fill viewport while maintaining 9:16 aspect ratio */
     width: 100vw;
     height: 100vh;
-    max-width: 80vh;  /* Maintain 9:16 aspect (720/1280 = 0.5625) */
-    max-height: 177.78vw;  /* 1280/720 = 1.7778 */
+    max-width: 56.25vh !important;  /* Maintain 9:16 aspect (720/1280 = 0.5625) */
+    max-height: 177.78vw !important;  /* 1280/720 = 1.7778 */
     aspect-ratio: 720 / 1280;
     transform-origin: center center;
     /* Enable container query units for all descendants */

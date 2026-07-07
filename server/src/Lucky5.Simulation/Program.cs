@@ -8,7 +8,8 @@ var maxRtp = 0.82m;
 var isCertificationRun = false;
 var behavior = PlayerBehavior.Balanced;
 var varianceReport = false;
-decimal drawAnteMultiplier = 1.0m;
+decimal firstDrawAnteMultiplierOverride = -1m;
+decimal secondDrawAnteMultiplierOverride = -1m;
 decimal minPayoutScaleOverride = -1m;
 decimal targetRtpOverride = -1m;
 
@@ -46,9 +47,20 @@ for (int i = 0; i < args.Length; i++)
         case "--variance-report":
             varianceReport = true;
             break;
-        case "--draw-ante":
+        case "--first-draw-ante":
+            if (i + 1 < args.Length && decimal.TryParse(args[i + 1], out var fdam))
+                firstDrawAnteMultiplierOverride = fdam;
+            break;
+        case "--second-draw-ante":
+            if (i + 1 < args.Length && decimal.TryParse(args[i + 1], out var sdam))
+                secondDrawAnteMultiplierOverride = sdam;
+            break;
+        case "--draw-ante": // legacy alias: sets both draw antes to same value
             if (i + 1 < args.Length && decimal.TryParse(args[i + 1], out var dam))
-                drawAnteMultiplier = dam;
+            {
+                firstDrawAnteMultiplierOverride = dam;
+                secondDrawAnteMultiplierOverride = dam;
+            }
             break;
         case "--min-scale":
             if (i + 1 < args.Length && decimal.TryParse(args[i + 1], out var mps))
