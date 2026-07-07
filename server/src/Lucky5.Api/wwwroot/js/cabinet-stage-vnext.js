@@ -16,17 +16,16 @@ window.CabinetStage = (function () {
         const timing = cfg && cfg.timing ? cfg.timing : {};
         const assets = cfg && cfg.assets ? cfg.assets : {};
 
-        // Arcade-calibrated defaults (2026-06-28 snappy feel).
-        // Highly responsive, fast-paced timings matching the AI9 poker reference.
+        // AI9-calibrated defaults — VSYNC-locked frame counts at 60Hz.
+        // One global staggerFrames drives deal and draw.
         const next = {
             cardBack: assets.cardBack || '/assets/images/cards/bside.png',
-            dealBaseMs: Number(timing.dealBaseMs) || 50,
-            dealStaggerMs: Number(timing.dealStaggerMs) || 50,
-            dealDurationMs: Number(timing.dealAnimDurationMs) || 100,
-            drawOutMs: Number(timing.drawOutMs) || 50,
-            drawInMs: Number(timing.drawInMs) || 80,
-            drawStaggerMs: Number(timing.drawStaggerMs) || 50,
-            drawRevealStartMs: Number(timing.drawRevealStartMs) || 50,
+            staggerFrames:        Number(timing.staggerFrames)        || 12,
+            dealBaseFrames:       Number(timing.dealBaseFrames)       || 5,
+            dealDurationFrames:   Number(timing.dealDurationFrames)   || 11,
+            drawOutFrames:        Number(timing.drawOutFrames)        || 1,
+            drawDurationFrames:   Number(timing.drawDurationFrames)   || 11,
+            drawRevealStartFrames:Number(timing.drawRevealStartFrames)|| 3,
             shuffleFrameMs: Number(timing.shuffleFrameMs) || 30,
             lucky5ActiveMs: Number(timing.lucky5FlashDurationMs) || 1000
         };
@@ -569,8 +568,8 @@ window.CabinetStage = (function () {
                 frameEl.classList.add('du-flip-out');
             }
 
-            const halfMs = Math.min(60, Math.max(30, Math.round(frameMs * 0.45)));
-            window.CabinetClock.delayMs(halfMs, () => {
+            const halfFrames = Math.max(2, Math.round(frameTicks * 0.45));
+            window.CabinetClock.delayTicks(halfFrames, () => {
                 if (_activeShuffleToken !== currentShuffleToken) return;
 
                 img.innerHTML = _renderDomCard(_asCard(code));
@@ -595,13 +594,12 @@ window.CabinetStage = (function () {
     function getConfig() {
         return {
             cardBack: _config.cardBack,
-            dealBaseMs: _config.dealBaseMs,
-            dealStaggerMs: _config.dealStaggerMs,
-            dealDurationMs: _config.dealDurationMs,
-            drawOutMs: _config.drawOutMs,
-            drawInMs: _config.drawInMs,
-            drawStaggerMs: _config.drawStaggerMs,
-            drawRevealStartMs: _config.drawRevealStartMs,
+            staggerFrames: _config.staggerFrames,
+            dealBaseFrames: _config.dealBaseFrames,
+            dealDurationFrames: _config.dealDurationFrames,
+            drawOutFrames: _config.drawOutFrames,
+            drawDurationFrames: _config.drawDurationFrames,
+            drawRevealStartFrames: _config.drawRevealStartFrames,
             shuffleFrameMs: _config.shuffleFrameMs,
             lucky5ActiveMs: _config.lucky5ActiveMs
         };
@@ -667,8 +665,8 @@ window.CabinetStage = (function () {
             clearAllHolds();
 
             const cards = Array.isArray(cardArray) ? cardArray.map(_asCard) : [];
-            const baseDelay = Math.max(0, Number(_config.dealBaseMs) || 0);
-            const stagger = Math.max(40, Number(_config.dealStaggerMs) || 100);
+            const baseFrames = Math.max(0, Number(_config.dealBaseFrames) || 5);
+            const staggerFrames = Math.max(1, Number(_config.staggerFrames) || 12);
 
             const dealToken = {};
             _activeDealToken = dealToken;
@@ -681,37 +679,40 @@ window.CabinetStage = (function () {
 
                 _resetMainSlot(slotEl);
                 _applyCardFace(slotEl, img, card, { requireFace: true });
-                // Set initial state: invisible + slightly above so we can animate IN
+                // Set initial state: invisible + off-screen right (AI9-style right→left slide)
                 slotEl.style.transition = 'none';
-                slotEl.style.transform = 'translateY(-12%)';
+                slotEl.style.transform = 'translateX(120%)';
                 slotEl.style.opacity = '0';
             });
 
             let completedCount = 0;
+            const totalFrames = baseFrames + ((cards.length - 1) * staggerFrames);
+
             cards.forEach((card, i) => {
                 if (_activeDealToken !== dealToken) return;
 
-                window.CabinetClock.delayMs(baseDelay + (i * stagger), () => {
+                const frameDelay = baseFrames + (i * staggerFrames);
+                window.CabinetClock.delayTicks(frameDelay, () => {
                     if (_activeDealToken !== dealToken) return;
 
                     const slotEl = _slot(i);
                     if (!slotEl) {
                         completedCount++;
                         if (completedCount === cards.length && onComplete) {
-                            window.CabinetClock.delayMs(20, onComplete);
+                            window.CabinetClock.delayTicks(1, onComplete);
                         }
                         return;
                     }
 
-                    // Animate the card IN: slide down to final position
-                    const durationSec = (Number(_config.dealDurationMs) || 100) / 1000;
-                    slotEl.style.transition = `transform ${durationSec}s ease-out`;
-                    slotEl.style.transform = 'translateY(0)';
+                    // Animate the card IN: slide leftward from right edge (AI9 style)
+                    const durationSec = ((Number(_config.dealDurationFrames) || 11) * 1000 / 60) / 1000;
+                    slotEl.style.transition = `transform ${durationSec}s ease-out, opacity 0.1s ease-out`;
+                    slotEl.style.transform = 'translateX(0)';
                     slotEl.style.opacity = '1';
 
                     completedCount++;
                     if (completedCount === cards.length && onComplete) {
-                        window.CabinetClock.delayMs(20, onComplete);
+                        window.CabinetClock.delayTicks(1, onComplete);
                     }
                 });
             });
@@ -730,8 +731,8 @@ window.CabinetStage = (function () {
 
         let pending = 0;
 
-        const baseDelay = Math.max(0, Number(_config.drawRevealStartMs) !== undefined ? Number(_config.drawRevealStartMs) : Number(_config.dealBaseMs) || 0);
-        const stagger = Math.max(40, Number(_config.drawStaggerMs) !== undefined ? Number(_config.drawStaggerMs) : Number(_config.dealStaggerMs) || 100);
+        const baseFrames = Math.max(0, Number(_config.drawRevealStartFrames) !== undefined ? Number(_config.drawRevealStartFrames) : 3);
+        const staggerFrames = Math.max(1, Number(_config.staggerFrames) || 12);
 
         cards.forEach((card, i) => {
             if (!held.has(i)) {
@@ -757,7 +758,7 @@ window.CabinetStage = (function () {
         });
 
         if (pending === 0 && onComplete) {
-            window.CabinetClock.delayMs(20, onComplete);
+            window.CabinetClock.delayTicks(1, onComplete);
             return;
         }
 
@@ -767,22 +768,22 @@ window.CabinetStage = (function () {
             if (_activeDrawToken !== drawToken) return;
             if (held.has(i)) return; // Already handled
             const currentSeq = unheldSeqIndex++;
-            window.CabinetClock.delayMs(baseDelay + (currentSeq * stagger), () => {
+            window.CabinetClock.delayTicks(baseFrames + (currentSeq * staggerFrames), () => {
                 if (_activeDrawToken !== drawToken) return;
                 const slotEl = _slot(i);
                 if (!slotEl) {
                     completedCount++;
                     if (completedCount === pending && onComplete) {
-                        window.CabinetClock.delayMs(20, onComplete);
+                        window.CabinetClock.delayTicks(1, onComplete);
                     }
                     return;
                 }
 
                 const img = _cardImg(slotEl);
                 if (img) {
-                    // Instantly hide the old card, position it above, and apply the new face
+                    // Instantly hide the old card, position it off-screen right, and apply the new face
                     slotEl.style.transition = 'none';
-                    slotEl.style.transform = 'translateY(-12%)';
+                    slotEl.style.transform = 'translateX(120%)';
                     slotEl.style.opacity = '0';
                     _applyCardFace(slotEl, img, card, { requireFace: true });
 
@@ -790,15 +791,15 @@ window.CabinetStage = (function () {
                     void slotEl.offsetWidth;
                 }
 
-                // Animate the card IN: slide down to final position
-                const durationSec = (Number(_config.dealDurationMs) || 100) / 1000;
-                slotEl.style.transition = `transform ${durationSec}s ease-out`;
-                slotEl.style.transform = 'translateY(0)';
+                // Animate the card IN: slide leftward from right edge (AI9 style)
+                const durationSec = ((Number(_config.drawDurationFrames) || 11) * 1000 / 60) / 1000;
+                slotEl.style.transition = `transform ${durationSec}s ease-out, opacity 0.1s ease-out`;
+                slotEl.style.transform = 'translateX(0)';
                 slotEl.style.opacity = '1';
 
                 completedCount++;
                 if (completedCount === pending && onComplete) {
-                    window.CabinetClock.delayMs(20, onComplete);
+                    window.CabinetClock.delayTicks(1, onComplete);
                 }
             });
         });
@@ -893,8 +894,8 @@ window.CabinetStage = (function () {
         const currentToken = {};
         _lucky5Token = currentToken;
 
-        const duration = Math.max(200, Number(_config.lucky5ActiveMs) || 700);
-
+        const durationFrames = Math.max(12, Math.round((Number(_config.lucky5ActiveMs) || 1000) / (1000/60)));
+        
         if (banner) {
             banner.classList.add('active');
         }
@@ -908,7 +909,7 @@ window.CabinetStage = (function () {
             slotEl.classList.add('lucky5-active');
         });
 
-        window.CabinetClock.delayMs(duration, () => {
+        window.CabinetClock.delayTicks(durationFrames, () => {
             if (_lucky5Token !== currentToken) return;
 
             if (banner) {

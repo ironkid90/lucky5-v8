@@ -1068,6 +1068,12 @@ function updateJackpotDisplay(jp) {
         serieEl.textContent = String(machineSerie || 0);
     }
 
+    // Also update the du-info-panel serie value
+    const duSerieEl = document.getElementById('du-serie-value');
+    if (duSerieEl) {
+        duSerieEl.textContent = String(machineSerie || 0);
+    }
+
     const kentEl = document.getElementById('mi-kent');
     if (kentEl) {
         kentEl.textContent = String(machineKent || 0);

@@ -48,32 +48,40 @@ const GAME_CONFIG = Object.freeze({
         enableCabinetStage: true,  // cabinet stage is the active render path for this parity slice
     }),
 
-    // ── 2. TIMING ────────────────────────────────────────────────────────────
-    // All durations are in milliseconds.
+    // ── 2. TIMING — VSYNC-LOCKED (60Hz Cabinet Clock) ────────────────────────
+    // All card animation timing is expressed in FRAMES at 60Hz (~16.67ms/frame).
+    // This replicates old VSYNC arcade cabinets where every animation beat
+    // derives from the vertical blank interrupt — no floating-point jitter.
     //
-    // 2026-06-27 AI9 PARITY CALIBRATION.
-    // Reference: AI9 Dart/Flutter cabinet (frame-by-frame video analysis).
-    // Measured via 30fps frame extraction and white-pixel detection in card area.
-    // Current parity guide target: deal cards at 350ms stagger and redraw replacements at 100ms.
-    // Drain animation: TBD (frame-step TAKE SCORE sequence).
-    // If you change these, mirror the feel-check in GAME_FEEL_REFERENCE.md and
-    // docs/AI9_PARITY_GROUND_TRUTH_AND_WORKLOG.md.
+    // staggerFrames is the ONE global stagger governing all card reveals:
+    // deal, draw, and double-up page turns all use this same fixed count.
+    //
+    // Non-card timings (drain, idle, DU exits) remain in ms for backward
+    // compatibility with the legacy animation system. They're quantized to
+    // frames at runtime by CabinetClock.delayMs().
     timing: Object.freeze({
-        // Main-hand deal animation
-        // Cards drop from above one at a time, like a mechanical dealer.
-        // Each card has visible travel + settle time.
-        // FAST DEAL (2026-06-28): Reduced stagger for snappier feel.
-        // Target: ~15% faster total deal time for more responsive gameplay.
-        dealBaseMs:           50,  // pause before first card lands (cabinet "thunk")
-        dealStaggerMs:        80,  // AI9 parity: 50-80ms fast snap (was 240ms)
-        dealAnimDurationMs:   100, // slightly more deliberate settle time
+        // ── Global stagger (one value drives everything) ──
+        staggerFrames:        12,   // 200ms — AI9 cabinet frame analysis
 
-        // Draw animation (re-dealing only non-held cards)
-        // Held cards stay put visibly. Replaced cards flip out, new cards flip in.
-        drawOutMs:            50,  // fade-out / flip-out duration on replaced cards
-        drawInMs:             80,  // fade-in / flip-in duration on new cards
-        drawStaggerMs:        80,  // AI9 parity: 50-80ms fast snap (was 240ms)
-        drawRevealStartMs:    50,  // delay before first replaced card starts dropping
+        // Main-hand deal
+        dealBaseFrames:        5,   //  83ms — pause before first card
+        dealDurationFrames:   11,   // 183ms — slide settle time
+
+        // Draw (replacing non-held cards)
+        drawOutFrames:         1,   //   1 frame — old cards vanish instantly
+        drawDurationFrames:   11,   // 183ms — replacement slide settle
+        drawRevealStartFrames: 3,   //  50ms — delay before first replacement
+
+        // Legacy ms aliases — derived from staggerFrames at 60fps
+        // Kept for backward-compat with game.js helpers that still use delayMs.
+        // All cabinet-stage-vnext.js paths use frames directly now.
+        get dealBaseMs()         { return this.staggerFrames <= 12 ?  80 : Math.round(this.dealBaseFrames    * 1000 / 60); },
+        get dealStaggerMs()      { return Math.round(this.staggerFrames        * 1000 / 60); },
+        get dealAnimDurationMs() { return Math.round(this.dealDurationFrames   * 1000 / 60); },
+        get drawOutMs()          { return Math.round(this.drawOutFrames        * 1000 / 60); },
+        get drawInMs()           { return Math.round(this.drawDurationFrames   * 1000 / 60); },
+        get drawStaggerMs()      { return Math.round(this.staggerFrames        * 1000 / 60); },
+        get drawRevealStartMs()  { return Math.round(this.drawRevealStartFrames * 1000 / 60); },
 
         // Double-up: shuffle animation
         // The active slot cycles through card faces visibly, like a spinning reel.

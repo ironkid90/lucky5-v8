@@ -140,7 +140,7 @@
     height: 10%;
     padding: 1px 8px;
     box-sizing: border-box;
-    z-index: 2;
+    z-index: 123;
 }
 
 #info-bar,

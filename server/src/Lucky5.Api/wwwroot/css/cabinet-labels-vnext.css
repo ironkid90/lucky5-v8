@@ -369,7 +369,7 @@
     align-items: center;
     justify-content: space-evenly;
     gap: 1cqw;
-    background: rgba(0, 0, 0, 0.80);
+    background: rgba(0, 0, 0, 0.92);
     backdrop-filter: blur(1px);
     -webkit-backdrop-filter: blur(1px);
     transition: opacity 0.2s ease;

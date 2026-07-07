@@ -200,7 +200,7 @@ window.CabinetOrchestrator = (function () {
                 CabinetState.setPresentationLocked(true);
                 // Dispatch RENDER_DEAL to create a queue step that will release the lock
                 // when it completes (matching the animation duration)
-                CabinetTransition.dispatch({ type: 'RENDER_DEAL', cardCount: 5, staggerFrames: 6, settleFrames: 12 });
+                CabinetTransition.dispatch({ type: 'RENDER_DEAL', cardCount: 5, staggerFrames: 12, settleFrames: 11 });
                 const result = legacy.call(this, cardData, onComplete);
                 CabinetState.updateMachine({
                     cards: Array.isArray(cardData) ? cardData : [],
@@ -489,7 +489,7 @@ window.CabinetVerification = (function () {
 
         const cfg = window.CabinetStage?.getConfig?.();
         if (cfg) {
-            const expectedTotalTicks = window.CabinetClock.msToTicks(cfg.dealBaseMs + 4 * cfg.dealStaggerMs + cfg.dealDurationMs);
+            const expectedTotalTicks = cfg.dealBaseFrames + 4 * cfg.staggerFrames + cfg.dealDurationFrames;
             const totalDurationTicks = slotEndTicks[4] - slotStartTicks[0];
             
             log('METRIC', `Deal Duration: ${totalDurationTicks} ticks (Expected approx ${expectedTotalTicks} ticks).`);
