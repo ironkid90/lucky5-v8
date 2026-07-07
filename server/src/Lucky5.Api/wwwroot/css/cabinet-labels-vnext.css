@@ -283,55 +283,97 @@
     font-size: 0.85cqh;
 }
 
-/* DOUBLE-UP LABEL BAND */
+/* DOUBLE-UP LABEL BAND — two-column layout matching ai9 reference */
 #du-info-left {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0.18cqh;
-    width: 100%;
+    gap: 0.15cqh;
+    flex: 0 0 auto;
+    padding-right: 2cqw;
     text-align: center;
 }
 
-#du-label {
+#du-title {
     color: #ffcc00;
-    font-size: 1.1cqh;
+    font-size: 1.3cqh;
     text-align: center;
     letter-spacing: 0.2cqh;
+    font-family: 'Arcade', 'ARCADE', 'Courier New', monospace;
+    font-weight: bold;
 }
 
-#du-ace-info,
-#du-guess-info {
-    color: #ffffff;
-    font-size: 0.78cqh;
-    text-align: center;
+#du-serie-line {
+    display: flex;
+    align-items: center;
+    gap: 0.3cqw;
+    color: #ff4444;
+    font-size: 1.0cqh;
+    font-family: 'Arcade', 'ARCADE', 'Courier New', monospace;
+    font-weight: bold;
 }
 
-#du-lucky-info {
+#du-serie-label {
+    color: #ff4444;
+}
+
+#du-serie-value {
+    color: #ffcc00;
+    font-size: 1.1cqh;
+}
+
+/* Right panel: GAMBLE instruction box */
+#du-info-right {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    padding-left: 2cqw;
+    border-left: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+#du-gamble-box {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15cqh;
+    text-align: left;
+}
+
+#du-gamble-title {
+    color: #ffcc00;
+    font-size: 0.85cqh;
+    text-align: left;
+    letter-spacing: 0.15cqh;
+    font-family: 'Arcade', 'ARCADE', 'Courier New', monospace;
+    font-weight: bold;
+    margin-bottom: 0.1cqh;
+}
+
+#du-gamble-rule1,
+#du-gamble-rule2 {
     color: #44ddff;
-    font-size: 0.78cqh;
-    text-align: center;
-}
-
-#du-buying-info {
-    color: #ffffff;
-    font-size: 0.78cqh;
-    text-align: center;
+    font-size: 0.72cqh;
+    text-align: left;
+    font-family: 'Arcade', 'ARCADE', 'Courier New', monospace;
+    letter-spacing: 0.05cqh;
 }
 
 #du-info-panel {
     visibility: visible; /* vnext absolute layout; game.css display:none is overridden */
     opacity: 0;
     display: flex !important;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    justify-content: center;
-    gap: 0.2cqh;
-    background: rgba(0, 0, 0, 0.75);
+    justify-content: space-evenly;
+    gap: 1cqw;
+    background: rgba(0, 0, 0, 0.80);
     backdrop-filter: blur(1px);
     -webkit-backdrop-filter: blur(1px);
     transition: opacity 0.2s ease;
+    pointer-events: none;
 }
 
 #du-info-panel.visible,
@@ -340,17 +382,16 @@
     opacity: 1;
     display: flex !important;
     transition: opacity 0.2s ease;
+    pointer-events: auto;
 }
 
-#du-info-panel.lucky5-active #du-ace-info,
-#du-info-panel.lucky5-active #du-guess-info,
-#du-info-panel.lucky5-active #du-lucky-info,
-#du-info-panel.lucky5-active #du-buying-info {
+#du-info-panel.lucky5-active #du-gamble-rule1,
+#du-info-panel.lucky5-active #du-gamble-rule2 {
     color: #9bfaff;
     text-shadow: 0 0 8px rgba(68, 221, 255, 0.85);
 }
 
-#du-lucky-info.is-active {
+#du-info-panel.lucky5-active #du-gamble-rule2 {
     animation: du-lucky-rule-pulse 0.8s ease-in-out infinite alternate;
 }
 
