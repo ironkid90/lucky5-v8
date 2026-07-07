@@ -1,5 +1,9 @@
 # AI9 Parity — Ground Truth, Measurements, and Engineering Worklog
 
+> **⚠️ HISTORICAL WORKLOG — Timing values within are from the original 2026-06-27 analysis.**
+> Current timing is VSYNC-locked at 60Hz with `staggerFrames: 12` (200ms).
+> See [../mem.md](../mem.md) for the authoritative current state. This document remains valuable for frame-by-frame measurement methodology and AI9 cabinet reference data.
+>
 > **Purpose.** This is the single authoritative continuity document for the "make Lucky5 v8 match AI9 identically" overhaul. It records every measurement, decision, asset fact, and implementation step in detail so any agent can resume without re-deriving anything. Read this **before** touching the cabinet UI.
 >
 > **Status legend:** `[DONE]` complete · `[WIP]` in progress · `[TODO]` not started · `[DECISION]` design choice locked.

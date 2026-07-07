@@ -1,5 +1,9 @@
 # AI9 Parity Implementation Summary
 
+> **⚠️ HISTORICAL — This document describes the pre-VSYNC implementation.**
+> Current timing is VSYNC-locked at 60Hz with `staggerFrames: 12` (200ms).
+> See [../mem.md](../mem.md) for the authoritative current state.
+
 **Date:** 2026-06-27  
 **Status:** Feature-complete (primary targets implemented); ready for testing and refinement  
 **Scope:** Make Lucky5 v8 match AI9 identically in cabinet look, graphics quality, animation timing, and gameplay.

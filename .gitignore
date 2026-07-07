@@ -57,20 +57,12 @@ Thumbs.db
 .ai9poker/
 .lucky5_godot_deck_v1/
 lucky5_godot_deck_v1/
-./ai9
-mediafiles
-ai9
-./mediafiles
-./goldenpoker
-goldenpoker
-
-
-
-
-
-
-
-
+.ai9/
+ai9/
+.goldenpoker/
+goldenpoker/
+.ionide/
+.comp/
 
 # ── Local workspace scratch / agent state ─────────────────────────────────────
 tmp/
@@ -103,14 +95,8 @@ copilot-instructions.md
 ${SQLITE_DB_PATH}
 $APPDATA/
 %USERPROFILE%/
-.gemini
-.gemini%/
-gemini/
-.gemini/
-.Hermes/
-Hermes/
-.hermes
-hermes
+.hermes/
+hermes/
 
 # ── Logs & runtime artifacts ──────────────────────────────────────────────────
 *.log
@@ -119,6 +105,18 @@ hermes
 *.db-wal
 artifacts/
 *.sig
+*.binlog
+
+# ── Media / analysis captures (local only) ────────────────────────────────────
+*.mp4
+*.webm
+*.7z
+*.apk
+*.pcap
+*.zip
+PCAPdroid_*.txt
+mediafiles/
+ai999_frames/
 
 # ── Secrets / env overrides ───────────────────────────────────────────────────
 .env
@@ -130,12 +128,7 @@ appsettings.Staging.json
 *.pfx
 *.key
 
-# ── Reverse-engineering / analysis captures (local only) ─────────────────────
-*.7z
-*.apk
-*.pcap
-PCAPdroid_*.txt
-*.mp4
+# ── Reverse-engineering / analysis tools (local only) ────────────────────────
 apktool_*.jar
 apktool.bat
 analysis/apktool/
@@ -176,29 +169,8 @@ GoogleService-Info.plist
 Ai9/
 ai9/*.apk
 ai9/*.aab
-*.zip
-.codebuddy
-/ai9poker
 /pagesource_output
 .agentsroom/handoff-transcript-*.txt
 .agentsroom/handoff-summary-*.md
-.ionide/Lucky5.Api.binlog
-.ionide/Lucky5.Application.binlog
-.ionide/Lucky5.Domain.binlog
-.ionide/Lucky5.Infrastructure.binlog
-.ionide/Lucky5.Realtime.binlog
-.ionide/Lucky5.Tests.binlog
-.ionide/Lucky5.Infrastructure.binlog
 /db-context-enrichment
-/.ionide
-*.binlog
-*.binlog
-.comp/session-memory.json
-.ionide/Lucky5.Api.binlog
-.ionide/Lucky5.Application.binlog
-.ionide/Lucky5.Domain.binlog
-.ionide/Lucky5.Infrastructure.binlog
-.ionide/Lucky5.Realtime.binlog
-.ionide/Lucky5.Tests.binlog
-/.ionide
 /genai-for-developers

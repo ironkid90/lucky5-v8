@@ -1,10 +1,63 @@
-# Lucky5 v8 Project Memory
+# Lucky5 v8 Project Memory — Single Source of Truth
 
-- Primary playable client is the vanilla HTML/CSS/JS cabinet in `server/src/Lucky5.Api/wwwroot/`; backend authority remains in the .NET solution under `server/src/Lucky5.Domain/Game/CleanRoom/`.
-- Cabinet visual target is AI9/ai9poker-style portrait arcade parity. Keep the cabinet 9:16, tactile, retro, and asset-driven; do not modernize into a generic flat casino UI.
-- AI9 parity overrides live in `wwwroot/css/cabinet-ai9-parity.css`, loaded after other cabinet CSS. It owns final geometry, button PNG mapping, control-deck pointer/z-index safety, and viewport aspect locks.
-- Button PNGs live in `wwwroot/assets/images/` and map directly by CSS classes: hold, big, small, cancel_hold, deal_draw, bet, take_half, take_score, and menu. DEAL DRAW must remain red; BET must remain green.
-- Menu overlay visibility convention should support both `.is-open` and `.visible`; `body.menu-open` is used for the dim backdrop.
-- Timing is VSYNC-locked at 60Hz via CabinetClock.delayTicks(). One global staggerFrames=12 drives all card reveals (deal, draw, DU pages). All animation code uses delayTicks() directly — no ms→frame conversion jitter. CSS transitions use frame-derived durations for visual continuity.
-- If cabinet DOM elements exist but visuals are missing, first check browser cache/version query strings and the final `cabinet-ai9-parity.css` overrides; stale CSS can preserve clipped paytables/blank control buttons even after source fixes.
-- `game.js` preloads cabinet button assets in `preloadAllAssets()`; include `menu.png` there so the square MENU key is warmed with the rest of the AI9 control deck.
+## Architecture
+- **Primary client**: vanilla HTML/CSS/JS cabinet in `server/src/Lucky5.Api/wwwroot/`
+- **Backend authority**: .NET 10 under `server/src/Lucky5.Domain/Game/CleanRoom/` (deterministic RNG, payouts, jackpots, credits, recovery, double-up)
+- **Launch**: `./dev.ps1` → http://localhost:5051
+- **Tests**: `dotnet run --project server/tests/Lucky5.Tests/Lucky5.Tests.csproj`
+- **Persistence**: in-memory by default
+
+## Visual Target
+- AI9/ai9poker-style portrait (9:16) arcade cabinet parity
+- Retro, tactile, asset-driven. Do NOT modernize into flat casino UI.
+- CSS override chain: `cabinet-layout-vnext.css` → `game.css` → `cabinet-v8-*.css` → `cabinet-ai9-parity.css` (final authority)
+
+## Card Design Standards
+- 2.5:3.5 aspect ratio, pure white background, 1px solid black border, border-radius: 0
+- DOM-based card faces (`.card-front .card-corner .card-suit-large`) — no PNG card assets
+- `.du-card-slot` sizing: `flex: 0 0 16%`, card frames use `aspect-ratio: 313/528`
+- Font sizing: `clamp()` in DU mode, `cqh` units for main hand (game-screen container query context)
+- `.active-win-row`: solid white bg (#ffffff) + black text, no cyan glow or text-shadow
+
+## VSYNC-Locked Timing (60Hz Cabinet Clock)
+- **One global stagger**: `staggerFrames: 12` (200ms) drives ALL card reveals (deal, draw, DU)
+- All card animation uses `CabinetClock.delayTicks()` — zero ms→frame conversion jitter
+- Config: `game-config.js` → frame values (`staggerFrames`, `dealBaseFrames: 5`, `dealDurationFrames: 11`)
+- Legacy ms aliases via computed getters for backward compat with game.js fallback paths
+- Total deal: ~900ms (5 cards), animation: right→left slide (`translateX(120%)` → `translateX(0)`)
+
+## Button System
+- PNG assets in `wwwroot/assets/images/` mapped by CSS class: hold, big, small, cancel_hold, deal_draw, bet, take_half, take_score, menu
+- DEAL DRAW = red, BET = green, HOLD = yellow
+- `::before` pseudo-elements show text labels as fallback
+- Disabled state: opacity 0.6-0.75 (reduced from 0.35), grayscale(0.3) brightness(0.7-0.85)
+- Menu panel: `position: fixed; z-index: 9999/10000`
+- Admin modal (cash-in/cash-out): `position: fixed; z-index: 20000` — must be above menu
+
+## Cabinet Stage (cabinet-stage-vnext.js)
+- `dealCards()` / `drawCards()`: cards enter from right edge, slide leftward
+- `enterDoubleUp()` / `updateDoubleUpTrail()` / `exitDoubleUp()`: DU mode lifecycle
+- All timing via `CabinetClock.delayTicks()` with frame counts from `_config`
+- Shuffle: `shuffleFrameMs: 30` (rapid reel blur), uses `delayTicks(frameTicks)` for loop
+
+## Key Files
+| File | Role |
+|------|------|
+| `index.html?v=...` | Cabinet shell, CSS/JS load order, cache-bust versions |
+| `game-config.js?v=7` | VSYNC timing, variant identity, paytable, rules, assets, audio |
+| `game.js?v=28` | Core engine, state machine, DU logic, fallback render paths |
+| `cabinet-stage-vnext.js?v=8` | Card choreography, hold lamps, DU viewport — all `delayTicks()` |
+| `cabinet-clock.js?v=1` | 60Hz deterministic tick clock, `delayTicks()`, `CabinetInput` scanner |
+| `cabinet-orchestrator-vnext.js?v=2` | State sync, button guards, input capture, deal verification |
+| `cabinet-ai9-parity.css?v=4` | Final CSS authority: geometry, z-index, button PNGs, admin modal |
+| `cabinet-v8-quality.css?v=7` | Card face CSS, button styles, DU card sizing, disabled states |
+
+## Cache Busting
+- All CSS/JS have version query strings in index.html
+- Bump on every change: `?v=N` → `?v=N+1`
+
+## Known Pitfalls
+- Stale browser CSS cache can blank paytables/buttons — versioned query strings fix this
+- Admin modal was `position: absolute` (trapped in game-screen stacking context) → now `position: fixed; z-index: 20000`
+- `.card-suit-large` overflows smaller DU frames without `overflow: hidden` + `clamp()` sizing
+- `cqh` units require container query context on `#game-screen` (container-type: size)

@@ -1,5 +1,10 @@
 # AI9 Parity Implementation Guide for Agents
 
+> **⚠️ HISTORICAL — This document describes the pre-VSYNC implementation.**
+> Current timing is VSYNC-locked at 60Hz with `staggerFrames: 12` (200ms).
+> See [../mem.md](../mem.md) for the authoritative current state.
+> This guide remains useful for understanding the AI9 visual layout and button mapping, but **timing values within are outdated**.
+
 ## Context and Objective
 Your objective is to upgrade the current Lucky5 v8 game cabinet to match the exact visual layout and behavior of the `ai9poker` reference cabinet. The current game suffers from overlapping button layouts, cut-off UI elements (like the "2 PAIR" row on the paytable), missing PNG button textures, and non-functioning buttons (specifically the MENU key).
 

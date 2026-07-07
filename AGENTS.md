@@ -44,11 +44,13 @@ This machine has a single canonical MCP store at `C:\Users\Gabi.WIN-CD45QMUUPFF\
 
 ### Grounding Documentation
 
+- **Current Truth (always up to date)**: [mem.md](mem.md) — VSYNC timing, card design, button system, file versions, pitfalls
 - **Project Overview**: [README.md](README.md) (setup, commands, and repo structure)
-- **Development History & Soft-Module State**: [docs/DEVELOPMENT_HISTORY_AND_CURRENT_STATE.md](docs/DEVELOPMENT_HISTORY_AND_CURRENT_STATE.md) (comprehensive development history, strategic pivots, notable achievements, lessons from failure modes, and current technical state)
-- **Gameplay and Cabinet Behavior**: [docs/README.md](docs/README.md) and [docs/LUCKY5_AUTHORITATIVE_GAMEPLAY_REFERENCE.md](docs/LUCKY5_AUTHORITATIVE_GAMEPLAY_REFERENCE.md)
-- **Visual Design and Architecture**: [docs/GAME_FEEL_REFERENCE.md](docs/GAME_FEEL_REFERENCE.md) and [docs/WEB_NATIVE_STRATEGY.md](docs/WEB_NATIVE_STRATEGY.md)
-  - **Variant Engine Architecture**: [docs/CABINET_VARIANT_ARCHITECTURE.md](docs/CABINET_VARIANT_ARCHITECTURE.md)
+- **Development History**: [docs/DEVELOPMENT_HISTORY_AND_CURRENT_STATE.md](docs/DEVELOPMENT_HISTORY_AND_CURRENT_STATE.md)
+- **Gameplay & Cabinet Reference**: [docs/README.md](docs/README.md), [docs/LUCKY5_AUTHORITATIVE_GAMEPLAY_REFERENCE.md](docs/LUCKY5_AUTHORITATIVE_GAMEPLAY_REFERENCE.md), [docs/MACHINE_BEHAVIOR_REFERENCE.md](docs/MACHINE_BEHAVIOR_REFERENCE.md)
+- **Visual Design**: [docs/GAME_FEEL_REFERENCE.md](docs/GAME_FEEL_REFERENCE.md), [docs/WEB_NATIVE_STRATEGY.md](docs/WEB_NATIVE_STRATEGY.md)
+- **Variant Architecture**: [docs/CABINET_VARIANT_ARCHITECTURE.md](docs/CABINET_VARIANT_ARCHITECTURE.md)
+- **AI9 Parity (historical worklogs)**: [docs/AI9_PARITY_GROUND_TRUTH_AND_WORKLOG.md](docs/AI9_PARITY_GROUND_TRUTH_AND_WORKLOG.md), [docs/AI9_PARITY_IMPLEMENTATION_SUMMARY.md](docs/AI9_PARITY_IMPLEMENTATION_SUMMARY.md) — these are historical; current timing is VSYNC-locked at 60Hz with staggerFrames=12 per [mem.md](mem.md)
 
 ## Tooling: vexp
 
