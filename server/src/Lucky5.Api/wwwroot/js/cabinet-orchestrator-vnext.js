@@ -200,7 +200,9 @@ window.CabinetOrchestrator = (function () {
                 CabinetState.setPresentationLocked(true);
                 // Dispatch RENDER_DEAL to create a queue step that will release the lock
                 // when it completes (matching the animation duration)
-                CabinetTransition.dispatch({ type: 'RENDER_DEAL', cardCount: 5, staggerFrames: 12, settleFrames: 11 });
+                const staggerFrames = window.GAME_CONFIG?.timing?.staggerFrames || 12;
+                const settleFrames = window.GAME_CONFIG?.timing?.dealDurationFrames || 11;
+                CabinetTransition.dispatch({ type: 'RENDER_DEAL', cardCount: 5, staggerFrames, settleFrames });
                 const result = legacy.call(this, cardData, onComplete);
                 CabinetState.updateMachine({
                     cards: Array.isArray(cardData) ? cardData : [],
