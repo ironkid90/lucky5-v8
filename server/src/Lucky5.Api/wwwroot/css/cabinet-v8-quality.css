@@ -790,6 +790,68 @@ button.cab-btn.asset-button {
     line-height: 1.4;
 }
 
+/* ── 16. Card Deal & Draw "Thump" Animation ──────────────────────
+   Cards appear in-place with a scale-pop + shadow pulse, mimicking
+   the physical thump of a video poker cabinet dealing a card.
+   Staggered left-to-right. No off-screen slide — cards materialize
+   where they belong. */
+
+@keyframes v8-card-thump-in {
+    0%   { transform: scale(0.7); opacity: 0; }
+    55%  { transform: scale(1.06); opacity: 1; }
+    75%  { transform: scale(0.96); }
+    100% { transform: scale(1.0); opacity: 1; }
+}
+
+.card-slot.card-deal-thump {
+    animation: v8-card-thump-in 0.28s ease-out forwards;
+}
+
+/* Optional shadow punch on thump landing to sell the physical "hit" */
+.card-slot.card-deal-thump .card-face {
+    animation: v8-thump-shadow 0.28s ease-out forwards;
+}
+
+@keyframes v8-thump-shadow {
+    0%   { box-shadow: 0 0 0 rgba(0,0,0,0); }
+    50%  { box-shadow: 0 0.5cqh 1.2cqh rgba(0,0,0,0.55), 0 0 1.5cqh rgba(255,210,60,0.35); }
+    100% { box-shadow: 0.2cqh 0.4cqh 1cqh rgba(0,0,0,0.35); }
+}
+
+/* Draw thump: slightly tighter timing for replacement cards */
+@keyframes v8-card-draw-thump {
+    0%   { transform: scale(0.6); opacity: 0; }
+    50%  { transform: scale(1.08); opacity: 1; }
+    70%  { transform: scale(0.94); }
+    100% { transform: scale(1.0); opacity: 1; }
+}
+
+.card-slot.card-draw-thump {
+    animation: v8-card-draw-thump 0.24s ease-out forwards;
+}
+
+.card-slot.card-draw-thump .card-face {
+    animation: v8-thump-shadow 0.24s ease-out forwards;
+}
+
+/* ── 17. Responsive polish: ensure playable on small screens ──── */
+/* Minimum touch-target sizing for mobile */
+@media (max-width: 400px) {
+    #paytable .pay-row {
+        font-size: 3.2vw !important;
+        letter-spacing: 0.05vw !important;
+    }
+    .cab-btn::before {
+        font-size: 3.5vw !important;
+    }
+    .card-rank {
+        font-size: 4.5vw !important;
+    }
+    .card-suit {
+        font-size: 3.2vw !important;
+    }
+}
+
 /* Warm brown wooden surface gradient for the control deck */
 #controls {
     background: #3d1a04 !important;

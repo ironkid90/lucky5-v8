@@ -262,3 +262,7 @@ const GAME_CONFIG = Object.freeze({
         Nothing:       'NO WIN',
     }),
 });
+
+// Expose to window so code using window.GAME_CONFIG works
+// (const at top-level does NOT create a window property)
+window.GAME_CONFIG = GAME_CONFIG;

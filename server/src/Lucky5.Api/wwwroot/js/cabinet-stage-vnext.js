@@ -673,7 +673,9 @@ window.CabinetStage = (function () {
             const dealToken = {};
             _activeDealToken = dealToken;
 
-            // Phase 1: render all cards in DOM at opacity 0 (instant, no flicker)
+            // Phase 1: render all cards in DOM, hidden in-place (no off-screen slide).
+            // Cards appear at scale(0.7) / opacity 0 — the CSS thump animation
+            // will pop them into view when the .card-deal-thump class is added.
             cards.forEach((card, i) => {
                 const slotEl = _slot(i);
                 const img = _cardImg(slotEl);
@@ -681,14 +683,13 @@ window.CabinetStage = (function () {
 
                 _resetMainSlot(slotEl);
                 _applyCardFace(slotEl, img, card, { requireFace: true });
-                // Set initial state: invisible + off-screen right (AI9-style right→left slide)
+                // Start hidden in-place — CSS thump animation handles the reveal
                 slotEl.style.transition = 'none';
-                slotEl.style.transform = 'translateX(120%)';
+                slotEl.style.transform = 'scale(0.7)';
                 slotEl.style.opacity = '0';
             });
 
             let completedCount = 0;
-            const totalFrames = baseFrames + ((cards.length - 1) * staggerFrames);
 
             cards.forEach((card, i) => {
                 if (_activeDealToken !== dealToken) return;
@@ -706,15 +707,17 @@ window.CabinetStage = (function () {
                         return;
                     }
 
-                    // Animate the card IN: slide leftward from right edge (AI9 style)
-                    const durationSec = ((Number(_config.dealDurationFrames) || 11) * 1000 / 60) / 1000;
-                    slotEl.style.transition = `transform ${durationSec}s ease-out, opacity 0.1s ease-out`;
-                    slotEl.style.transform = 'translateX(0)';
-                    slotEl.style.opacity = '1';
+                    // Thump the card into view — CSS animation handles scale+opacity
+                    slotEl.classList.remove('card-draw-thump');
+                    void slotEl.offsetWidth; // force reflow for fresh animation
+                    slotEl.classList.add('card-deal-thump');
 
                     completedCount++;
                     if (completedCount === cards.length && onComplete) {
-                        window.CabinetClock.delayTicks(1, onComplete);
+                        window.CabinetClock.delayTicks(
+                            Math.round((Number(_config.dealDurationFrames) || 11)),
+                            onComplete
+                        );
                     }
                 });
             });

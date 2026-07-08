@@ -657,7 +657,13 @@ public static class MachinePolicy
                 .Where(group => group[0].Rank is < 6 or > 10)
                 .ToList();
 
-            return middleGroups.Concat(edgeGroups).SelectMany(group => group).ToArray();
+            // Shuffle across ranks within middle/edge groups so the
+            // first card (the dealer) isn't always the same rank.
+            var middleCards = middleGroups.SelectMany(g => g).ToList();
+            rng.Shuffle(middleCards);
+            var edgeCards = edgeGroups.SelectMany(g => g).ToList();
+            rng.Shuffle(edgeCards);
+            return middleCards.Concat(edgeCards).ToArray();
         }
 
         return groups.SelectMany(group => group).ToArray();
