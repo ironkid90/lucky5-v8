@@ -645,28 +645,10 @@ body {
     display: block;
 }
 
-.card-slot.deal-in {
-    opacity: 0;
-    transform: translateY(-100%);
-}
-
-.card-slot.deal-in-done {
-    opacity: 1;
-    transform: translateY(0);
-    transition: opacity 0.2s ease-out, transform 0.25s ease-out;
-}
-
-.card-slot.slide-in {
-    opacity: 0;
-    transform: translateY(-100%);
-    transition: none;
-}
-
-.card-slot.slide-in-done {
-    opacity: 1;
-    transform: translateY(0);
-    transition: opacity 0.2s ease-out, transform 0.25s ease-out;
-}
+/* Card deal/draw animations now live in cabinet-v8-quality.css (section 16).
+   The old deal-in / slide-in / translateY(-100%) drop-from-above classes
+   are removed — cards use in-place thump animations via .card-deal-thump
+   and .card-draw-thump, driven by cabinet-stage-vnext.js. */
 
 .hold-badge {
     font-family: 'Press Start 2P', monospace;

@@ -796,10 +796,28 @@ button.cab-btn.asset-button {
    Staggered left-to-right. No off-screen slide — cards materialize
    where they belong. */
 
+/* Pre-animation hidden states (CSS classes, not inline styles —
+   avoids animation-vs-inline-style precedence wars in the browser).
+   JS adds these before the thump animation class, then removes them
+   right before the thump fires so the animation keyframes drive from 0%. */
+
+.card-slot.card-pre-deal {
+    transform: scale(0.7);
+    opacity: 0;
+    transition: none;
+}
+
+.card-slot.card-pre-draw {
+    transform: scale(0.6);
+    opacity: 0;
+    transition: none;
+}
+
 @keyframes v8-card-thump-in {
-    0%   { transform: scale(0.7); opacity: 0; }
-    55%  { transform: scale(1.06); opacity: 1; }
-    75%  { transform: scale(0.96); }
+    0%   { transform: scale(0.65); opacity: 0; }
+    50%  { transform: scale(1.08); opacity: 1; }
+    70%  { transform: scale(0.94); }
+    85%  { transform: scale(1.02); }
     100% { transform: scale(1.0); opacity: 1; }
 }
 
@@ -807,22 +825,35 @@ button.cab-btn.asset-button {
     animation: v8-card-thump-in 0.28s ease-out forwards;
 }
 
-/* Optional shadow punch on thump landing to sell the physical "hit" */
+/* Card-area shadow burst on deal — sells the physical "thump" hit
+   across the entire deck area. Triggered by a brief class on #card-area. */
+@keyframes v8-card-area-thump {
+    0%   { filter: brightness(1) drop-shadow(0 0 0 rgba(0,0,0,0)); }
+    35%  { filter: brightness(1.08) drop-shadow(0 0 3cqh rgba(255,210,60,0.5)); }
+    100% { filter: brightness(1) drop-shadow(0 0 0 rgba(0,0,0,0)); }
+}
+
+#card-area.card-area-thump {
+    animation: v8-card-area-thump 0.4s ease-out;
+}
+
+/* Shadow punch on individual card thump landing to sell the physical "hit" */
 .card-slot.card-deal-thump .card-face {
     animation: v8-thump-shadow 0.28s ease-out forwards;
 }
 
 @keyframes v8-thump-shadow {
     0%   { box-shadow: 0 0 0 rgba(0,0,0,0); }
-    50%  { box-shadow: 0 0.5cqh 1.2cqh rgba(0,0,0,0.55), 0 0 1.5cqh rgba(255,210,60,0.35); }
+    45%  { box-shadow: 0 0.5cqh 1.5cqh rgba(0,0,0,0.6), 0 0 2cqh rgba(255,210,60,0.4); }
     100% { box-shadow: 0.2cqh 0.4cqh 1cqh rgba(0,0,0,0.35); }
 }
 
-/* Draw thump: slightly tighter timing for replacement cards */
+/* Draw thump: tighter timing for replacement cards, more pronounced pop */
 @keyframes v8-card-draw-thump {
-    0%   { transform: scale(0.6); opacity: 0; }
-    50%  { transform: scale(1.08); opacity: 1; }
-    70%  { transform: scale(0.94); }
+    0%   { transform: scale(0.55); opacity: 0; }
+    45%  { transform: scale(1.10); opacity: 1; }
+    65%  { transform: scale(0.92); }
+    80%  { transform: scale(1.03); }
     100% { transform: scale(1.0); opacity: 1; }
 }
 
@@ -834,21 +865,67 @@ button.cab-btn.asset-button {
     animation: v8-thump-shadow 0.24s ease-out forwards;
 }
 
-/* ── 17. Responsive polish: ensure playable on small screens ──── */
-/* Minimum touch-target sizing for mobile */
-@media (max-width: 400px) {
+/* ── 17. Responsive polish: ensure playable on all screens ──── */
+/* The cabinet uses container query units (cqh/cqw) that scale with
+   the #cabinet-viewport. On very small viewports (mobile portrait),
+   text and hit targets can become too small. These container queries
+   boost minimum sizes without breaking the scaling model. */
+
+/* Boost readability when cabinet height is small (mobile / small desktop) */
+@container cabinet (max-height: 640px) {
     #paytable .pay-row {
-        font-size: 3.2vw !important;
-        letter-spacing: 0.05vw !important;
+        font-size: 1.9cqh !important;
+        letter-spacing: 0.12cqh !important;
     }
     .cab-btn::before {
-        font-size: 3.5vw !important;
+        font-size: 2.2cqh !important;
     }
     .card-rank {
-        font-size: 4.5vw !important;
+        font-size: 3.6cqh !important;
     }
     .card-suit {
-        font-size: 3.2vw !important;
+        font-size: 2.6cqh !important;
+    }
+    .card-suit-large {
+        font-size: 7cqh !important;
+    }
+    #credit-stake-bar #credits,
+    #credit-stake-bar #stake-display {
+        font-size: 1.8cqh !important;
+    }
+    #credit-stake-bar #credits span,
+    #credit-stake-bar #stake-display span {
+        font-size: 3cqh !important;
+    }
+    #machine-info-block {
+        font-size: 1.55cqh !important;
+    }
+}
+
+/* Guard against excessively tiny text on viewports narrower than 320px */
+@media (max-width: 320px) {
+    .cab-btn::before {
+        font-size: 4.2vw !important;
+    }
+    #paytable .pay-row {
+        font-size: 3.8vw !important;
+        letter-spacing: 0.05vw !important;
+    }
+    .card-rank {
+        font-size: 5vw !important;
+    }
+    .card-suit {
+        font-size: 3.6vw !important;
+    }
+}
+
+/* Keep UI legible on viewports wider than 1200px (Full HD+).
+   The cabinet uses cqh units which scale with viewport, so fonts
+   naturally cap when the cabinet reaches its max height. No explicit
+   capping needed — just ensure card faces don't overflow. */
+@media (min-width: 1200px) {
+    .card-suit-large {
+        overflow: hidden;
     }
 }
 

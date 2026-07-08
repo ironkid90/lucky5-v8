@@ -1311,13 +1311,8 @@ function renderCards(cardData, animate) {
         slot.dataset.slot = i;
         if (holdIndexes.has(i)) slot.classList.add('held');
 
-        // Held cards on a draw stay visually stable — no drop animation.
-        const isHeld = holdIndexes.has(i);
-        const shouldAnimate = animate && !isHeld;
-
-        if (shouldAnimate) {
-            slot.classList.add('deal-in');
-        }
+        // All animation is now handled by cabinet-stage-vnext.js.
+        // Legacy fallback renders cards immediately with no animation.
 
         const badge = document.createElement('div');
         badge.className = 'hold-badge';
@@ -1342,15 +1337,6 @@ function renderCards(cardData, animate) {
             }
         });
         area.appendChild(slot);
-
-        if (shouldAnimate) {
-            window.CabinetClock.delayMs(T.dealBaseMs + i * T.dealStaggerMs, () => {
-                slot.classList.remove('deal-in');
-                slot.classList.add('deal-in-done');
-            });
-        } else {
-            slot.classList.add('deal-in-done');
-        }
     }
 }
 

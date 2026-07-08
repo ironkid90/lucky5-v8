@@ -339,16 +339,17 @@ window.CabinetStage = (function () {
     function _resetMainSlot(slotEl) {
         if (!slotEl) return;
 
-        slotEl.classList.remove('held', 'lucky5-active');
+        slotEl.classList.remove('held', 'lucky5-active', 'card-pre-deal', 'card-pre-draw', 'card-deal-thump', 'card-draw-thump');
         _setFaceDiagnostic(slotEl, false, '');
-        slotEl.style.transition = 'none';
-        slotEl.style.transform = 'translateY(0)';
-        slotEl.style.opacity = '1';
+        // Clear any leftover inline animation styles — CSS classes own the state now
+        slotEl.style.transition = '';
+        slotEl.style.transform = '';
+        slotEl.style.opacity = '';
 
         const face = slotEl.querySelector('.card-face');
         if (face) {
-            face.style.transition = 'none';
-            face.style.opacity = '1';
+            face.style.transition = '';
+            face.style.opacity = '';
         }
     }
 
@@ -674,8 +675,8 @@ window.CabinetStage = (function () {
             _activeDealToken = dealToken;
 
             // Phase 1: render all cards in DOM, hidden in-place (no off-screen slide).
-            // Cards appear at scale(0.7) / opacity 0 — the CSS thump animation
-            // will pop them into view when the .card-deal-thump class is added.
+            // Cards start with .card-pre-deal (hidden state) — the CSS thump animation
+            // will pop them into view when .card-deal-thump replaces it.
             cards.forEach((card, i) => {
                 const slotEl = _slot(i);
                 const img = _cardImg(slotEl);
@@ -683,10 +684,8 @@ window.CabinetStage = (function () {
 
                 _resetMainSlot(slotEl);
                 _applyCardFace(slotEl, img, card, { requireFace: true });
-                // Start hidden in-place — CSS thump animation handles the reveal
-                slotEl.style.transition = 'none';
-                slotEl.style.transform = 'scale(0.7)';
-                slotEl.style.opacity = '0';
+                // Use CSS class for hidden state — avoids inline-style vs animation conflicts
+                slotEl.classList.add('card-pre-deal');
             });
 
             let completedCount = 0;
@@ -707,7 +706,19 @@ window.CabinetStage = (function () {
                         return;
                     }
 
-                    // Thump the card into view — CSS animation handles scale+opacity
+                    // First card: trigger deck-wide shadow burst for physical thump feel
+                    if (i === 0) {
+                        const area = document.getElementById('card-area');
+                        if (area) {
+                            area.classList.remove('card-area-thump');
+                            void area.offsetWidth;
+                            area.classList.add('card-area-thump');
+                        }
+                    }
+
+                    // Thump the card into view — CSS animation handles scale+opacity.
+                    // Remove pre-deal hidden state first so the animation starts clean.
+                    slotEl.classList.remove('card-pre-deal');
                     slotEl.classList.remove('card-draw-thump');
                     void slotEl.offsetWidth; // force reflow for fresh animation
                     slotEl.classList.add('card-deal-thump');
@@ -745,8 +756,9 @@ window.CabinetStage = (function () {
             }
         });
 
-        // Phase 1: Set held states and update held card faces.
-        // Keep old unheld card faces visible on screen so they do not instantly vanish.
+        // Phase 1: Update held cards (face + held state). Held cards stay visible
+        // and static — no animation. Non-held cards keep their old face visible
+        // until their replacement thumps in.
         cards.forEach((card, i) => {
             const slotEl = _slot(i);
             const img = _cardImg(slotEl);
@@ -760,6 +772,8 @@ window.CabinetStage = (function () {
             }
 
             slotEl.classList.remove('held');
+            // Non-held card: old face stays visible for now — replacement happens
+            // in the staggered thump sequence below.
         });
 
         if (pending === 0 && onComplete) {
@@ -771,7 +785,7 @@ window.CabinetStage = (function () {
         let unheldSeqIndex = 0;
         cards.forEach((card, i) => {
             if (_activeDrawToken !== drawToken) return;
-            if (held.has(i)) return; // Already handled
+            if (held.has(i)) return; // Already handled — held cards stay put
             const currentSeq = unheldSeqIndex++;
             window.CabinetClock.delayTicks(baseFrames + (currentSeq * staggerFrames), () => {
                 if (_activeDrawToken !== drawToken) return;
@@ -786,25 +800,26 @@ window.CabinetStage = (function () {
 
                 const img = _cardImg(slotEl);
                 if (img) {
-                    // Instantly hide the old card, position it off-screen right, and apply the new face
-                    slotEl.style.transition = 'none';
-                    slotEl.style.transform = 'translateX(120%)';
-                    slotEl.style.opacity = '0';
+                    // Replace the face with the new card in hidden state, then thump it into view.
+                    slotEl.classList.add('card-pre-draw');
                     _applyCardFace(slotEl, img, card, { requireFace: true });
 
-                    // Force reflow
+                    // Force reflow so the hidden state is applied before animation
                     void slotEl.offsetWidth;
                 }
 
-                // Animate the card IN: slide leftward from right edge (AI9 style)
-                const durationSec = ((Number(_config.drawDurationFrames) || 11) * 1000 / 60) / 1000;
-                slotEl.style.transition = `transform ${durationSec}s ease-out, opacity 0.1s ease-out`;
-                slotEl.style.transform = 'translateX(0)';
-                slotEl.style.opacity = '1';
+                // Thump the replacement card into place
+                slotEl.classList.remove('card-pre-draw');
+                slotEl.classList.remove('card-deal-thump');
+                void slotEl.offsetWidth;
+                slotEl.classList.add('card-draw-thump');
 
                 completedCount++;
                 if (completedCount === pending && onComplete) {
-                    window.CabinetClock.delayTicks(1, onComplete);
+                    window.CabinetClock.delayTicks(
+                        Math.round((Number(_config.drawDurationFrames) || 11)),
+                        onComplete
+                    );
                 }
             });
         });

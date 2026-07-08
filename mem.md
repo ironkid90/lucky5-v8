@@ -24,7 +24,7 @@
 - All card animation uses `CabinetClock.delayTicks()` — zero ms→frame conversion jitter
 - Config: `game-config.js` → frame values (`staggerFrames`, `dealBaseFrames: 5`, `dealDurationFrames: 11`)
 - Legacy ms aliases via computed getters for backward compat with game.js fallback paths
-- Total deal: ~900ms (5 cards), animation: right→left slide (`translateX(120%)` → `translateX(0)`)
+- Total deal: ~900ms (5 cards), animation: cards appear in-place with scale-pop "thump" effect (`.card-deal-thump` / `v8-card-thump-in` keyframe: scale 0.65→1.08→0.94→1.02→1.0). No off-screen slide or drop-from-above. Draw replacement: `.card-draw-thump` / `v8-card-draw-thump` keyframe (scale 0.55→1.10→0.92→1.03→1.0), only non-held cards animate. Old `deal-in`/`slide-in` classes (translateY(-100%) drop) removed.
 
 ## Button System
 - PNG assets in `wwwroot/assets/images/` mapped by CSS class: hold, big, small, cancel_hold, deal_draw, bet, take_half, take_score, menu
@@ -35,7 +35,9 @@
 - Admin modal (cash-in/cash-out): `position: fixed; z-index: 20000` — must be above menu
 
 ## Cabinet Stage (cabinet-stage-vnext.js)
-- `dealCards()` / `drawCards()`: cards enter from right edge, slide leftward
+- `dealCards()` / `drawCards()`: cards appear in-place with scale-pop "thump" (`.card-deal-thump` / `.card-draw-thump`)
+- Pre-animation hidden states via CSS classes (`.card-pre-deal` / `.card-pre-draw`), not inline styles
+- Deck-wide shadow burst on first card landing (`.card-area-thump`)
 - `enterDoubleUp()` / `updateDoubleUpTrail()` / `exitDoubleUp()`: DU mode lifecycle
 - All timing via `CabinetClock.delayTicks()` with frame counts from `_config`
 - Shuffle: `shuffleFrameMs: 30` (rapid reel blur), uses `delayTicks(frameTicks)` for loop
@@ -44,13 +46,13 @@
 | File | Role |
 |------|------|
 | `index.html?v=...` | Cabinet shell, CSS/JS load order, cache-bust versions |
-| `game-config.js?v=7` | VSYNC timing, variant identity, paytable, rules, assets, audio |
-| `game.js?v=28` | Core engine, state machine, DU logic, fallback render paths |
-| `cabinet-stage-vnext.js?v=8` | Card choreography, hold lamps, DU viewport — all `delayTicks()` |
+| `game-config.js?v=9` | VSYNC timing, variant identity, paytable, rules, assets, audio |
+| `game.js?v=30` | Core engine, state machine, DU logic, fallback render paths |
+| `cabinet-stage-vnext.js?v=10` | Card choreography, hold lamps, DU viewport — all `delayTicks()` |
 | `cabinet-clock.js?v=1` | 60Hz deterministic tick clock, `delayTicks()`, `CabinetInput` scanner |
 | `cabinet-orchestrator-vnext.js?v=2` | State sync, button guards, input capture, deal verification |
 | `cabinet-ai9-parity.css?v=4` | Final CSS authority: geometry, z-index, button PNGs, admin modal |
-| `cabinet-v8-quality.css?v=7` | Card face CSS, button styles, DU card sizing, disabled states |
+| `cabinet-v8-quality.css?v=9` | Card face CSS, button styles, DU card sizing, disabled states, thump keyframes |
 
 ## Cache Busting
 - All CSS/JS have version query strings in index.html
