@@ -97,6 +97,9 @@ $APPDATA/
 %USERPROFILE%/
 .hermes/
 hermes/
+playpoker/
+playpoker
+.playpoker
 
 # ── Logs & runtime artifacts ──────────────────────────────────────────────────
 *.log
