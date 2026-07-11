@@ -8,6 +8,256 @@
       "env": {
         "VEXP_WORKSPACE": "c:\\Users\\Gabi.WIN-CD45QMUUPFF\\Documents\\GitHub\\lucky5-v8\\lucky5-v8"
       }
+    },
+    "gmail": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "Gmail"
+      ],
+      "env": {}
+    },
+    "googlecalendar": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "Google Calendar"
+      ],
+      "env": {}
+    },
+    "notion": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "Notion"
+      ],
+      "env": {}
+    },
+    "g": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "Google Sheets"
+      ],
+      "env": {}
+    },
+    "Z": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "Slack"
+      ],
+      "env": {}
+    },
+    "sub": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "Supabase"
+      ],
+      "env": {}
+    },
+    "outlook": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "Outlook"
+      ],
+      "env": {}
+    },
+    "googledrive": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "Google Drive"
+      ],
+      "env": {}
+    },
+    "googledocs": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "Google Docs"
+      ],
+      "env": {}
+    },
+    "H": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "HubSpot"
+      ],
+      "env": {}
+    },
+    "linear": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "Linear"
+      ],
+      "env": {}
+    },
+    "airtable": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "Airtable"
+      ],
+      "env": {}
+    },
+    "youtube": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "YouTube"
+      ],
+      "env": {}
+    },
+    "K": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "Slackbot"
+      ],
+      "env": {}
+    },
+    "bitbucket": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "Bitbucket"
+      ],
+      "env": {}
+    },
+    "googletasks": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "Google Tasks"
+      ],
+      "env": {}
+    },
+    "discord": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "Discord"
+      ],
+      "env": {}
+    },
+    "figma": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "Figma"
+      ],
+      "env": {}
+    },
+    "reddit": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "Reddit"
+      ],
+      "env": {}
+    },
+    "cal": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "Cal"
+      ],
+      "env": {}
+    },
+    "wrike": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "Wrike"
+      ],
+      "env": {}
+    },
+    "microsoft_teams": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "Microsoft Teams"
+      ],
+      "env": {}
+    },
+    "asana": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "Asana"
+      ],
+      "env": {}
+    },
+    "linkedin": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "LinkedIn"
+      ],
+      "env": {}
+    },
+    "google_maps": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "Google Maps"
+      ],
+      "env": {}
     }
   }
 }

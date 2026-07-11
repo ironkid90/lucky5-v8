@@ -177,3 +177,5 @@ ai9/*.aab
 .agentsroom/handoff-summary-*.md
 /db-context-enrichment
 /genai-for-developers
+/.opencode
+/.codex
