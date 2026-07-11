@@ -179,3 +179,8 @@ ai9/*.aab
 /genai-for-developers
 /.opencode
 /.codex
+/azd-ai-starter-basic
+/.kiro
+*.vexp-bak
+/.cursor
+/azd-ai-starter-basic
