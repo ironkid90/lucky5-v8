@@ -351,6 +351,60 @@ All timing values are in `game-config.js` under `GAME_CONFIG.timing`. The cabine
 ### Target RTP: 80%
 The machine targets **80% return to player** over its lifetime. This is not per-session — it's the long-term convergence target.
 
+### Operator percentage mode (goldnpkr family lineage)
+Original ICP-1 / Super 98 / Robert's Ultimate cabinets expose a percentage selector that sets the machine's **long-run** payout target. NVRAM cell **`$0260`** holds the selector on both stock `goldnpkr` and Galanthis `bonuspkr`.
+
+#### goldnpkr (selector 0–3)
+MAME `goldnpkr` driver documents (from the cabinet manual):
+
+| Selector value | Long-run target | ROM governor notes |
+|----------------|-----------------|--------------------|
+| 0 | about 85% | `$5EB7` early-exits with C=1; itself does not run the factor path |
+| 1 | about 30% | Factor table `$7FEF+1` = `$80` (128/256 ≈ 50% of intermediate product) |
+| 2 | about 40% | `$7FEF+2` = `$99` (153/256 ≈ 60%) |
+| 3 | about 50% | `$7FEF+3` = `$B3` (179/256 ≈ 70%) |
+
+Clamp: `cmp #$04` at `$71B4` / `$5EBE`. Gameplay gate at `$5EB7` (caller `$5DD1` branches on carry).
+
+#### bonuspkr (selector 0–9)
+Live Bonus Poker cabinets cycle **0–9** (`cmp #$0A` at `$7529` / `$7BAC`). There is **no** `$7FEF` factor table. Percentage only feeds a BCD addend into meter bank `$0144–$014D` via `$7BA9` + table `$7DBA`:
+
+| Mode | BCD addend | Decimal |
+|------|------------|---------|
+| 0 | 62 | 62 |
+| 1 | 64 | 64 |
+| 2 | 66 | 66 |
+| 3 | 68 | 68 |
+| 4 | 70 | 70 |
+| 5 | 72 | 72 |
+| 6 | 74 | 74 |
+| 7 | 76 | 76 |
+| 8 | 78 | 78 |
+| 9 | 80 | 80 |
+
+`$014E–$0157` advances on actual pay paths (`$7C3E`). Comparator `$7C6C` returns C=1 when `$0144 ≥ $014E` (display `L`/`N`) and C=0 when under (display `H`). Hand filter `$7D24` starts with min-rank `$0170=9`; when C=0 and random bits allow, it forces `$0170=4` then re-samples hands until rank `$70 ≥ $0170`. **Higher mode grows and keeps `$0144` ahead more often → less often enters the soft threshold → more player-friendly long run.** Exact face-value RTP per mode 0–9 is not a printed 10-level manual table in the ROM; the addends only prove a **monotonic** easing as the selector rises.
+
+#### UI / exit
+- Enter percentage mode with **Meter SW** then **DEAL/DRAW**.
+- Press **HOLD4** to cycle the value.
+- Press **HOLD1** to exit (stock goldnpkr).
+- This is **not** the Learn-mode BET screen; Learn mode cycles max bet / `$0348` table `$6E83` = `00 0A 14 1E 28 32 64 C8` and is a separate path.
+
+#### 1 → 3 and “overcompensation”
+Changing the selector (e.g. **1 → 3**, goldnpkr ≈30% → ≈50%) writes the new set-point into `$0260` immediately (battery-backed RAM; no separate save opcode). It does **not** wipe coin-in/out history and does **not** recompute next-hand odds to the new face percentage.
+
+The governor closes a **cumulative gap**:
+
+```
+gap = target × total_coin_in − total_coin_out
+```
+
+- Raising the target while history sat near the old target creates a large positive “debt to the player.” Closing that debt over a *small* future coin-in window requires the **slice** RTP on that window to run **above** the new target (sometimes far above 100% effective on the slice) until the whole-book average climbs. That is the sense in which the machine **overcompensates on the short window** — not as a permanent new odds law, but as ledger catch-up.
+- Lowering the target creates the opposite house debt; the slice can look colder than the new set-point while the cumulative ratio drains toward the lower target.
+- With large (years-long) meters, the per-hand bias is tiny relative to the denominator. Convergence is measured in **fresh coin-in volume**, not wall-clock hours. A cabinet that has already been paying near the **new** target correctly will barely re-bias after a no-op change.
+
+Evidence dump: `goldenpoker/tool-outputs/bonuspkr_percentage_governor.md`.
+
 ### RTP Components
 | Component | Target Share | Pool |
 |-----------|-------------|------|

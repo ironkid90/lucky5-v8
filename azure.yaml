@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+name: lucky5-v8
+metadata:
+    template: azd-init@1.27.1
+services:
+    lucky5-v8:
+        project: .
+        host: containerapp
+        language: js
+        docker:
+            path: Dockerfile
+resources:
+    lucky5-v8:
+        type: host.containerapp
+        port: 8080

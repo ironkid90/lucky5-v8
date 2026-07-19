@@ -49,7 +49,8 @@ This machine has a single canonical MCP store at `C:\Users\Gabi.WIN-CD45QMUUPFF\
 - **Development History**: [docs/DEVELOPMENT_HISTORY_AND_CURRENT_STATE.md](docs/DEVELOPMENT_HISTORY_AND_CURRENT_STATE.md)
 - **Gameplay & Cabinet Reference**: [docs/README.md](docs/README.md), [docs/LUCKY5_AUTHORITATIVE_GAMEPLAY_REFERENCE.md](docs/LUCKY5_AUTHORITATIVE_GAMEPLAY_REFERENCE.md), [docs/MACHINE_BEHAVIOR_REFERENCE.md](docs/MACHINE_BEHAVIOR_REFERENCE.md)
 - **Visual Design**: [docs/GAME_FEEL_REFERENCE.md](docs/GAME_FEEL_REFERENCE.md), [docs/WEB_NATIVE_STRATEGY.md](docs/WEB_NATIVE_STRATEGY.md)
-- **Variant Architecture**: [docs/CABINET_VARIANT_ARCHITECTURE.md](docs/CABINET_VARIANT_ARCHITECTURE.md)
+- **Variant Architecture**: [docs/CABINET_VARIANT_ARCHITECTURE.md](docs/CABINET_VARIANT_ARCHITECTURE.md) — includes Bonanza / Bonus Poker / Wild Witch (Video Klein, **WILD not WILO**) / Super 98 / Robert's Ultimate lineage table
+- **ROM lineage profiles**: [server/src/Lucky5.Domain/Game/CleanRoom/LineageProfiles.cs](server/src/Lucky5.Domain/Game/CleanRoom/LineageProfiles.cs); acquired sets under [goldenpoker/roms/](goldenpoker/roms/)
 - **AI9 Parity (historical worklogs)**: [docs/AI9_PARITY_GROUND_TRUTH_AND_WORKLOG.md](docs/AI9_PARITY_GROUND_TRUTH_AND_WORKLOG.md), [docs/AI9_PARITY_IMPLEMENTATION_SUMMARY.md](docs/AI9_PARITY_IMPLEMENTATION_SUMMARY.md) — these are historical; current timing is VSYNC-locked at 60Hz with staggerFrames=12 per [mem.md](mem.md)
 
 ## Tooling: vexp
@@ -77,7 +78,7 @@ You have access to a powerful code-graph and retrieval tool called `vexp`.
 -   You are prohibited from using any built-in file search, `grep`, or other codebase indexing tools. Your primary interface with the codebase is `run_pipeline`.
 -   If you need to spawn sub-agents or background tasks, you must pass them the context obtained from `run_pipeline`. Do not allow them to search the codebase independently.
 
-## vexp <!-- vexp v2.1.5 -->
+## vexp <!-- vexp v2.2.2 -->
 
 **MANDATORY: use `run_pipeline` - do NOT grep or glob the codebase.**
 vexp returns pre-indexed, graph-ranked context in a single call.
@@ -89,13 +90,24 @@ vexp returns pre-indexed, graph-ranked context in a single call.
 
 ### Available MCP tools
 - `run_pipeline` - **PRIMARY TOOL**. Runs capsule + impact + memory in 1 call.
-  Auto-detects intent. Includes file content. Example: `run_pipeline({ "task": "fix auth bug" })`
+  Auto-detects intent. Includes file content. Example: `run_pipeline({ "task": "fix JWT expiry in AuthService.validateToken" })`
 - `get_skeleton` - compact file structure
 - `index_status` - indexing status
 - `expand_vexp_ref` - expand V-REF placeholders in v2 output
 
+### Query shape (do this)
+- Anchor the task on real identifiers (ClassName, functionName) or file paths:
+  `run_pipeline({ "task": "fix JWT expiry in AuthService.validateToken" })`
+- A pure natural-language question ("why does login fail?") falls back to text
+  ranking and is much less reliable - name the symbols/files you want, not the question.
+
 ### Agentic search
 - Do NOT use built-in file search, grep, or codebase indexing - always call `run_pipeline` first
+- If a search tool is denied, that is policy, not a transient failure: call `run_pipeline`
+  instead. Do NOT work around it with shell search or by writing a script.
+- vexp only covers indexed source inside the workspace. For runtime logs, build output
+  (dist/, .vite/, node_modules/) or files outside the repo it has no answer - use your
+  normal tools there; those searches are never blocked.
 - If you spawn sub-agents or background tasks, pass them the context from `run_pipeline`
   rather than letting them search the codebase independently
 

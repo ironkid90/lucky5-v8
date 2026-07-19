@@ -36,6 +36,9 @@
 			"**/.vexp/parent_workspace.json": true,
 			"**/.vexp/.gitignore": true,
 			"**/.vexp/.gitattributes": true
-		}
+		},
+		"workbench.experimental.cloudChanges.partialMatches.enabled": true,
+		"git.autofetch": true,
+		"deepseek-copilot.experimental.stabilizeToolList": true
 	}
 }
