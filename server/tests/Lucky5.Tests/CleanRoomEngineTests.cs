@@ -436,6 +436,42 @@ public static class CleanRoomEngineTests
 		var advisedNothing = FiveCardDrawEngine.ComputeAdvisedHolds(FiveCardDrawEngine.ParseCards(["2H", "4D", "6C", "8S", "KH"]));
 		Assert(failures, "Advised holds for no pattern should return empty", advisedNothing.Length == 0);
 
+		// Wild Witch tests
+		var wildWitch = CabinetVariantFactory.GetEngine(2);
+		Assert(failures, "WildWitch GameId should be wildwitch", wildWitch.GameId == "wildwitch");
+
+		var wildWitchDeck = wildWitch.BuildDeck();
+		Assert(failures, "WildWitch deck should have 53 cards", wildWitchDeck.Count == 53);
+		Assert(failures, "WildWitch deck should contain Joker card (15, 'J')", wildWitchDeck.Any(c => c.Rank == 15 && c.Suit == 'J'));
+
+		// Evaluate hand with Joker
+		var wildWitchHand = new List<CleanRoomCard>
+		{
+			new CleanRoomCard(10, 'H'),
+			new CleanRoomCard(11, 'H'),
+			new CleanRoomCard(12, 'H'),
+			new CleanRoomCard(13, 'H'),
+			new CleanRoomCard(15, 'J') // Joker
+		};
+		var wildWitchEval = wildWitch.EvaluateHand(wildWitchHand);
+		Assert(failures, "WildWitch hand with Joker completing Royal Flush should evaluate as RoyalFlush", wildWitchEval.Category == HandCategory.RoyalFlush);
+
+		// Evaluate Five of a Kind
+		var fiveOfAKindHand = new List<CleanRoomCard>
+		{
+			new CleanRoomCard(14, 'H'),
+			new CleanRoomCard(14, 'D'),
+			new CleanRoomCard(14, 'C'),
+			new CleanRoomCard(14, 'S'),
+			new CleanRoomCard(15, 'J') // Joker
+		};
+		var fiveOfAKindEval = wildWitch.EvaluateHand(fiveOfAKindHand);
+		Assert(failures, "Four Aces + Joker should evaluate as FiveOfAKind", fiveOfAKindEval.Category == HandCategory.FiveOfAKind);
+
+		// MeetsVariantSpecificProgressiveCondition tests
+		Assert(failures, "Royal Flush should meet WildWitch progressive condition", wildWitch.MeetsVariantSpecificProgressiveCondition(wildWitchHand, "{}"));
+		Assert(failures, "Four Aces + Joker (FourOfAKind) should meet 4K-A condition", wildWitch.MeetsVariantSpecificProgressiveCondition([new CleanRoomCard(14, 'H'), new CleanRoomCard(14, 'D'), new CleanRoomCard(14, 'C'), new CleanRoomCard(13, 'S'), new CleanRoomCard(15, 'J')], "{}"));
+
 		return Task.CompletedTask;
 	}
 

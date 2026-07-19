@@ -286,11 +286,12 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 
 		await store.UpdateMachineLedgerAsync(ledger);
 
-		var standardDeck = FiveCardDrawEngine.BuildStandardDeck();
+		var engine = CabinetVariantFactory.GetEngine(machine.GameId);
+		var standardDeck = engine.BuildDeck().ToArray();
 		var alteredDeck = MachinePolicy.AlterDeck(standardDeck, policyMode, seed, policyState.ConsecutiveLosses);
 		var shuffledDeck = FiveCardDrawEngine.ShuffleDeck(seed, "hand", alteredDeck);
 		var hand = shuffledDeck.Take(5).ToArray();
-		var drawState = FiveCardDrawState.Create(seed, shuffledDeck, hand);
+		var drawState = FiveCardDrawState.Create(seed, shuffledDeck.ToArray(), hand);
 
 		session.MachineCredits -= request.BetAmount;
 		session.LastUpdatedUtc = DateTime.UtcNow;
@@ -384,11 +385,15 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 
 		UpdateCounterplay(session, AssessCounterplay(round.CleanRoomState.Hand, request.HoldIndexes));
 
+		var machine = await RequireMachineAsync(round.MachineId);
+		var engine = CabinetVariantFactory.GetEngine(machine.GameId);
+
 		var state = FiveCardDrawEngine.Reduce(round.CleanRoomState, new RoundAction(RoundActionKind.SetHoldMask, HoldMask: holdMask));
 		state = FiveCardDrawEngine.Reduce(state, new RoundAction(RoundActionKind.Draw));
 
-		var evaluation = FiveCardDrawEngine.EvaluateHand(state.Hand);
-		var basePayout = FiveCardDrawEngine.ResolvePayout(evaluation, (int)round.BetAmount);
+		var evaluation = engine.EvaluateHand(state.Hand);
+		var basePayout = FiveCardDrawEngine.ResolvePayout(evaluation, (int)round.BetAmount,
+			machine.GameId == 2 ? PaytableProfile.WildWitch : PaytableProfile.Lebanese);
 
 		var specialRules = EngineCfg.ResolvedSpecialRules;
 		var aceCard = state.Hand.FirstOrDefault(c => c.Rank == 14);
@@ -544,30 +549,41 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		// WinAmount already includes the Ace multiplier from DrawAsync.
 		var startingAmount = (int)round.WinAmount;
 
-		var ledger = await RequireMachineLedgerAsync(round.MachineId);
-		var playDeck = MachinePolicy.BuildDoubleUpPlayDeck(
-			FiveCardDrawEngine.BuildStandardDeck(),
-			round.RoundEntropySeed,
-			ledger.RoundsSinceLucky5Hit,
-			ledger.NetSinceLastClose,
-			round.PolicyMode,
-			BuildMachinePolicyState(ledger),
-			startingAmount,
-			machineCreditBaseline);
+		var machine = await RequireMachineAsync(round.MachineId);
+		var engine = CabinetVariantFactory.GetEngine(machine.GameId);
 
-		var specialRules = EngineCfg.ResolvedSpecialRules;
-		var session = Lucky5DoubleUpEngine.CreateSessionFromDeck(
-			round.RoundEntropySeed,
-			playDeck,
-			startingAmount,
-			machineCreditBaseline,
-			new Lucky5DoubleUpOptions(
-				FirstLuckyMultiplier: specialRules.LuckyFiveFirstSwitchMultiplier,
-				RepeatLuckyMultiplier: specialRules.LuckyFiveRepeatSwitchMultiplier,
-				MaxCreditLimit: Decimal.ToInt32(EngineCfg.CloseThreshold),
-				AceCountsHiOrLo: specialRules.AceAutoWinsDoubleUp,
-				LuckyFiveArmsNoLose: specialRules.LuckyFiveSwitchArmsNoLose),
-			Decimal.ToInt32(round.BetAmount));
+		Lucky5DoubleUpSession session;
+		if (machine.GameId == 1)
+		{
+			var ledger = await RequireMachineLedgerAsync(round.MachineId);
+			var playDeck = MachinePolicy.BuildDoubleUpPlayDeck(
+				FiveCardDrawEngine.BuildStandardDeck(),
+				round.RoundEntropySeed,
+				ledger.RoundsSinceLucky5Hit,
+				ledger.NetSinceLastClose,
+				round.PolicyMode,
+				BuildMachinePolicyState(ledger),
+				startingAmount,
+				machineCreditBaseline);
+
+			var specialRules = EngineCfg.ResolvedSpecialRules;
+			session = Lucky5DoubleUpEngine.CreateSessionFromDeck(
+				round.RoundEntropySeed,
+				playDeck,
+				startingAmount,
+				machineCreditBaseline,
+				new Lucky5DoubleUpOptions(
+					FirstLuckyMultiplier: specialRules.LuckyFiveFirstSwitchMultiplier,
+					RepeatLuckyMultiplier: specialRules.LuckyFiveRepeatSwitchMultiplier,
+					MaxCreditLimit: Decimal.ToInt32(EngineCfg.CloseThreshold),
+					AceCountsHiOrLo: specialRules.AceAutoWinsDoubleUp,
+					LuckyFiveArmsNoLose: specialRules.LuckyFiveSwitchArmsNoLose),
+				Decimal.ToInt32(round.BetAmount));
+		}
+		else
+		{
+			session = (Lucky5DoubleUpSession)engine.StartDoubleUp(startingAmount, round.RoundEntropySeed, machineCreditBaseline, Decimal.ToInt32(round.BetAmount));
+		}
 
 		round.DoubleUpSession = session;
 		round.EnteredDoubleUp = true;

@@ -28,6 +28,8 @@ public sealed class WildWitchCabinetVariant : ICabinetVariantEngine
 {
     public string GameId => "wildwitch";
 
+    public IReadOnlyList<CleanRoomCard> BuildDeck() => BuildWildWitchDeck().ToList();
+
     private static readonly CleanRoomCard JokerCard = new(15, 'J'); // Special Joker/Wild rank
     private static readonly CleanRoomCard FiveOfSpades = new(5, 'S');
     private const int DoubleUpThreshold = 7; // BIG >= 7, SMALL < 7 (but Ace auto-wins both ways)

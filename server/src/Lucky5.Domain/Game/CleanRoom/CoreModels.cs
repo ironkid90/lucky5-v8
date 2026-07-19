@@ -178,6 +178,22 @@ public sealed record PaytableProfile(
 			[HandCategory.OnePair] = 1
 		});
 
+	public static PaytableProfile WildWitch { get; } = new(
+		"Wild Witch",
+		new Dictionary<HandCategory, int>
+		{
+			[HandCategory.FiveOfAKind] = 600,
+			[HandCategory.RoyalFlush] = 250,
+			[HandCategory.StraightFlush] = 50,
+			[HandCategory.FourOfAKind] = 25,
+			[HandCategory.FullHouse] = 9,
+			[HandCategory.Flush] = 6,
+			[HandCategory.Straight] = 4,
+			[HandCategory.ThreeOfAKind] = 3,
+			[HandCategory.TwoPair] = 2,
+			[HandCategory.OnePair] = 1
+		});
+
 	public static PaytableProfile TwoPairMinimum { get; } = new(
 		"Two Pair Minimum",
 		new Dictionary<HandCategory, int>
