@@ -14,6 +14,11 @@ public interface ICabinetVariantEngine
     string GameId { get; }
 
     /// <summary>
+    /// Builds the standard deck for the cabinet variant.
+    /// </summary>
+    IReadOnlyList<CleanRoomCard> BuildDeck();
+
+    /// <summary>
     /// Starts a double-up session conforming to the specific variant's logic rules (e.g., Safe Fails, Joker replacements).
     /// </summary>
     IDoubleUpSession StartDoubleUp(int openingAmount, ulong seedRoot, int machineCreditBaseline, int boardBetAmount);

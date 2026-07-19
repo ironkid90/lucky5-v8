@@ -8,6 +8,8 @@ public sealed class Lucky5CabinetVariant : ICabinetVariantEngine
 {
 	public string GameId => "lucky5";
 
+	public IReadOnlyList<CleanRoomCard> BuildDeck() => FiveCardDrawEngine.BuildStandardDeck();
+
 	public IDoubleUpSession StartDoubleUp(int openingAmount, ulong seedRoot, int machineCreditBaseline, int boardBetAmount)
 	{
 		return Lucky5DoubleUpEngine.Start(
