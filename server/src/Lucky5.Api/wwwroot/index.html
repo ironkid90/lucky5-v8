@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="lucky5-api-base" content="">
     <title>Lucky 5 - Video Poker</title>
-    <link rel="stylesheet" href="/css/game.css?v=19">
+    <link rel="stylesheet" href="/css/game.css?v=20">
     <link rel="stylesheet" href="/css/cabinet-layout-vnext.css?v=2">
     <link rel="stylesheet" href="/css/cabinet-labels-vnext.css?v=2">
     <link rel="stylesheet" href="/css/cabinet-shell-vnext.css?v=2">
@@ -174,7 +174,20 @@
                 <div class="wallet-spacer"></div>
             </div>
             <div class="wallet-body admin-body">
+                <div class="admin-hero-panel">
+                    <div>
+                        <div class="admin-kicker">OPERATOR CONTROL</div>
+                        <div class="admin-hero-title">LIVE FLOOR SUMMARY</div>
+                        <div class="admin-hero-copy">Review players, refill agent pools, and audit machine RTP from one cabinet-style console.</div>
+                    </div>
+                    <div class="admin-quick-stats" aria-label="Admin quick stats">
+                        <div class="admin-stat-card"><span>PLAYERS</span><strong id="admin-stat-users">--</strong></div>
+                        <div class="admin-stat-card"><span>AGENTS</span><strong id="admin-stat-agents">--</strong></div>
+                        <div class="admin-stat-card"><span>MACHINES</span><strong id="admin-stat-machines">--</strong></div>
+                    </div>
+                </div>
                 <div class="wallet-history-title">PLAYERS</div>
+                <div class="admin-section-help">Search by username, then credit or debit the selected wallet with an audit note.</div>
                 <div class="wallet-deposit-withdraw">
                     <input id="admin-user-search" placeholder="SEARCH USERNAME" class="admin-input-lite" style="flex:1;min-width:0;">
                     <button class="lobby-btn wallet-action-btn" id="admin-user-search-btn">SEARCH</button>
@@ -182,6 +195,7 @@
                 </div>
                 <div id="admin-users-list" class="wallet-history-list"></div>
                 <div class="wallet-history-title">AGENTS / CREDIT POOLS</div>
+                <div class="admin-section-help">Create field agents, load their credit pool, or assign players for managed usage.</div>
                 <div class="wallet-deposit-withdraw">
                     <input id="admin-agent-name" placeholder="AGENT NAME" class="admin-input-lite" style="flex:1;min-width:130px;">
                     <input id="admin-agent-code" placeholder="CODE" class="admin-input-lite" style="flex:0 0 90px;min-width:0;">
@@ -193,6 +207,7 @@
                 </div>
                 <div id="admin-agents-list" class="wallet-history-list"></div>
                 <div class="wallet-history-title">MACHINES / RTP</div>
+                <div class="admin-section-help">Refresh cabinet health, current credits, and configured return targets before floor changes.</div>
                 <div class="wallet-deposit-withdraw">
                     <button class="lobby-btn wallet-action-btn" id="admin-machine-refresh-btn" style="flex:1;">REFRESH MACHINES</button>
                 </div>
