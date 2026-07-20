@@ -3357,6 +3357,15 @@ async function customPrompt(title, message, defaultValue = '', numericOnly = fal
     return res ? res[0] : null;
 }
 
+function updateAdminStats() {
+    const statUsers = document.getElementById('admin-stat-users');
+    const statAgents = document.getElementById('admin-stat-agents');
+    const statMachines = document.getElementById('admin-stat-machines');
+    if (statUsers) statUsers.textContent = formatNum(adminUsers.length || 0);
+    if (statAgents) statAgents.textContent = formatNum(adminAgents.length || 0);
+    if (statMachines) statMachines.textContent = formatNum(adminMachines.length || 0);
+}
+
 function showAdmin() {
     if (currentRole !== 'admin') return;
     activateShellScreen('admin', 'admin');
@@ -3375,18 +3384,21 @@ async function loadAdminUsers(query = '') {
             : await apiCall('GET', GAME_CONFIG.api.adminUsers);
         if (!adminUsers.length) {
             wrap.innerHTML = '<div class="wallet-history-empty">NO USERS FOUND</div>';
+            updateAdminStats();
             return;
         }
         wrap.innerHTML = '';
         adminUsers.forEach(user => {
             const row = document.createElement('div');
-            row.className = 'wallet-history-row';
+            row.className = 'wallet-history-row admin-data-row';
+            const role = escapeHtml(user.role || 'player').toUpperCase();
             row.innerHTML = `
                 <div class="wallet-history-info">
-                    <div class="wallet-history-type">${escapeHtml(user.username).toUpperCase()} • ${escapeHtml(user.role || 'player').toUpperCase()}</div>
-                    <div class="wallet-history-date">${formatNum(user.walletBalance)} • ${formatTransactionDate(user.lastSeenUtc)}</div>
+                    <div class="wallet-history-type">${escapeHtml(user.username).toUpperCase()} <span class="admin-badge ${role === 'ADMIN' ? 'is-warn' : 'is-muted'}">${role}</span></div>
+                    <div class="wallet-history-date">WALLET ${formatNum(user.walletBalance)} • LAST SEEN ${formatTransactionDate(user.lastSeenUtc)}</div>
+                    <div class="wallet-history-date">USER ID ${escapeHtml(user.userId || '')}</div>
                 </div>
-                <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+                <div class="admin-row-actions">
                     <button class="lobby-btn lobby-btn-sm" data-credit="${user.userId}">+CREDIT</button>
                     <button class="lobby-btn lobby-btn-sm" data-debit="${user.userId}">-DEBIT</button>
                 </div>
@@ -3395,6 +3407,7 @@ async function loadAdminUsers(query = '') {
         });
         wrap.querySelectorAll('[data-credit]').forEach(btn => btn.addEventListener('click', () => adminAdjustWallet(btn.dataset.credit, false)));
         wrap.querySelectorAll('[data-debit]').forEach(btn => btn.addEventListener('click', () => adminAdjustWallet(btn.dataset.debit, true)));
+        updateAdminStats();
     } catch (e) {
         wrap.innerHTML = `<div class="wallet-history-empty">${escapeHtml(e.message)}</div>`;
     }
@@ -3468,19 +3481,20 @@ async function loadAdminAgents() {
         adminAgents = await apiCall('GET', GAME_CONFIG.api.agents);
         if (!adminAgents.length) {
             wrap.innerHTML = '<div class="wallet-history-empty">NO AGENTS FOUND</div>';
+            updateAdminStats();
             return;
         }
         wrap.innerHTML = '';
         adminAgents.forEach(agent => {
             const row = document.createElement('div');
-            row.className = 'wallet-history-row';
+            row.className = 'wallet-history-row admin-data-row';
             row.innerHTML = `
                 <div class="wallet-history-info">
-                    <div class="wallet-history-type">${escapeHtml(agent.name || 'AGENT').toUpperCase()} • ${escapeHtml(agent.code || '').toUpperCase()}</div>
-                    <div class="wallet-history-date">${escapeHtml(agent.phoneNumber || 'NO PHONE')} • POOL ${formatNum(agent.creditPool || 0)}</div>
-                    <div class="wallet-history-date">${agent.isActive ? 'ACTIVE' : 'INACTIVE'} • CREATED ${formatTransactionDate(agent.createdUtc)}</div>
+                    <div class="wallet-history-type">${escapeHtml(agent.name || 'AGENT').toUpperCase()} <span class="admin-badge">${escapeHtml(agent.code || '').toUpperCase()}</span> <span class="admin-badge ${agent.isActive ? 'is-good' : 'is-muted'}">${agent.isActive ? 'ACTIVE' : 'INACTIVE'}</span></div>
+                    <div class="wallet-history-date">PHONE ${escapeHtml(agent.phoneNumber || 'NO PHONE')} • POOL ${formatNum(agent.creditPool || 0)}</div>
+                    <div class="wallet-history-date">CREATED ${formatTransactionDate(agent.createdUtc)}</div>
                 </div>
-                <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+                <div class="admin-row-actions">
                     <button class="lobby-btn lobby-btn-sm" data-agent-credit="${agent.id}">LOAD</button>
                     <button class="lobby-btn lobby-btn-sm" data-agent-assign="${agent.id}">ASSIGN USER</button>
                 </div>
@@ -3489,6 +3503,7 @@ async function loadAdminAgents() {
         });
         wrap.querySelectorAll('[data-agent-credit]').forEach(btn => btn.addEventListener('click', () => loadCreditForAgent(btn.dataset.agentCredit)));
         wrap.querySelectorAll('[data-agent-assign]').forEach(btn => btn.addEventListener('click', () => assignUserToAgent(btn.dataset.agentAssign)));
+        updateAdminStats();
     } catch (e) {
         wrap.innerHTML = `<div class="wallet-history-empty">${escapeHtml(e.message)}</div>`;
     }
@@ -3610,12 +3625,13 @@ async function loadAdminMachines() {
         adminMachines = await apiCall('GET', GAME_CONFIG.api.adminMachines);
         if (!adminMachines.length) {
             wrap.innerHTML = '<div class="wallet-history-empty">NO MACHINES FOUND</div>';
+            updateAdminStats();
             return;
         }
         wrap.innerHTML = '';
         adminMachines.forEach(machine => {
             const row = document.createElement('div');
-            row.className = 'wallet-history-row';
+            row.className = 'wallet-history-row admin-data-row';
             const obsRtp = (Number(machine.observedRtp || 0) * 100).toFixed(2);
             const tgtRtp = (Number(machine.targetRtp || 0) * 100).toFixed(2);
             const sessionsHtml = (machine.sessions || []).map(s =>
@@ -3632,7 +3648,7 @@ async function loadAdminMachines() {
                     <div class="wallet-history-date">SF ${formatNum(machine.jackpotStraightFlush || 0)}</div>
                     ${sessionsHtml}
                 </div>
-                <div style="display:flex;align-items:flex-start;">
+                <div class="admin-row-actions">
                     <button class="lobby-btn lobby-btn-sm" data-reset-machine="${machine.machineId}">RESET</button>
                 </div>
             `;
@@ -3649,6 +3665,7 @@ async function loadAdminMachines() {
                 await customAlert('ERROR', e.message);
             }
         }));
+        updateAdminStats();
     } catch (e) {
         wrap.innerHTML = `<div class="wallet-history-empty">${escapeHtml(e.message)}</div>`;
     }
