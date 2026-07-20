@@ -34,6 +34,13 @@ public class InMemoryDataStoreAdapter : IDataStore
         return Task.FromResult(user);
     }
 
+    public Task CreateUserAsync(User user)
+    {
+        _store.Users[user.Id] = user;
+        _store.Profiles[user.Id] = user;
+        return Task.CompletedTask;
+    }
+
     public Task UpdateUserAsync(User user)
     {
         _store.Users[user.Id] = user;
@@ -47,7 +54,53 @@ public class InMemoryDataStoreAdapter : IDataStore
         return Task.FromResult(profile);
     }
 
+    public Task CreateProfileAsync(MemberProfile profile)
+    {
+        _store.MemberProfiles[profile.UserId] = profile;
+        return Task.CompletedTask;
+    }
+
     public Task UpdateProfileAsync(MemberProfile profile)
+    {
+        _store.MemberProfiles[profile.UserId] = profile;
+        return Task.CompletedTask;
+    }
+
+    public Task<IReadOnlyList<WalletLedgerEntry>> GetWalletLedgerEntriesAsync(Guid userId)
+    {
+        var entries = _store.Ledger
+            .Where(x => x.UserId == userId)
+            .OrderByDescending(x => x.CreatedUtc)
+            .ToList();
+        return Task.FromResult<IReadOnlyList<WalletLedgerEntry>>(entries);
+    }
+
+    public Task<List<Agent>> GetAgentsAsync()
+    {
+        // For in memory we don't have agents built-in to store yet. 
+        // Returning empty list.
+        return Task.FromResult(new List<Agent>());
+    }
+
+    public Task<Agent?> GetAgentByIdAsync(int agentId)
+    {
+        return Task.FromResult<Agent?>(null);
+    }
+
+    public Task<Agent?> GetAgentByCodeAsync(string code)
+    {
+        return Task.FromResult<Agent?>(null);
+    }
+
+    public Task CreateAgentAsync(Agent agent)
+    {
+        return Task.CompletedTask;
+    }
+
+    public Task UpdateAgentAsync(Agent agent)
+    {
+        return Task.CompletedTask;
+    }
     {
         _store.MemberProfiles[profile.UserId] = profile;
         return Task.CompletedTask;
