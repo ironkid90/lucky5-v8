@@ -101,10 +101,6 @@ public class InMemoryDataStoreAdapter : IDataStore
     {
         return Task.CompletedTask;
     }
-    {
-        _store.MemberProfiles[profile.UserId] = profile;
-        return Task.CompletedTask;
-    }
 
     public Task<List<Machine>> GetMachinesAsync()
     {
