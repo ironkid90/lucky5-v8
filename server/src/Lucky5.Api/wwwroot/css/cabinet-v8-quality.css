@@ -815,54 +815,67 @@ button.cab-btn.asset-button {
 
 @keyframes v8-card-thump-in {
     0%   { transform: scale(0.65); opacity: 0; }
-    50%  { transform: scale(1.08); opacity: 1; }
-    70%  { transform: scale(0.94); }
-    85%  { transform: scale(1.02); }
+    40%  { transform: scale(1.15); opacity: 1; }
+    60%  { transform: scale(0.90); }
+    80%  { transform: scale(1.05); }
     100% { transform: scale(1.0); opacity: 1; }
 }
 
 .card-slot.card-deal-thump {
-    animation: v8-card-thump-in 0.28s ease-out forwards;
+    animation: v8-card-thump-in 0.3s ease-out forwards;
 }
 
 /* Card-area shadow burst on deal — sells the physical "thump" hit
    across the entire deck area. Triggered by a brief class on #card-area. */
 @keyframes v8-card-area-thump {
     0%   { filter: brightness(1) drop-shadow(0 0 0 rgba(0,0,0,0)); }
-    35%  { filter: brightness(1.08) drop-shadow(0 0 3cqh rgba(255,210,60,0.5)); }
+    35%  { filter: brightness(1.12) drop-shadow(0 0 4cqh rgba(255,210,60,0.6)); }
     100% { filter: brightness(1) drop-shadow(0 0 0 rgba(0,0,0,0)); }
 }
 
 #card-area.card-area-thump {
-    animation: v8-card-area-thump 0.4s ease-out;
+    animation: v8-card-area-thump 0.45s ease-out;
 }
 
 /* Shadow punch on individual card thump landing to sell the physical "hit" */
 .card-slot.card-deal-thump .card-face {
-    animation: v8-thump-shadow 0.28s ease-out forwards;
+    animation: v8-thump-shadow 0.3s ease-out forwards;
 }
 
 @keyframes v8-thump-shadow {
     0%   { box-shadow: 0 0 0 rgba(0,0,0,0); }
-    45%  { box-shadow: 0 0.5cqh 1.5cqh rgba(0,0,0,0.6), 0 0 2cqh rgba(255,210,60,0.4); }
+    40%  { box-shadow: 0 0.8cqh 2cqh rgba(0,0,0,0.7), 0 0 3cqh rgba(255,210,60,0.5); }
     100% { box-shadow: 0.2cqh 0.4cqh 1cqh rgba(0,0,0,0.35); }
 }
 
 /* Draw thump: tighter timing for replacement cards, more pronounced pop */
 @keyframes v8-card-draw-thump {
     0%   { transform: scale(0.55); opacity: 0; }
-    45%  { transform: scale(1.10); opacity: 1; }
-    65%  { transform: scale(0.92); }
-    80%  { transform: scale(1.03); }
+    40%  { transform: scale(1.18); opacity: 1; }
+    60%  { transform: scale(0.88); }
+    80%  { transform: scale(1.06); }
     100% { transform: scale(1.0); opacity: 1; }
 }
 
 .card-slot.card-draw-thump {
-    animation: v8-card-draw-thump 0.24s ease-out forwards;
+    animation: v8-card-draw-thump 0.26s ease-out forwards;
 }
 
 .card-slot.card-draw-thump .card-face {
-    animation: v8-thump-shadow 0.24s ease-out forwards;
+    animation: v8-thump-shadow 0.26s ease-out forwards;
+}
+
+/* Double Up Flip Animation Overrides */
+.du-card-frame.du-flip-out > div {
+    transform: perspective(400px) rotateY(90deg) scale(1.05);
+    opacity: 0.5;
+    transition: transform 0.18s ease-in, opacity 0.18s ease-in;
+}
+
+.du-card-frame.du-flip-in > div {
+    transform: perspective(400px) rotateY(0deg) scale(1.0);
+    opacity: 1;
+    transition: transform 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.22s ease-out;
 }
 
 /* ── 17. Responsive polish: ensure playable on all screens ──── */

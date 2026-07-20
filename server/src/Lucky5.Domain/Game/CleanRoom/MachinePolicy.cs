@@ -637,7 +637,6 @@ public static class MachinePolicy
         var rng = new SplitMix64Rng(DeterministicSeed.Derive(entropySeed, "double-up-sequence-pressure"));
         var groups = deck
             .GroupBy(card => card.Rank)
-            .OrderByDescending(group => group.Key)
             .Select(group =>
             {
                 var cards = group.ToList();
@@ -645,24 +644,24 @@ public static class MachinePolicy
                 return cards;
             })
             .ToList();
+            
+        rng.Shuffle(groups);
 
         if (pressure < cfg.DoubleUpSequencePressureStart)
         {
             var middleGroups = groups
                 .Where(group => group[0].Rank is >= 6 and <= 10)
                 .ToList();
-            rng.Shuffle(middleGroups);
-
+            // middleGroups are already shuffled via rng.Shuffle(groups), but we can shuffle cards
+            var middleCards = middleGroups.SelectMany(g => g).ToList();
+            rng.Shuffle(middleCards);
+            
             var edgeGroups = groups
                 .Where(group => group[0].Rank is < 6 or > 10)
                 .ToList();
-
-            // Shuffle across ranks within middle/edge groups so the
-            // first card (the dealer) isn't always the same rank.
-            var middleCards = middleGroups.SelectMany(g => g).ToList();
-            rng.Shuffle(middleCards);
             var edgeCards = edgeGroups.SelectMany(g => g).ToList();
             rng.Shuffle(edgeCards);
+            
             return middleCards.Concat(edgeCards).ToArray();
         }
 

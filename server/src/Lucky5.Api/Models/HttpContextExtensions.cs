@@ -28,6 +28,19 @@ public static class HttpContextExtensions
         return userId;
     }
 
+    public static (Guid UserId, string Role) RequireAgentOrAdminRole(this HttpContext context)
+    {
+        var userId = context.RequireUserId();
+        var role = context.User.FindFirst(ClaimTypes.Role)?.Value;
+        if (!string.Equals(role, "admin", StringComparison.OrdinalIgnoreCase) && 
+            !string.Equals(role, "agent", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new UnauthorizedAccessException("Agent or Admin role required");
+        }
+
+        return (userId, role ?? "player");
+    }
+
     public static CabinetDeviceAuthContext RequireCabinetDevice(this HttpContext context)
     {
         if (context.Items.TryGetValue("cabinet_device", out var value) && value is CabinetDeviceAuthContext device)

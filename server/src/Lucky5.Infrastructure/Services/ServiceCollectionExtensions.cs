@@ -9,6 +9,7 @@ using PersistenceCoordinator = Lucky5.Infrastructure.Persistence.IPersistentStat
 using PersistenceStore = Lucky5.Infrastructure.Persistence.IPersistentStateStore;
 using RedisSnapshotStore = Lucky5.Infrastructure.Persistence.RedisPersistentStateStore;
 using FileSnapshotStore = Lucky5.Infrastructure.Persistence.FilePersistentStateStore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -20,8 +21,24 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddLucky5Infrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        services.AddSingleton<InMemoryDataStore>();
-        services.AddSingleton<IDataStore, InMemoryDataStoreAdapter>();
+        var databaseConnectionString = configuration.GetConnectionString("Database")
+            ?? configuration["LUCKY5_DATABASE_CONNECTION"]
+            ?? configuration["DATABASE_URL"]
+            ?? configuration["DATABASE:CONNECTION"];
+
+        if (!string.IsNullOrWhiteSpace(databaseConnectionString))
+        {
+            services.AddDbContext<Lucky5.Infrastructure.Data.Lucky5DbContext>(options =>
+                options.UseNpgsql(databaseConnectionString));
+            services.AddScoped<IDataStore, Lucky5.Infrastructure.Data.Repositories.EfCoreDataStore>();
+            // Also keep InMemoryDataStore for anything that tightly couples to it internally, but prefer IDataStore
+            services.AddSingleton<InMemoryDataStore>();
+        }
+        else
+        {
+            services.AddSingleton<InMemoryDataStore>();
+            services.AddSingleton<IDataStore, InMemoryDataStoreAdapter>();
+        }
         
         // Register token revocation store
         services.AddSingleton<ITokenRevocationStore, PersistentTokenRevocationStore>();

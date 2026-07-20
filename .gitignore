@@ -48,9 +48,7 @@ Thumbs.db
 .trae/
 .trunk/
 .vibe/
-.windsurf/mcp.json
-.windsurf/last-session.json
-.windsurf/settings.json
+.windsurf/
 .worktrees/
 .zencoder/
 .copilot-cli/
@@ -63,6 +61,34 @@ ai9/
 goldenpoker/
 .ionide/
 .comp/
+
+# ── AI agent state directories (never commit) ──────────────────────────────────
+.history/
+.vexp/
+.cursor/
+.kiro/
+.zed/
+.contextstream/
+.antigravity/
+.agentsroom/
+.goals/
+.brain/
+.openclaw/
+.cagent/
+.agent-runtime/
+.codex/
+.opencode/
+.agent-jobs/
+.github/copilot/
+.github/skills/
+.github/instructions/
+*.vexp-bak
+*.vexp-daemon
+.vexp/daemon.pid
+.vexp/daemon.pipe
+.vexp/healthy
+.vexp/manifest.json
+.gemini.lnk
 
 # ── Local workspace scratch / agent state ─────────────────────────────────────
 tmp/
@@ -164,7 +190,6 @@ venv/
 
 # ── Firebase / GCP ───────────────────────────────────────────────────────────
 .firebase/
-.gcloudignore
 google-services.json
 GoogleService-Info.plist
 
@@ -177,10 +202,8 @@ ai9/*.aab
 .agentsroom/handoff-summary-*.md
 /db-context-enrichment
 /genai-for-developers
-/.opencode
-/.codex
 /azd-ai-starter-basic
-/.kiro
-*.vexp-bak
-/.cursor
-/azd-ai-starter-basic
+/build/.cmake
+/build
+/goldenpo
+/playpoker
