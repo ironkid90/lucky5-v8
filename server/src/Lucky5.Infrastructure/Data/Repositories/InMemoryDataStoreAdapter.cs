@@ -76,36 +76,33 @@ public class InMemoryDataStoreAdapter : IDataStore
     }
 
     public Task<List<Agent>> GetAgentsAsync()
-        {
-            return Task.FromResult(_store.Agents.Values.ToList());
-        }
+    {
+        // For in memory we don't have agents built-in to store yet. 
+        // Returning empty list.
+        return Task.FromResult(new List<Agent>());
+    }
 
-        public Task<Agent?> GetAgentByIdAsync(int agentId)
-        {
-            _store.Agents.TryGetValue(agentId, out var agent);
-            return Task.FromResult(agent);
-        }
+    public Task<Agent?> GetAgentByIdAsync(int agentId)
+    {
+        return Task.FromResult<Agent?>(null);
+    }
 
-        public Task<Agent?> GetAgentByCodeAsync(string code)
-        {
-            var agent = _store.Agents.Values.FirstOrDefault(a =>
-                a.Code.Equals(code, StringComparison.OrdinalIgnoreCase));
-            return Task.FromResult(agent);
-        }
+    public Task<Agent?> GetAgentByCodeAsync(string code)
+    {
+        return Task.FromResult<Agent?>(null);
+    }
 
-        public Task CreateAgentAsync(Agent agent)
-        {
-            _store.Agents[agent.Id] = agent;
-            return Task.CompletedTask;
-        }
+    public Task CreateAgentAsync(Agent agent)
+    {
+        return Task.CompletedTask;
+    }
 
-        public Task UpdateAgentAsync(Agent agent)
-        {
-            _store.Agents[agent.Id] = agent;
-            return Task.CompletedTask;
-        }
+    public Task UpdateAgentAsync(Agent agent)
+    {
+        return Task.CompletedTask;
+    }
 
-        public Task<List<Machine>> GetMachinesAsync()
+    public Task<List<Machine>> GetMachinesAsync()
     {
         return Task.FromResult(_store.Machines.Values.ToList());
     }
