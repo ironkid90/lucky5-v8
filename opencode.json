@@ -320,6 +320,17 @@
         "Google Maps"
       ],
       "environment": {}
+    },
+    "vexp": {
+      "type": "local",
+      "command": [
+        "node",
+        "c:\\Users\\Gabi.WIN-CD45QMUUPFF\\.vscode-insiders\\extensions\\vexp.vexp-vscode-2.2.3-win32-x64\\dist\\mcp-server.cjs"
+      ],
+      "env": {
+        "VEXP_WORKSPACE": "c:\\Users\\Gabi.WIN-CD45QMUUPFF\\Documents\\GitHub\\lucky5-v8\\lucky5-v8"
+      },
+      "enabled": true
     }
   }
 }
