@@ -30,6 +30,12 @@ public class EfCoreDataStore : IDataStore
         return await _context.Users.FindAsync(userId);
     }
 
+    public async Task CreateUserAsync(User user)
+    {
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
+    }
+
     public async Task UpdateUserAsync(User user)
     {
         _context.Users.Update(user);
@@ -41,9 +47,50 @@ public class EfCoreDataStore : IDataStore
         return await _context.Profiles.FindAsync(userId);
     }
 
+    public async Task CreateProfileAsync(MemberProfile profile)
+    {
+        _context.Profiles.Add(profile);
+        await _context.SaveChangesAsync();
+    }
+
     public async Task UpdateProfileAsync(MemberProfile profile)
     {
         _context.Profiles.Update(profile);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task<IReadOnlyList<WalletLedgerEntry>> GetWalletLedgerEntriesAsync(Guid userId)
+    {
+        return await _context.WalletLedgers
+            .Where(x => x.UserId == userId)
+            .OrderByDescending(x => x.CreatedUtc)
+            .ToListAsync();
+    }
+
+    public async Task<List<Agent>> GetAgentsAsync()
+    {
+        return await _context.Agents.ToListAsync();
+    }
+
+    public async Task<Agent?> GetAgentByIdAsync(int agentId)
+    {
+        return await _context.Agents.FindAsync(agentId);
+    }
+
+    public async Task<Agent?> GetAgentByCodeAsync(string code)
+    {
+        return await _context.Agents.FirstOrDefaultAsync(a => a.Code == code);
+    }
+
+    public async Task CreateAgentAsync(Agent agent)
+    {
+        _context.Agents.Add(agent);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task UpdateAgentAsync(Agent agent)
+    {
+        _context.Agents.Update(agent);
         await _context.SaveChangesAsync();
     }
 

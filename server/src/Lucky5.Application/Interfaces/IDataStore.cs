@@ -10,8 +10,17 @@ public interface IDataStore
     Task<User?> GetUserByUsernameAsync(string username);
     Task<User?> GetUserByIdAsync(Guid userId);
     Task UpdateUserAsync(User user);
+    Task CreateUserAsync(User user);
     Task<MemberProfile?> GetProfileAsync(Guid userId);
     Task UpdateProfileAsync(MemberProfile profile);
+    Task CreateProfileAsync(MemberProfile profile);
+    Task<IReadOnlyList<WalletLedgerEntry>> GetWalletLedgerEntriesAsync(Guid userId);
+
+    Task<List<Agent>> GetAgentsAsync();
+    Task<Agent?> GetAgentByIdAsync(int agentId);
+    Task<Agent?> GetAgentByCodeAsync(string code);
+    Task CreateAgentAsync(Agent agent);
+    Task UpdateAgentAsync(Agent agent);
 
     Task<List<Machine>> GetMachinesAsync();
     Task<Machine?> GetMachineAsync(int machineId);

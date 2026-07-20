@@ -26,6 +26,7 @@ public class Lucky5DbContext : DbContext
     public DbSet<ContactType> ContactTypes => Set<ContactType>();
     public DbSet<ContactReport> ContactReports => Set<ContactReport>();
     public DbSet<AppSetting> AppSettings => Set<AppSetting>();
+    public DbSet<Agent> Agents => Set<Agent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -189,6 +190,16 @@ public class Lucky5DbContext : DbContext
             entity.HasIndex(e => new { e.UserId, e.MachineId, e.SequenceNumber });
             entity.Property(e => e.EventType).HasMaxLength(50).IsRequired();
             entity.Property(e => e.PayloadJson).HasColumnType("jsonb");
+        });
+
+        // Agent Configuration
+        modelBuilder.Entity<Agent>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.Code).HasMaxLength(50).IsRequired();
+            entity.HasIndex(e => e.Code).IsUnique();
+            entity.Property(e => e.CreditPool).HasPrecision(18, 2);
         });
 
         // Seed Data for Machines
