@@ -139,17 +139,19 @@ public static class Lucky5DoubleUpEngine
 	}
 
 	public static Lucky5DoubleUpResolution ResolveGuess(Lucky5DoubleUpSession session, BigSmallGuess guess)
-	{
-		EnsurePlayable(session);
-		session = RefreshBoardSessionIfNeeded(session);
+	    {
+	        EnsurePlayable(session);
+	        session = RefreshBoardSessionIfNeeded(session);
 
-		var challengerIndex = session.SwapActivePosition >= 0
-			? session.SwapActivePosition
-			: session.DealerIndex + 1;
-		if (challengerIndex >= session.Deck.Length)
-		{
-			throw new InvalidOperationException("No challenger card available for double-up resolution.");
-		}
+	        var challengerIndex = session.SwapActivePosition >= 0
+	            ? session.SwapActivePosition
+	            : session.DealerIndex + 1;
+	        if (challengerIndex >= session.Deck.Length)
+	        {
+	            // Deck exhausted — force a loss by treating the last card as the challenger
+	            // (player cannot win when dealer is the only card left)
+	            challengerIndex = session.DealerIndex;
+	        }
 
 		var challengerCard = session.Deck[challengerIndex];
 		var previousAmount = session.CurrentAmount;

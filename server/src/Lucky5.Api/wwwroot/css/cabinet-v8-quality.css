@@ -748,20 +748,35 @@ button.cab-btn.asset-button {
     overflow: hidden;
 }
 
+.du-card-slot .card-front {
+    font-size: clamp(6px, 3cqh, 14px);
+}
+
 .du-card-slot .card-suit-large {
-    font-size: clamp(12px, 4.5cqh, 40px);
+    font-size: clamp(10px, 5cqh, 48px);
 }
 
 .du-card-slot .card-rank {
-    font-size: clamp(8px, 2cqh, 18px);
+    font-size: clamp(7px, 2.2cqh, 20px);
+    font-weight: 900;
 }
 
 .du-card-slot .card-suit {
-    font-size: clamp(7px, 1.5cqh, 14px);
+    font-size: clamp(6px, 1.8cqh, 16px);
 }
 
 .du-card-slot .card-corner {
     line-height: 1;
+}
+
+.du-card-slot .card-corner.top-left {
+    top: 0.25cqh;
+    left: 0.25cqh;
+}
+
+.du-card-slot .card-corner.bottom-right {
+    bottom: 0.25cqh;
+    right: 0.25cqh;
 }
 
 .card-back-pattern {

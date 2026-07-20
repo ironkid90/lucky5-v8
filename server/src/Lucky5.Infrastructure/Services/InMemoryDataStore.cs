@@ -22,10 +22,11 @@ public sealed class InMemoryDataStore
     public readonly ConcurrentDictionary<Guid, CabinetDevice> CabinetDevices = new();
     public readonly ConcurrentDictionary<Guid, CabinetDeviceSession> CabinetDeviceSessions = new();
     public readonly ConcurrentDictionary<string, TokenRevocationEntry> TokenRevocationEntries = new(StringComparer.OrdinalIgnoreCase);
-    public readonly ConcurrentBag<WalletLedgerEntry> Ledger = new();
-    public readonly ConcurrentQueue<AdminAuditRecord> AdminAuditRecords = new();
-    public readonly object LedgerSync = new();
-    public readonly object AdminAuditSync = new();
+        public readonly ConcurrentBag<WalletLedgerEntry> Ledger = new();
+        public readonly ConcurrentQueue<AdminAuditRecord> AdminAuditRecords = new();
+        public readonly ConcurrentDictionary<int, Agent> Agents = new();
+        public readonly object LedgerSync = new();
+        public readonly object AdminAuditSync = new();
     public long AdminAuditSequence;
 
     // Legacy properties for compatibility

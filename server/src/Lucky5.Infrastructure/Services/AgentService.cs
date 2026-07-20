@@ -11,16 +11,23 @@ public sealed class AgentService(IDataStore store) : IAgentService
     private static int _nextId = 1;
     private static readonly ConcurrentDictionary<int, Agent> _agents = new();
 
-    public Task<IReadOnlyList<AgentDto>> GetAgentsAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<AgentDto>> GetAgentsAsync(CancellationToken cancellationToken)
     {
+        // Load from persistent store; fall back to in-memory cache
+        var persistentAgents = await store.GetAgentsAsync();
+        foreach (var agent in persistentAgents)
+        {
+            _agents[agent.Id] = agent;
+        }
+
         IReadOnlyList<AgentDto> list = _agents.Values
             .OrderBy(a => a.Id)
             .Select(ToDto)
             .ToArray();
-        return Task.FromResult(list);
+        return list;
     }
 
-    public Task<AgentDto> CreateAgentAsync(CreateAgentRequest request, CancellationToken cancellationToken)
+    public async Task<AgentDto> CreateAgentAsync(CreateAgentRequest request, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Length < 3 || request.Name.Length > 50 || !System.Text.RegularExpressions.Regex.IsMatch(request.Name, @"^[a-zA-Z0-9\s._\-()]+$"))
             throw new ArgumentException("Agent Name must be 3-50 characters and contain alphanumeric characters, spaces, or simple dashes/dots/underscores/parens.");
@@ -31,6 +38,11 @@ public sealed class AgentService(IDataStore store) : IAgentService
         if (string.IsNullOrWhiteSpace(request.PhoneNumber) || !System.Text.RegularExpressions.Regex.IsMatch(request.PhoneNumber, @"^\+?[0-9\s\-()]{5,20}$"))
             throw new ArgumentException("Phone Number has an invalid format (must be 5 to 20 digits with optional +/spaces/dashes/parens).");
 
+        // Check for duplicate code in persistent store
+        var existingAgent = await store.GetAgentByCodeAsync(request.Code);
+        if (existingAgent is not null)
+            throw new InvalidOperationException($"Agent code '{request.Code}' already exists");
+
         if (_agents.Values.Any(a => a.Code.Equals(request.Code, StringComparison.OrdinalIgnoreCase)))
             throw new InvalidOperationException($"Agent code '{request.Code}' already exists");
 
@@ -40,20 +52,28 @@ public sealed class AgentService(IDataStore store) : IAgentService
             Id = id,
             Name = request.Name,
             Code = request.Code,
-            PhoneNumber = request.PhoneNumber
+            PhoneNumber = request.PhoneNumber,
+            CreditPool = 0,
+            IsActive = true
         };
+
+        await store.CreateAgentAsync(agent);
         _agents[id] = agent;
-        return Task.FromResult(ToDto(agent));
+        return ToDto(agent);
     }
 
-    public Task<AgentDto> LoadCreditAsync(int agentId, decimal amount, CancellationToken cancellationToken)
+    public async Task<AgentDto> LoadCreditAsync(int agentId, decimal amount, CancellationToken cancellationToken)
     {
-        if (!_agents.TryGetValue(agentId, out var agent))
-            throw new KeyNotFoundException($"Agent {agentId} not found");
+        var agent = await store.GetAgentByIdAsync(agentId)
+            ?? throw new KeyNotFoundException($"Agent {agentId} not found");
+
         if (amount <= 0 || amount > 10000000m)
             throw new ArgumentException("Load credit amount must be between 0.01 and 10,000,000.");
+
         agent.CreditPool += amount;
-        return Task.FromResult(ToDto(agent));
+        await store.UpdateAgentAsync(agent);
+        _agents[agentId] = agent;
+        return ToDto(agent);
     }
 
     public async Task AssignUserToAgentAsync(Guid userId, int agentId, CancellationToken cancellationToken)
@@ -63,8 +83,9 @@ public sealed class AgentService(IDataStore store) : IAgentService
 
         var profile = await store.GetProfileAsync(userId)
             ?? throw new KeyNotFoundException("User profile not found");
-        if (!_agents.ContainsKey(agentId))
-            throw new KeyNotFoundException($"Agent {agentId} not found");
+
+        var agent = await store.GetAgentByIdAsync(agentId)
+            ?? throw new KeyNotFoundException($"Agent {agentId} not found");
 
         profile.AgentId = agentId;
         await store.UpdateProfileAsync(profile);
