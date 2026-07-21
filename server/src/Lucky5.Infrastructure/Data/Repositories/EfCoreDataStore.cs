@@ -83,16 +83,21 @@ public class EfCoreDataStore : IDataStore
     }
 
     public async Task CreateAgentAsync(Agent agent)
-    {
-        _context.Agents.Add(agent);
-        await _context.SaveChangesAsync();
-    }
+        {
+            _context.Agents.Add(agent);
+            await _context.SaveChangesAsync();
+        }
 
-    public async Task UpdateAgentAsync(Agent agent)
-    {
-        _context.Agents.Update(agent);
-        await _context.SaveChangesAsync();
-    }
+        public async Task UpdateAgentAsync(Agent agent)
+        {
+            _context.Agents.Update(agent);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task<Agent?> GetAgentByUserIdAsync(Guid userId)
+        {
+            return await _context.Agents.FirstOrDefaultAsync(a => a.UserId == userId);
+        }
 
     public async Task<List<Machine>> GetMachinesAsync()
     {

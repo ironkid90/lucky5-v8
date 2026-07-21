@@ -18,9 +18,10 @@ public interface IDataStore
 
     Task<List<Agent>> GetAgentsAsync();
     Task<Agent?> GetAgentByIdAsync(int agentId);
-    Task<Agent?> GetAgentByCodeAsync(string code);
-    Task CreateAgentAsync(Agent agent);
-    Task UpdateAgentAsync(Agent agent);
+        Task<Agent?> GetAgentByCodeAsync(string code);
+        Task<Agent?> GetAgentByUserIdAsync(Guid userId);
+        Task CreateAgentAsync(Agent agent);
+        Task UpdateAgentAsync(Agent agent);
 
     Task<List<Machine>> GetMachinesAsync();
     Task<Machine?> GetMachineAsync(int machineId);

@@ -5,7 +5,6 @@
 		}
 	],
 	"settings": {
-		"additionalContextMenus.enabled": true,
 		"files.exclude": {
 			"**/.git": true,
 			"**/.svn": true,
@@ -17,6 +16,7 @@
 			"**/.symlinks": true,
 			"**/.plugin_symlinks": true,
 			"**/.mcs": true,
+			"**/agents/**/.agent.json": true,
 			"**/.trunk/*actions/": true,
 			"**/.trunk/*logs/": true,
 			"**/.trunk/*notifications/": true,
@@ -37,8 +37,7 @@
 			"**/.vexp/.gitignore": true,
 			"**/.vexp/.gitattributes": true
 		},
-		"workbench.experimental.cloudChanges.partialMatches.enabled": true,
-		"git.autofetch": true,
-		"deepseek-copilot.experimental.stabilizeToolList": true
+		"chat.byokUtilityModelDefault": "mainAgent",
+		"chat.utilitySmallModel": "openprovider/openprovider/free-openai-fast"
 	}
 }

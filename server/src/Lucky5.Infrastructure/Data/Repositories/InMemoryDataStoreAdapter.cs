@@ -87,6 +87,7 @@ public class InMemoryDataStoreAdapter : IDataStore
         return Task.FromResult<Agent?>(null);
     }
 
+<<<<<<< Updated upstream
     public Task<Agent?> GetAgentByCodeAsync(string code)
     {
         return Task.FromResult<Agent?>(null);
@@ -96,6 +97,26 @@ public class InMemoryDataStoreAdapter : IDataStore
     {
         return Task.CompletedTask;
     }
+=======
+        public Task<Agent?> GetAgentByCodeAsync(string code)
+                {
+                    var agent = _store.Agents.Values.FirstOrDefault(a =>
+                        a.Code.Equals(code, StringComparison.OrdinalIgnoreCase));
+                    return Task.FromResult(agent);
+                }
+
+                public Task<Agent?> GetAgentByUserIdAsync(Guid userId)
+                {
+                    var agent = _store.Agents.Values.FirstOrDefault(a => a.UserId == userId);
+                    return Task.FromResult(agent);
+                }
+
+                public Task CreateAgentAsync(Agent agent)
+                {
+                    _store.Agents[agent.Id] = agent;
+                    return Task.CompletedTask;
+                }
+>>>>>>> Stashed changes
 
     public Task UpdateAgentAsync(Agent agent)
     {

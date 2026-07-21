@@ -171,45 +171,28 @@ window.CabinetStage = (function () {
     const _cardTemplateCache = {};
 
     function _getCardTemplate(inputCard) {
-        const card = _asCard(inputCard);
-        const code = card && card.code ? card.code : 'BACK';
+            const card = _asCard(inputCard);
+            const code = card && card.code ? card.code.toUpperCase() : 'BACK';
 
-        if (_cardTemplateCache[code]) {
+            if (_cardTemplateCache[code]) {
+                return _cardTemplateCache[code].cloneNode(true);
+            }
+
+            const template = document.createElement('div');
+            template.style.width = '100%';
+            template.style.height = '100%';
+            template.style.display = 'block';
+
+            if (code === 'BACK') {
+                // Use the bside.png asset
+                template.innerHTML = `<img src="/assets/images/cards/bside.png" class="card-back-pattern" style="width:100%; height:100%; object-fit:contain; display:block;" />`;
+            } else {
+                template.innerHTML = `<img src="/assets/images/cards/${code}.png" class="card-front" style="width:100%; height:100%; object-fit:contain; display:block;" />`;
+            }
+
+            _cardTemplateCache[code] = template.firstElementChild;
             return _cardTemplateCache[code].cloneNode(true);
         }
-
-        const template = document.createElement('div');
-        template.style.width = '100%';
-        template.style.height = '100%';
-
-        if (code === 'BACK') {
-            template.innerHTML = '<div class="card-back-pattern"><div>LUCKY 5 ♠</div></div>';
-        } else {
-            const isRed = card.suit === 'H' || card.suit === 'D';
-            const colorClass = isRed ? 'card-red' : 'card-black';
-            const symbol = SUIT_SYMBOLS[card.suit] || card.suit;
-            const rank = card.rank === '10' ? '10' : card.rank;
-            
-            template.innerHTML = `
-                <div class="card-front ${colorClass}">
-                    <div class="card-corner top-left">
-                        <span class="card-rank">${rank}</span>
-                        <span class="card-suit">${symbol}</span>
-                    </div>
-                    <div class="card-center">
-                        <span class="card-suit-large">${symbol}</span>
-                    </div>
-                    <div class="card-corner bottom-right">
-                        <span class="card-rank">${rank}</span>
-                        <span class="card-suit">${symbol}</span>
-                    </div>
-                </div>
-            `;
-        }
-
-        _cardTemplateCache[code] = template.firstElementChild;
-        return _cardTemplateCache[code].cloneNode(true);
-    }
 
     function _precacheAllCards() {
         const codes = _allCardCodes();
