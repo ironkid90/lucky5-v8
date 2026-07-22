@@ -477,44 +477,32 @@ public static class MachinePolicy
     }
 
     public static CleanRoomCard[] BuildDoubleUpPlayDeck(
-        CleanRoomCard[] standardDeck,
-        ulong entropySeed,
-        int roundsSinceLucky5Hit,
-        decimal netSinceLastClose,
-        PolicyDistributionMode roundPolicyMode,
-        MachinePolicyState? state,
-        int openingAmount,
-        int machineCreditBaseline,
-        EngineConfig? config = null)
-    {
-        var cfg = config ?? Cfg;
-        var pressure = ComputeDoubleUpDeckPressure(state, roundsSinceLucky5Hit, netSinceLastClose, roundPolicyMode, openingAmount, machineCreditBaseline, cfg);
-        var pressureDeck = BuildDoubleUpDeck(
-            standardDeck,
-            entropySeed,
-            roundsSinceLucky5Hit,
-            netSinceLastClose,
-            roundPolicyMode,
-            state,
-            openingAmount,
-            machineCreditBaseline,
-            cfg);
-        var shuffledDeck = FiveCardDrawEngine.ShuffleDeck(entropySeed, "double-up", pressureDeck);
-        var projectedWin = machineCreditBaseline + (openingAmount * 2m);
-        var projectedChainExposure = machineCreditBaseline + Math.Max(openingAmount * 16m, openingAmount * 2m);
-        var isProjectedCloseCall = projectedWin >= cfg.CloseThreshold * cfg.DoubleUpSequenceCreditStart
-            || projectedChainExposure >= cfg.SoftCapWarning;
-        var sequencePressureStart = projectedChainExposure >= cfg.SoftCapWarning
-            ? Math.Min(cfg.DoubleUpSequencePressureStart, cfg.DoubleUpHighExposureSequencePressureStart)
-            : cfg.DoubleUpSequencePressureStart;
-        var shouldReleaseLowExposure = pressure >= cfg.DoubleUpSequencePressureStart
-            && !isProjectedCloseCall
-            && ShouldReleaseLowExposureDoubleUp(entropySeed, cfg);
+            CleanRoomCard[] standardDeck,
+            ulong entropySeed,
+            int roundsSinceLucky5Hit,
+            decimal netSinceLastClose,
+            PolicyDistributionMode roundPolicyMode,
+            MachinePolicyState? state,
+            int openingAmount,
+            int machineCreditBaseline,
+            EngineConfig? config = null)
+        {
+            var cfg = config ?? Cfg;
+            var pressureDeck = BuildDoubleUpDeck(
+                standardDeck,
+                entropySeed,
+                roundsSinceLucky5Hit,
+                netSinceLastClose,
+                roundPolicyMode,
+                state,
+                openingAmount,
+                machineCreditBaseline,
+                cfg);
 
-        return pressure >= sequencePressureStart && (isProjectedCloseCall || !shouldReleaseLowExposure)
-            ? BuildPressureSequenceDeck(shuffledDeck, pressure, entropySeed, cfg)
-            : shuffledDeck;
-    }
+            // AI9-Parity: Double-up remains adaptively bounded by deck composition (BuildDoubleUpDeck above),
+            // then uses server cryptographic per-round entropy for a full shuffle. No trap-sequences.
+            return FiveCardDrawEngine.ShuffleDeck(entropySeed, "double-up", pressureDeck);
+        }
 
     public static decimal ComputeDoubleUpDeckPressure(
         MachinePolicyState? state,
