@@ -5,6 +5,7 @@
     "@vscode/ripgrep": "^1.18.0",
     "grep": "^0.1.0",
     "hermes-cli": "^1.0.0",
-    "newrelic": "^14.1.2"
+    "newrelic": "^14.1.2",
+    "web": "^0.0.2"
   }
 }

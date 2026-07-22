@@ -76,10 +76,20 @@ public class AgentController(IAgentService agentService) : ControllerBase
                         dbProfile.UserId,
                         dbProfile.Username,
                         dbProfile.DisplayName,
+                        dbProfile.FullName,
                         dbProfile.Email,
                         dbProfile.PhoneNumber,
+                        dbProfile.DateOfBirth,
                         dbProfile.WalletBalance,
-                        dbProfile.AgentId
+                        dbProfile.Credit,
+                        dbProfile.TotalWins,
+                        dbProfile.AgentId,
+                        dbProfile.GeneratedID,
+                        dbProfile.MinimumOut,
+                        dbProfile.BonusDate,
+                        dbProfile.BonusRechargeCount,
+                        dbProfile.LastSeenUtc,
+                        "player"
                     );
                 }
             }

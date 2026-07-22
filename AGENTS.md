@@ -22,8 +22,8 @@ This information is your source of truth for the Lucky5 v8 project.
 This machine has a single canonical MCP store at `C:\Users\Gabi.WIN-CD45QMUUPFF\.mcp-hub\`.
 - **Always edit `~/.mcp-hub/mcp.json`** — never edit platform-specific configs (gemini/codex/claude/vscode) directly.
 - After editing, run `python ~/.mcp-hub/sync.py` to regenerate VS Code, Codex, Gemini, Claude Desktop configs.
-- Hermes is file-sync incapable; add new hub servers with `hermes mcp add <name> --command ... --args ... --env KEY=VAL`.
-- The mandatory `vexp` server is wired there. The tool list includes `run_pipeline` (PRIMARY), `get_skeleton`, `index_status`, `expand_vexp_ref`.
+- Hermes is file-sync incapable; add new stdio hub servers with `hermes mcp add <name> --command ... --args ... --env KEY=VAL`.
+- ContextStream is the primary cross-agent context, memory, semantic search, planning, graph, Q&A, and handoff service. It replaces the legacy `vexp` and standalone MCP memory servers.
 
 ### Invariants
 
@@ -53,30 +53,31 @@ This machine has a single canonical MCP store at `C:\Users\Gabi.WIN-CD45QMUUPFF\
 - **ROM lineage profiles**: [server/src/Lucky5.Domain/Game/CleanRoom/LineageProfiles.cs](server/src/Lucky5.Domain/Game/CleanRoom/LineageProfiles.cs); acquired sets under [goldenpoker/roms/](goldenpoker/roms/)
 - **AI9 Parity (historical worklogs)**: [docs/AI9_PARITY_GROUND_TRUTH_AND_WORKLOG.md](docs/AI9_PARITY_GROUND_TRUTH_AND_WORKLOG.md), [docs/AI9_PARITY_IMPLEMENTATION_SUMMARY.md](docs/AI9_PARITY_IMPLEMENTATION_SUMMARY.md) — these are historical; current timing is VSYNC-locked at 60Hz with staggerFrames=12 per [mem.md](mem.md)
 
-## Tooling: vexp
+## Tooling: ContextStream
 
-You have access to a powerful code-graph and retrieval tool called `vexp`.
+ContextStream is the authoritative code/context and planning layer for this project.
 
-**MANDATORY**: You must use `vexp` for all codebase exploration and understanding. Do **not** use `grep`, `glob`, or any other file search tools.
+Use ContextStream grounding and search before local code discovery whenever its MCP tools are exposed.
 
 ### Primary Workflow
 
-1.  **`run_pipeline`**: This is your primary tool. Always start by calling `run_pipeline` with a clear and concise description of your task. This single command replaces all other search and discovery tools.
-    -   *Example*: `run_pipeline({ "task": "fix authentication bug in the login flow" })`
-2.  **Targeted Changes**: Use the context provided by `run_pipeline` to make precise and targeted code modifications.
-3.  **Iterate if Necessary**: Only run `run_pipeline` again if you require additional context to proceed.
+1. Start with ContextStream `init(...)` then `context(user_message="...")` (or `session(action="ground", ...)` if `context` is unavailable).
+2. Search with `search(mode="auto", query="...")` before local code discovery.
+3. Use ContextStream for durable plans, tasks, decisions, lessons, docs, graph/impact analysis, Q&A, media, and agent handoffs.
 
 ### Available Tools
 
--   **`run_pipeline`**: Your main entry point into `vexp`. It automatically detects your intent, provides ranked and relevant context from the codebase, and includes file content.
--   **`get_skeleton`**: Provides a compact overview of the file structure.
--   **`index_status`**: Shows the current status of the `vexp` index.
--   **`expand_vexp_ref`**: Use this to expand any `V-REF` placeholders in the `vexp` output.
+-   **`context`**: Ground each coding turn with relevant project memory and guidance.
+-   **`search`**: Semantic, hybrid, keyword, pattern, exhaustive, and refactor-aware code search.
+-   **`session` / `memory`**: Plans, tasks, decisions, lessons, docs, transcripts, and snapshots.
+-   **`graph` / `qa` / `capsule`**: Impact analysis, grounded advice, and portable handoffs.
 
 ### Agentic Search
 
--   You are prohibited from using any built-in file search, `grep`, or other codebase indexing tools. Your primary interface with the codebase is `run_pipeline`.
--   If you need to spawn sub-agents or background tasks, you must pass them the context obtained from `run_pipeline`. Do not allow them to search the codebase independently.
+-   Do not bypass ContextStream for discovery when it is available; use returned real paths and line ranges for targeted reads.
+-   If you need to spawn sub-agents or background tasks, pass them the ContextStream grounding and search results so they preserve project decisions and lessons.
+
+#
 
 ## vexp <!-- vexp v2.2.3 -->
 

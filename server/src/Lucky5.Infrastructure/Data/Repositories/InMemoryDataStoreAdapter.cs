@@ -77,49 +77,37 @@ public class InMemoryDataStoreAdapter : IDataStore
 
     public Task<List<Agent>> GetAgentsAsync()
     {
-        // For in memory we don't have agents built-in to store yet. 
-        // Returning empty list.
-        return Task.FromResult(new List<Agent>());
+        return Task.FromResult(_store.Agents.Values.OrderBy(a => a.Id).ToList());
     }
 
     public Task<Agent?> GetAgentByIdAsync(int agentId)
     {
-        return Task.FromResult<Agent?>(null);
+        _store.Agents.TryGetValue(agentId, out var agent);
+        return Task.FromResult(agent);
     }
 
-<<<<<<< Updated upstream
     public Task<Agent?> GetAgentByCodeAsync(string code)
     {
-        return Task.FromResult<Agent?>(null);
+        var agent = _store.Agents.Values.FirstOrDefault(a =>
+            a.Code.Equals(code, StringComparison.OrdinalIgnoreCase));
+        return Task.FromResult(agent);
+    }
+
+    public Task<Agent?> GetAgentByUserIdAsync(Guid userId)
+    {
+        var agent = _store.Agents.Values.FirstOrDefault(a => a.UserId == userId);
+        return Task.FromResult(agent);
     }
 
     public Task CreateAgentAsync(Agent agent)
     {
+        _store.Agents[agent.Id] = agent;
         return Task.CompletedTask;
     }
-=======
-        public Task<Agent?> GetAgentByCodeAsync(string code)
-                {
-                    var agent = _store.Agents.Values.FirstOrDefault(a =>
-                        a.Code.Equals(code, StringComparison.OrdinalIgnoreCase));
-                    return Task.FromResult(agent);
-                }
-
-                public Task<Agent?> GetAgentByUserIdAsync(Guid userId)
-                {
-                    var agent = _store.Agents.Values.FirstOrDefault(a => a.UserId == userId);
-                    return Task.FromResult(agent);
-                }
-
-                public Task CreateAgentAsync(Agent agent)
-                {
-                    _store.Agents[agent.Id] = agent;
-                    return Task.CompletedTask;
-                }
->>>>>>> Stashed changes
 
     public Task UpdateAgentAsync(Agent agent)
     {
+        _store.Agents[agent.Id] = agent;
         return Task.CompletedTask;
     }
 

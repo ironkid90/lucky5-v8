@@ -1,336 +1,341 @@
 {
   "$schema": "https://app.kilo.ai/config.json",
   "mcp": {
-    "bonsai": {
-      "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "mcp-remote",
-        "https://backend.composio.dev/v3/mcp/5b4f85e1-b225-452a-a704-3df02e9dafe6/mcp?user_id=b9041ee5-41da-4273-a22f-01100b0a002c&connected_account_id=ca_EF_01GejSdzM"
-      ],
-      "environment": {}
-    },
-    "firecrawl": {
-      "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "mcp-remote",
-        "https://backend.composio.dev/v3/mcp/a35ed54c-ea72-4402-8ac6-b41ef636f812/mcp?user_id=b9041ee5-41da-4273-a22f-01100b0a002c&connected_account_id=ca_PFvBAYm_AJ6k"
-      ],
-      "environment": {}
-    },
-    "codereadr": {
-      "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "mcp-remote",
-        "https://backend.composio.dev/v3/mcp/80fae425-df42-42ad-b406-fe7c3aa55971/mcp?user_id=b9041ee5-41da-4273-a22f-01100b0a002c&connected_account_id=ca__r6tOcDtiWxR"
-      ],
-      "environment": {}
-    },
-    "sentry": {
-      "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "mcp-remote",
-        "https://backend.composio.dev/v3/mcp/706e28bb-884b-48aa-a45a-2fff35201523/mcp?user_id=b9041ee5-41da-4273-a22f-01100b0a002c&connected_account_id=ca_mD0ggzNi0vsY"
-      ],
-      "environment": {}
-    },
-    "elasticsearch": {
-      "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "mcp-remote",
-        "https://backend.composio.dev/v3/mcp/57357c26-8195-402f-a086-04e35467c40f/mcp?user_id=b9041ee5-41da-4273-a22f-01100b0a002c&connected_account_id=ca_PIZZv8bBB8E8"
-      ],
-      "environment": {}
-    },
-    "mem": {
-      "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "mcp-remote",
-        "https://backend.composio.dev/v3/mcp/fc66cba7-1c77-4628-9b6e-ce5e58f71c22/mcp?user_id=b9041ee5-41da-4273-a22f-01100b0a002c&connected_account_id=ca_M9nWezvNB9TC"
-      ],
-      "environment": {}
-    },
     "G": {
-      "type": "local",
       "command": [
         "npx",
         "-y",
         "mcp-remote",
         "https://backend.composio.dev/v3/mcp/72a3eb29-a656-4d05-b7cb-aabfd5a987de/mcp?user_id=b9041ee5-41da-4273-a22f-01100b0a002c&connected_account_id=ca_cIaFkuv6P8CO"
       ],
-      "environment": {}
-    },
-    "gmail": {
-      "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "mcp-remote",
-        "Gmail"
-      ],
-      "environment": {}
-    },
-    "googlecalendar": {
-      "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "mcp-remote",
-        "Google Calendar"
-      ],
-      "environment": {}
-    },
-    "notion": {
-      "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "mcp-remote",
-        "Notion"
-      ],
-      "environment": {}
-    },
-    "g": {
-      "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "mcp-remote",
-        "Google Sheets"
-      ],
-      "environment": {}
-    },
-    "Z": {
-      "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "mcp-remote",
-        "Slack"
-      ],
-      "environment": {}
-    },
-    "sub": {
-      "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "mcp-remote",
-        "Supabase"
-      ],
-      "environment": {}
-    },
-    "outlook": {
-      "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "mcp-remote",
-        "Outlook"
-      ],
-      "environment": {}
-    },
-    "googledrive": {
-      "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "mcp-remote",
-        "Google Drive"
-      ],
-      "environment": {}
-    },
-    "googledocs": {
-      "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "mcp-remote",
-        "Google Docs"
-      ],
-      "environment": {}
+      "environment": {},
+      "type": "local"
     },
     "H": {
-      "type": "local",
       "command": [
         "npx",
         "-y",
         "mcp-remote",
         "HubSpot"
       ],
-      "environment": {}
-    },
-    "linear": {
-      "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "mcp-remote",
-        "Linear"
-      ],
-      "environment": {}
-    },
-    "airtable": {
-      "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "mcp-remote",
-        "Airtable"
-      ],
-      "environment": {}
-    },
-    "youtube": {
-      "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "mcp-remote",
-        "YouTube"
-      ],
-      "environment": {}
+      "environment": {},
+      "type": "local"
     },
     "K": {
-      "type": "local",
       "command": [
         "npx",
         "-y",
         "mcp-remote",
         "Slackbot"
       ],
-      "environment": {}
+      "environment": {},
+      "type": "local"
     },
-    "bitbucket": {
-      "type": "local",
+    "Z": {
       "command": [
         "npx",
         "-y",
         "mcp-remote",
-        "Bitbucket"
+        "Slack"
       ],
-      "environment": {}
+      "environment": {},
+      "type": "local"
     },
-    "googletasks": {
-      "type": "local",
+    "airtable": {
       "command": [
         "npx",
         "-y",
         "mcp-remote",
-        "Google Tasks"
+        "Airtable"
       ],
-      "environment": {}
-    },
-    "discord": {
-      "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "mcp-remote",
-        "Discord"
-      ],
-      "environment": {}
-    },
-    "figma": {
-      "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "mcp-remote",
-        "Figma"
-      ],
-      "environment": {}
-    },
-    "reddit": {
-      "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "mcp-remote",
-        "Reddit"
-      ],
-      "environment": {}
-    },
-    "cal": {
-      "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "mcp-remote",
-        "Cal"
-      ],
-      "environment": {}
-    },
-    "wrike": {
-      "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "mcp-remote",
-        "Wrike"
-      ],
-      "environment": {}
-    },
-    "microsoft_teams": {
-      "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "mcp-remote",
-        "Microsoft Teams"
-      ],
-      "environment": {}
+      "environment": {},
+      "type": "local"
     },
     "asana": {
-      "type": "local",
       "command": [
         "npx",
         "-y",
         "mcp-remote",
         "Asana"
       ],
-      "environment": {}
+      "environment": {},
+      "type": "local"
     },
-    "linkedin": {
-      "type": "local",
+    "bitbucket": {
       "command": [
         "npx",
         "-y",
         "mcp-remote",
-        "LinkedIn"
+        "Bitbucket"
       ],
-      "environment": {}
+      "environment": {},
+      "type": "local"
+    },
+    "bonsai": {
+      "command": [
+        "npx",
+        "-y",
+        "mcp-remote",
+        "https://backend.composio.dev/v3/mcp/5b4f85e1-b225-452a-a704-3df02e9dafe6/mcp?user_id=b9041ee5-41da-4273-a22f-01100b0a002c&connected_account_id=ca_EF_01GejSdzM"
+      ],
+      "environment": {},
+      "type": "local"
+    },
+    "cal": {
+      "command": [
+        "npx",
+        "-y",
+        "mcp-remote",
+        "Cal"
+      ],
+      "environment": {},
+      "type": "local"
+    },
+    "codereadr": {
+      "command": [
+        "npx",
+        "-y",
+        "mcp-remote",
+        "https://backend.composio.dev/v3/mcp/80fae425-df42-42ad-b406-fe7c3aa55971/mcp?user_id=b9041ee5-41da-4273-a22f-01100b0a002c&connected_account_id=ca__r6tOcDtiWxR"
+      ],
+      "environment": {},
+      "type": "local"
+    },
+    "contextstream": {
+      "enabled": true,
+      "type": "remote",
+      "url": "https://mcp.contextstream.io/mcp?default_context_mode=fast"
+    },
+    "discord": {
+      "command": [
+        "npx",
+        "-y",
+        "mcp-remote",
+        "Discord"
+      ],
+      "environment": {},
+      "type": "local"
+    },
+    "elasticsearch": {
+      "command": [
+        "npx",
+        "-y",
+        "mcp-remote",
+        "https://backend.composio.dev/v3/mcp/57357c26-8195-402f-a086-04e35467c40f/mcp?user_id=b9041ee5-41da-4273-a22f-01100b0a002c&connected_account_id=ca_PIZZv8bBB8E8"
+      ],
+      "environment": {},
+      "type": "local"
+    },
+    "figma": {
+      "command": [
+        "npx",
+        "-y",
+        "mcp-remote",
+        "Figma"
+      ],
+      "environment": {},
+      "type": "local"
+    },
+    "firecrawl": {
+      "command": [
+        "npx",
+        "-y",
+        "mcp-remote",
+        "https://backend.composio.dev/v3/mcp/a35ed54c-ea72-4402-8ac6-b41ef636f812/mcp?user_id=b9041ee5-41da-4273-a22f-01100b0a002c&connected_account_id=ca_PFvBAYm_AJ6k"
+      ],
+      "environment": {},
+      "type": "local"
+    },
+    "g": {
+      "command": [
+        "npx",
+        "-y",
+        "mcp-remote",
+        "Google Sheets"
+      ],
+      "environment": {},
+      "type": "local"
+    },
+    "gmail": {
+      "command": [
+        "npx",
+        "-y",
+        "mcp-remote",
+        "Gmail"
+      ],
+      "environment": {},
+      "type": "local"
     },
     "google_maps": {
-      "type": "local",
       "command": [
         "npx",
         "-y",
         "mcp-remote",
         "Google Maps"
       ],
-      "environment": {}
+      "environment": {},
+      "type": "local"
+    },
+    "googlecalendar": {
+      "command": [
+        "npx",
+        "-y",
+        "mcp-remote",
+        "Google Calendar"
+      ],
+      "environment": {},
+      "type": "local"
+    },
+    "googledocs": {
+      "command": [
+        "npx",
+        "-y",
+        "mcp-remote",
+        "Google Docs"
+      ],
+      "environment": {},
+      "type": "local"
+    },
+    "googledrive": {
+      "command": [
+        "npx",
+        "-y",
+        "mcp-remote",
+        "Google Drive"
+      ],
+      "environment": {},
+      "type": "local"
+    },
+    "googletasks": {
+      "command": [
+        "npx",
+        "-y",
+        "mcp-remote",
+        "Google Tasks"
+      ],
+      "environment": {},
+      "type": "local"
+    },
+    "linear": {
+      "command": [
+        "npx",
+        "-y",
+        "mcp-remote",
+        "Linear"
+      ],
+      "environment": {},
+      "type": "local"
+    },
+    "linkedin": {
+      "command": [
+        "npx",
+        "-y",
+        "mcp-remote",
+        "LinkedIn"
+      ],
+      "environment": {},
+      "type": "local"
+    },
+    "mem": {
+      "command": [
+        "npx",
+        "-y",
+        "mcp-remote",
+        "https://backend.composio.dev/v3/mcp/fc66cba7-1c77-4628-9b6e-ce5e58f71c22/mcp?user_id=b9041ee5-41da-4273-a22f-01100b0a002c&connected_account_id=ca_M9nWezvNB9TC"
+      ],
+      "environment": {},
+      "type": "local"
+    },
+    "microsoft_teams": {
+      "command": [
+        "npx",
+        "-y",
+        "mcp-remote",
+        "Microsoft Teams"
+      ],
+      "environment": {},
+      "type": "local"
+    },
+    "notion": {
+      "command": [
+        "npx",
+        "-y",
+        "mcp-remote",
+        "Notion"
+      ],
+      "environment": {},
+      "type": "local"
+    },
+    "outlook": {
+      "command": [
+        "npx",
+        "-y",
+        "mcp-remote",
+        "Outlook"
+      ],
+      "environment": {},
+      "type": "local"
+    },
+    "reddit": {
+      "command": [
+        "npx",
+        "-y",
+        "mcp-remote",
+        "Reddit"
+      ],
+      "environment": {},
+      "type": "local"
+    },
+    "sentry": {
+      "command": [
+        "npx",
+        "-y",
+        "mcp-remote",
+        "https://backend.composio.dev/v3/mcp/706e28bb-884b-48aa-a45a-2fff35201523/mcp?user_id=b9041ee5-41da-4273-a22f-01100b0a002c&connected_account_id=ca_mD0ggzNi0vsY"
+      ],
+      "environment": {},
+      "type": "local"
+    },
+    "sub": {
+      "command": [
+        "npx",
+        "-y",
+        "mcp-remote",
+        "Supabase"
+      ],
+      "environment": {},
+      "type": "local"
     },
     "vexp": {
-      "type": "local",
       "command": [
         "node",
         "c:\\Users\\Gabi.WIN-CD45QMUUPFF\\.vscode-insiders\\extensions\\vexp.vexp-vscode-2.2.3-win32-x64\\dist\\mcp-server.cjs"
       ],
+      "enabled": true,
       "env": {
         "VEXP_WORKSPACE": "c:\\Users\\Gabi.WIN-CD45QMUUPFF\\Documents\\GitHub\\lucky5-v8\\lucky5-v8"
       },
-      "enabled": true
+      "type": "local"
+    },
+    "wrike": {
+      "command": [
+        "npx",
+        "-y",
+        "mcp-remote",
+        "Wrike"
+      ],
+      "environment": {},
+      "type": "local"
+    },
+    "youtube": {
+      "command": [
+        "npx",
+        "-y",
+        "mcp-remote",
+        "YouTube"
+      ],
+      "environment": {},
+      "type": "local"
     }
   }
 }
