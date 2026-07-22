@@ -27,7 +27,7 @@ window.CabinetStage = (function () {
             drawOutFrames:        Number(timing.drawOutFrames)        || 1,
             drawDurationFrames:   Number(timing.drawDurationFrames)   || 11,
             drawRevealStartFrames:Number(timing.drawRevealStartFrames)|| 3,
-            shuffleFrameMs: Number(timing.shuffleFrameMs) || 30,
+            shuffleFrameMs: Number(timing.shuffleFrameMs) || 100,
             lucky5ActiveMs: Number(timing.lucky5FlashDurationMs) || 1000
         };
 
@@ -755,8 +755,9 @@ window.CabinetStage = (function () {
             }
 
             slotEl.classList.remove('held');
-            // Non-held card: old face stays visible for now — replacement happens
-            // in the staggered thump sequence below.
+            // AIPoker parity: unheld card disappears immediately on draw request
+            slotEl.classList.add('card-pre-draw');
+            slotEl.classList.remove('card-deal-thump', 'card-draw-thump');
         });
 
         if (pending === 0 && onComplete) {

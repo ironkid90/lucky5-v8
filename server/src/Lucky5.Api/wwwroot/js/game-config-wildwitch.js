@@ -77,8 +77,8 @@ const GAME_CONFIG = Object.freeze({
         get drawStaggerMs()      { return Math.round(this.staggerFrames        * 1000 / 60); },
         get drawRevealStartMs()  { return Math.round(this.drawRevealStartFrames * 1000 / 60); },
 
-        // Double-up: shuffle animation (Video Klein style - faster reel blur)
-        shuffleFrameMs:       25,  // Wild Witch: 16-33ms rapid reel blur
+        // Double-up: shuffle animation (Video Klein style)
+        shuffleFrameMs:       100, // Calibrated shuffle cadence (~100ms per frame swap)
 
         // Double-up: reveal sequence
         duRevealDelayMs:      150,  // wait after server responds before showing challenger card

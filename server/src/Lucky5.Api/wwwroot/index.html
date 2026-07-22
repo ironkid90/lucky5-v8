@@ -186,32 +186,49 @@
                         <div class="admin-stat-card"><span>MACHINES</span><strong id="admin-stat-machines">--</strong></div>
                     </div>
                 </div>
-                <div class="wallet-history-title">PLAYERS</div>
-                <div class="admin-section-help">Search by username, then credit or debit the selected wallet with an audit note.</div>
-                <div class="wallet-deposit-withdraw">
-                    <input id="admin-user-search" placeholder="SEARCH USERNAME" class="admin-input-lite" style="flex:1;min-width:0;">
-                    <button class="lobby-btn wallet-action-btn" id="admin-user-search-btn">SEARCH</button>
-                    <button class="lobby-btn wallet-action-btn" id="admin-user-refresh-btn">ALL</button>
+                <div class="admin-subnav-tabs" role="tablist">
+                    <button class="admin-tab-btn is-active" data-tab="players">PLAYERS</button>
+                    <button class="admin-tab-btn" data-tab="agents">AGENTS</button>
+                    <button class="admin-tab-btn" data-tab="machines">MACHINES</button>
                 </div>
-                <div id="admin-users-list" class="wallet-history-list"></div>
-                <div class="wallet-history-title">AGENTS / CREDIT POOLS</div>
-                <div class="admin-section-help">Create field agents, load their credit pool, or assign players for managed usage.</div>
-                <div class="wallet-deposit-withdraw">
-                    <input id="admin-agent-name" placeholder="AGENT NAME" class="admin-input-lite" style="flex:1;min-width:130px;">
-                    <input id="admin-agent-code" placeholder="CODE" class="admin-input-lite" style="flex:0 0 90px;min-width:0;">
-                    <input id="admin-agent-phone" placeholder="PHONE" class="admin-input-lite" style="flex:1;min-width:120px;">
+
+                <!-- SUBPAGE 1: PLAYERS -->
+                <div id="admin-pane-players" class="admin-tab-pane is-active">
+                    <div class="wallet-history-title">PLAYERS & WALLETS</div>
+                    <div class="admin-section-help">Search by username, then credit or debit the selected wallet with an audit note.</div>
+                    <div class="wallet-deposit-withdraw">
+                        <input id="admin-user-search" placeholder="SEARCH USERNAME" class="admin-input-lite" style="flex:1;min-width:0;">
+                        <button class="lobby-btn wallet-action-btn" id="admin-user-search-btn">SEARCH</button>
+                        <button class="lobby-btn wallet-action-btn" id="admin-user-refresh-btn">ALL</button>
+                    </div>
+                    <div id="admin-users-list" class="wallet-history-list"></div>
                 </div>
-                <div class="wallet-deposit-withdraw">
-                    <button class="lobby-btn wallet-action-btn" id="admin-agent-create-btn" style="flex:1;">CREATE AGENT</button>
-                    <button class="lobby-btn wallet-action-btn" id="admin-agent-refresh-btn" style="flex:1;">REFRESH AGENTS</button>
+
+                <!-- SUBPAGE 2: AGENTS -->
+                <div id="admin-pane-agents" class="admin-tab-pane" style="display:none;">
+                    <div class="wallet-history-title">AGENTS & CREDIT POOLS</div>
+                    <div class="admin-section-help">Create field agents, load their credit pool, or assign players for managed usage.</div>
+                    <div class="wallet-deposit-withdraw">
+                        <input id="admin-agent-name" placeholder="AGENT NAME" class="admin-input-lite" style="flex:1;min-width:130px;">
+                        <input id="admin-agent-code" placeholder="CODE" class="admin-input-lite" style="flex:0 0 90px;min-width:0;">
+                        <input id="admin-agent-phone" placeholder="PHONE" class="admin-input-lite" style="flex:1;min-width:120px;">
+                    </div>
+                    <div class="wallet-deposit-withdraw">
+                        <button class="lobby-btn wallet-action-btn" id="admin-agent-create-btn" style="flex:1;">CREATE AGENT</button>
+                        <button class="lobby-btn wallet-action-btn" id="admin-agent-refresh-btn" style="flex:1;">REFRESH AGENTS</button>
+                    </div>
+                    <div id="admin-agents-list" class="wallet-history-list"></div>
                 </div>
-                <div id="admin-agents-list" class="wallet-history-list"></div>
-                <div class="wallet-history-title">MACHINES / RTP</div>
-                <div class="admin-section-help">Refresh cabinet health, current credits, and configured return targets before floor changes.</div>
-                <div class="wallet-deposit-withdraw">
-                    <button class="lobby-btn wallet-action-btn" id="admin-machine-refresh-btn" style="flex:1;">REFRESH MACHINES</button>
+
+                <!-- SUBPAGE 3: MACHINES -->
+                <div id="admin-pane-machines" class="admin-tab-pane" style="display:none;">
+                    <div class="wallet-history-title">MACHINES & RTP FLOOR</div>
+                    <div class="admin-section-help">Refresh cabinet health, current credits, and configured return targets before floor changes.</div>
+                    <div class="wallet-deposit-withdraw">
+                        <button class="lobby-btn wallet-action-btn" id="admin-machine-refresh-btn" style="flex:1;">REFRESH MACHINES</button>
+                    </div>
+                    <div id="admin-machines-list" class="wallet-history-list"></div>
                 </div>
-                <div id="admin-machines-list" class="wallet-history-list"></div>
             </div>
         </div>
 

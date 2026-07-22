@@ -4048,6 +4048,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const adminBackBtn = document.getElementById('admin-back-btn');
     if (adminBackBtn) adminBackBtn.addEventListener('click', showLobby);
+
+    // Admin Subnav Tab Switching
+    document.querySelectorAll('.admin-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const targetTab = btn.dataset.tab;
+            document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('is-active'));
+            document.querySelectorAll('.admin-tab-pane').forEach(p => {
+                p.classList.remove('is-active');
+                p.style.display = 'none';
+            });
+
+            btn.classList.add('is-active');
+            const targetPane = document.getElementById(`admin-pane-${targetTab}`);
+            if (targetPane) {
+                targetPane.classList.add('is-active');
+                targetPane.style.display = 'block';
+            }
+
+            // Lazy/refresh data on tab switch
+            if (targetTab === 'players') loadAdminUsers(document.getElementById('admin-user-search')?.value || '');
+            if (targetTab === 'agents') loadAdminAgents();
+            if (targetTab === 'machines') loadAdminMachines();
+        });
+    });
+
     const adminUserSearchBtn = document.getElementById('admin-user-search-btn');
     if (adminUserSearchBtn) adminUserSearchBtn.addEventListener('click', () => loadAdminUsers(document.getElementById('admin-user-search')?.value || ''));
     const adminUserRefreshBtn = document.getElementById('admin-user-refresh-btn');

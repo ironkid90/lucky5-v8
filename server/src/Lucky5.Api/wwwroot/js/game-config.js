@@ -86,7 +86,7 @@ const GAME_CONFIG = Object.freeze({
 
         // Double-up: shuffle animation
         // The active slot cycles through card faces visibly, like a spinning reel.
-        shuffleFrameMs:       30,  // AI9 parity: 16-33ms rapid reel blur (was 130ms)
+        shuffleFrameMs:       100, // Calibrated shuffle cadence (~100ms per frame swap)
 
         // Double-up: reveal sequence
         duRevealDelayMs:      150,  // wait after server responds before showing challenger card
