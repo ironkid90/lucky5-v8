@@ -37,10 +37,14 @@
 #paytable .pay-row.foak .pay-amount { color: #44ff88; }
 
 #paytable .pay-row.fh { 
-    background: #ffffff;
-    color: #000000;
+    background: #ffffff !important;
+    color: #000000 !important;
 }
-#paytable .pay-row.fh .pay-amount { color: #000000; }
+#paytable .pay-row.fh .hand-name,
+#paytable .pay-row.fh .pay-amount { 
+    color: #000000 !important;
+    text-shadow: none !important;
+}
 
 #paytable .pay-row.fl,
 #paytable .pay-row.fl .pay-amount { color: #44ddff; }

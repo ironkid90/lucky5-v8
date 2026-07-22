@@ -2163,10 +2163,17 @@ function startShuffle() {
     CabinetClock.registerHandler(shuffleTickHandler);
 }
 
-function stopShuffle() {
+function stopShuffle(freezeCard) {
     if (shuffleTickHandler) {
         CabinetClock.unregisterHandler(shuffleTickHandler);
         shuffleTickHandler = null;
+    }
+    const cardToFreeze = freezeCard || duDealerCard;
+    if (cardToFreeze) {
+        const shuffleImg = document.querySelector('#du-shuffle-frame img');
+        if (shuffleImg) {
+            shuffleImg.src = resolveCardFaceSrc(cardToFreeze);
+        }
     }
 }
 

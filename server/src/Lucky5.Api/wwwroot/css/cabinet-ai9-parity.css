@@ -494,9 +494,14 @@
     color: #33ff33 !important;  /* 4 OF A KIND: green */
 }
 #paytable .pay-row.fh,
-#paytable .pay-row.jackpot-selected {
+#paytable .pay-row.fh .hand-name,
+#paytable .pay-row.fh .pay-amount,
+#paytable .pay-row.jackpot-selected,
+#paytable .pay-row.jackpot-selected .hand-name,
+#paytable .pay-row.jackpot-selected .pay-amount {
     background-color: #ffffff !important;
     color: #000000 !important;  /* Selection highlight: white bg, black text */
+    text-shadow: none !important;
 }
 #paytable .pay-row.fl {
     color: #ffaa00 !important;  /* FLUSH: gold */
