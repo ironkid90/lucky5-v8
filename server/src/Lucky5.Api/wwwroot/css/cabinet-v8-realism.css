@@ -155,27 +155,23 @@ body {
     will-change: transform;
 }
 
-/* Card deal: cards drop in from above with a slight rotation */
-.card-slot.deal-in {
-    opacity: 0;
-    transform: translateY(-60%) rotateX(-30deg);
-}
-
+/* Card deal: cards snap into place via 60Hz CabinetClock
+   AI9-parity: mechanical snap (2-3 frame linear drop at ~33ms-50ms) */
 .card-slot.deal-in-done {
     opacity: 1;
     transform: translateY(0) rotateX(0);
-    transition: opacity 0.18s ease-out, transform 0.22s cubic-bezier(.15,.85,.3,1);
+    transition: opacity 0.033s linear, transform 0.05s linear !important;
 }
 
-/* Card draw flip: replaced cards do a quick 3D flip */
+/* Card draw flip: replaced cards snap flat via 60Hz CabinetClock
+   AI9-parity: mechanical snap/reveal (no ease, stepped transition) */
 .card-slot.v8-flipping .card-face {
-    animation: v8-card-flip 380ms cubic-bezier(.4,0,.2,1);
+    animation: v8-card-flip 100ms steps(3) !important;
 }
 
 @keyframes v8-card-flip {
     0%   { transform: rotateY(0deg);   filter: brightness(1); }
-    40%  { transform: rotateY(85deg);  filter: brightness(0.5); }
-    60%  { transform: rotateY(-85deg); filter: brightness(0.5); }
+    50%  { transform: rotateY(90deg);  filter: brightness(0.4); } /* full profile hide */
     100% { transform: rotateY(0deg);   filter: brightness(1); }
 }
 
