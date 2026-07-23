@@ -3399,21 +3399,45 @@ async function loadAdminUsers(query = '') {
             const row = document.createElement('div');
             row.className = 'wallet-history-row admin-data-row';
             const role = escapeHtml(user.role || 'player').toUpperCase();
+            const fullNameStr = user.fullName ? ` (${escapeHtml(user.fullName)})` : '';
+            const phoneStr = user.phoneNumber ? ` • ${escapeHtml(user.phoneNumber)}` : '';
+            const emailStr = user.email ? ` • ${escapeHtml(user.email)}` : '';
+            const agentStr = user.agentName ? ` • AGENT: ${escapeHtml(user.agentName).toUpperCase()}` : '';
+
             row.innerHTML = `
-                <div class="wallet-history-info">
-                    <div class="wallet-history-type">${escapeHtml(user.username).toUpperCase()} <span class="admin-badge ${role === 'ADMIN' ? 'is-warn' : 'is-muted'}">${role}</span></div>
-                    <div class="wallet-history-date">WALLET ${formatNum(user.walletBalance)} • LAST SEEN ${formatTransactionDate(user.lastSeenUtc)}</div>
-                    <div class="wallet-history-date">USER ID ${escapeHtml(user.userId || '')}</div>
+                <div style="display:flex;align-items:center;margin-right:8px;">
+                    <input type="checkbox" class="admin-user-checkbox" data-user-id="${user.userId}" style="width:16px;height:16px;cursor:pointer;">
                 </div>
-                <div class="admin-row-actions">
-                    <button class="lobby-btn lobby-btn-sm" data-credit="${user.userId}">+CREDIT</button>
-                    <button class="lobby-btn lobby-btn-sm" data-debit="${user.userId}">-DEBIT</button>
+                <div class="wallet-history-info" style="flex:1;">
+                    <div class="wallet-history-type">
+                        ${escapeHtml(user.username).toUpperCase()}${fullNameStr}
+                        <span class="admin-badge ${role === 'ADMIN' ? 'is-warn' : role === 'AGENT' ? 'is-good' : 'is-muted'}">${role}</span>
+                        ${user.agentName ? `<span class="admin-badge is-good">AGENT: ${escapeHtml(user.agentName).toUpperCase()}</span>` : ''}
+                    </div>
+                    <div class="wallet-history-date">WALLET ${formatNum(user.walletBalance)}${phoneStr}${emailStr}${agentStr}</div>
+                    <div class="wallet-history-date">LAST SEEN ${formatTransactionDate(user.lastSeenUtc)} • CREATED ${formatTransactionDate(user.createdUtc)}</div>
+                </div>
+                <div class="admin-row-actions" style="display:flex;flex-direction:column;gap:4px;">
+                    <div style="display:flex;gap:4px;">
+                        <button class="lobby-btn lobby-btn-sm" data-credit="${user.userId}">+CREDIT</button>
+                        <button class="lobby-btn lobby-btn-sm" data-debit="${user.userId}">-DEBIT</button>
+                    </div>
+                    <div style="display:flex;gap:4px;">
+                        <button class="lobby-btn lobby-btn-sm" data-role="${user.userId}" data-current-role="${user.role || 'Player'}">ROLE</button>
+                        <button class="lobby-btn lobby-btn-sm" data-assign-agent="${user.userId}">AGENT</button>
+                    </div>
                 </div>
             `;
             wrap.appendChild(row);
         });
+
+        wrap.querySelectorAll('.admin-user-checkbox').forEach(cb => {
+            cb.addEventListener('change', updateSelectedUserCount);
+        });
         wrap.querySelectorAll('[data-credit]').forEach(btn => btn.addEventListener('click', () => adminAdjustWallet(btn.dataset.credit, false)));
         wrap.querySelectorAll('[data-debit]').forEach(btn => btn.addEventListener('click', () => adminAdjustWallet(btn.dataset.debit, true)));
+        wrap.querySelectorAll('[data-role]').forEach(btn => btn.addEventListener('click', () => adminSetUserRole(btn.dataset.role, btn.dataset.currentRole)));
+        wrap.querySelectorAll('[data-assign-agent]').forEach(btn => btn.addEventListener('click', () => adminAssignSingleUserToAgent(btn.dataset.assignAgent)));
         updateAdminStats();
     } catch (e) {
         wrap.innerHTML = `<div class="wallet-history-empty">${escapeHtml(e.message)}</div>`;
@@ -3495,21 +3519,22 @@ async function loadAdminAgents() {
         adminAgents.forEach(agent => {
             const row = document.createElement('div');
             row.className = 'wallet-history-row admin-data-row';
+            const userCount = agent.userCount !== undefined ? agent.userCount : 0;
             row.innerHTML = `
                 <div class="wallet-history-info">
-                    <div class="wallet-history-type">${escapeHtml(agent.name || 'AGENT').toUpperCase()} <span class="admin-badge">${escapeHtml(agent.code || '').toUpperCase()}</span> <span class="admin-badge ${agent.isActive ? 'is-good' : 'is-muted'}">${agent.isActive ? 'ACTIVE' : 'INACTIVE'}</span></div>
-                    <div class="wallet-history-date">PHONE ${escapeHtml(agent.phoneNumber || 'NO PHONE')} • POOL ${formatNum(agent.creditPool || 0)}</div>
+                    <div class="wallet-history-type">${escapeHtml(agent.name || 'AGENT').toUpperCase()} <span class="admin-badge">${escapeHtml(agent.code || '').toUpperCase()}</span> <span class="admin-badge ${agent.isActive ? 'is-good' : 'is-muted'}">${agent.isActive ? 'ACTIVE' : 'INACTIVE'}</span> <span class="admin-badge is-good">${userCount} PLAYERS</span></div>
+                    <div class="wallet-history-date">PHONE ${escapeHtml(agent.phoneNumber || 'NO PHONE')} • CREDIT POOL ${formatNum(agent.creditPool || 0)}</div>
                     <div class="wallet-history-date">CREATED ${formatTransactionDate(agent.createdUtc)}</div>
                 </div>
                 <div class="admin-row-actions">
-                    <button class="lobby-btn lobby-btn-sm" data-agent-credit="${agent.id}">LOAD</button>
-                    <button class="lobby-btn lobby-btn-sm" data-agent-assign="${agent.id}">ASSIGN USER</button>
+                    <button class="lobby-btn lobby-btn-sm" data-agent-credit="${agent.id}">+LOAD</button>
+                    <button class="lobby-btn lobby-btn-sm" data-agent-view-users="${agent.id}">VIEW PLAYERS</button>
                 </div>
             `;
             wrap.appendChild(row);
         });
         wrap.querySelectorAll('[data-agent-credit]').forEach(btn => btn.addEventListener('click', () => loadCreditForAgent(btn.dataset.agentCredit)));
-        wrap.querySelectorAll('[data-agent-assign]').forEach(btn => btn.addEventListener('click', () => assignUserToAgent(btn.dataset.agentAssign)));
+        wrap.querySelectorAll('[data-agent-view-users]').forEach(btn => btn.addEventListener('click', () => viewAgentUsers(btn.dataset.agentViewUsers)));
         updateAdminStats();
     } catch (e) {
         wrap.innerHTML = `<div class="wallet-history-empty">${escapeHtml(e.message)}</div>`;
@@ -3574,6 +3599,20 @@ async function createAdminAgent() {
     }
 }
 
+async function viewAgentUsers(agentId) {
+    try {
+        const users = await apiCall('GET', `/api/agent/${agentId}/users`);
+        if (!users || !users.length) {
+            await customAlert('AGENT PLAYERS', `Agent #${agentId} has no assigned players yet.`);
+            return;
+        }
+        const userListStr = users.map(u => `• ${u.username} (${u.fullName || 'No Name'}) - Wallet: $${u.walletBalance} - Phone: ${u.phoneNumber || 'N/A'}`).join('\n');
+        await customAlert(`PLAYERS FOR AGENT #${agentId}`, `Total: ${users.length} player(s)\n\n${userListStr}`);
+    } catch (e) {
+        await customAlert('ERROR', 'Failed to fetch agent players: ' + e.message);
+    }
+}
+
 async function loadCreditForAgent(agentId) {
     const amountRaw = await customPrompt(
         'LOAD AGENT CREDIT POOL',
@@ -3600,7 +3639,126 @@ async function loadCreditForAgent(agentId) {
     }
 }
 
-async function assignUserToAgent(agentId) {
+async function adminCreateUser() {
+    const res = await showCustomModal({
+        title: 'CREATE NEW USER',
+        message: 'Enter user details for account creation:',
+        fields: [
+            { placeholder: 'FULL NAME (e.g. John Doe)', value: '', validate: v => v && v.trim().length >= 2 ? null : 'Full Name required (min 2 chars)' },
+            { placeholder: 'PHONE NUMBER (e.g. +1234567890)', value: '', validate: v => v && /^\+?[0-9\s\-()]{5,20}$/.test(v.trim()) ? null : 'Valid phone number required' },
+            { placeholder: 'USERNAME', value: '', validate: v => v && v.trim().length >= 3 && /^[a-zA-Z0-9_\-]+$/.test(v.trim()) ? null : 'Username required (3-30 chars, alphanumeric)' },
+            { placeholder: 'PASSWORD', value: '', validate: v => v && v.length >= 6 ? null : 'Password required (min 6 chars)' },
+            { placeholder: 'EMAIL (OPTIONAL)', value: '', validate: v => !v.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()) ? null : 'Invalid email format' },
+            { placeholder: 'ROLE (Player / Agent / Admin)', value: 'Player', validate: v => ['Player', 'Agent', 'Admin'].includes(v.trim()) ? null : 'Role must be Player, Agent, or Admin' }
+        ],
+        confirmText: 'CREATE',
+        cancelText: 'CANCEL'
+    });
+    if (!res) return;
+    const [fullName, phoneNumber, username, password, email, role] = res;
+    try {
+        await apiCall('POST', '/api/admin/users', {
+            fullName: fullName.trim(),
+            phoneNumber: phoneNumber.trim(),
+            username: username.trim(),
+            password,
+            email: email.trim() || null,
+            role: role.trim()
+        });
+        await customAlert('SUCCESS', `User "${username.trim()}" created successfully.`);
+        loadAdminUsers();
+    } catch (e) {
+        await customAlert('ERROR', 'Failed to create user: ' + e.message);
+    }
+}
+
+function updateSelectedUserCount() {
+    const checked = document.querySelectorAll('.admin-user-checkbox:checked').length;
+    const label = document.getElementById('admin-selected-count');
+    if (label) label.textContent = `${checked} selected`;
+}
+
+async function adminBulkAssignAgent() {
+    const checked = Array.from(document.querySelectorAll('.admin-user-checkbox:checked')).map(cb => cb.dataset.userId);
+    if (!checked.length) {
+        await customAlert('SELECTION REQUIRED', 'Please select at least one user using the checkboxes.');
+        return;
+    }
+    if (!adminAgents || !adminAgents.length) {
+        adminAgents = await apiCall('GET', GAME_CONFIG.api.agents);
+    }
+    if (!adminAgents.length) {
+        await customAlert('NO AGENTS', 'No active agents available. Please create an agent first.');
+        return;
+    }
+
+    const agentListStr = adminAgents.map(a => `${a.id}: ${a.name} (${a.code})`).join('\n');
+    const res = await customPrompt(
+        'ASSIGN TO AGENT',
+        `Selected ${checked.length} user(s).\nAvailable Agents:\n${agentListStr}\n\nEnter Agent ID (or 0 to unassign):`,
+        adminAgents[0].id.toString(),
+        true,
+        v => !isNaN(Number(v)) ? null : 'Enter a valid numeric Agent ID'
+    );
+    if (res === null) return;
+    const agentId = Number(res);
+
+    try {
+        await apiCall('POST', '/api/admin/users/bulk-assign-agent', {
+            userIds: checked,
+            agentId: agentId === 0 ? null : agentId
+        });
+        await customAlert('SUCCESS', `Assigned ${checked.length} user(s) to agent.`);
+        loadAdminUsers();
+    } catch (e) {
+        await customAlert('ERROR', 'Bulk assign failed: ' + e.message);
+    }
+}
+
+async function adminSetUserRole(userId, currentRole) {
+    const newRole = await customPrompt(
+        'SET USER ROLE',
+        `Current role: ${currentRole}\nEnter new role (Player / Agent / Admin):`,
+        currentRole,
+        false,
+        v => ['Player', 'Agent', 'Admin'].includes(v.trim()) ? null : 'Role must be Player, Agent, or Admin'
+    );
+    if (!newRole) return;
+    try {
+        await apiCall('POST', `/api/admin/users/${userId}/role`, { role: newRole.trim() });
+        await customAlert('SUCCESS', `User role updated to ${newRole.trim()}.`);
+        loadAdminUsers();
+    } catch (e) {
+        await customAlert('ERROR', 'Role update failed: ' + e.message);
+    }
+}
+
+async function adminAssignSingleUserToAgent(userId) {
+    if (!adminAgents || !adminAgents.length) {
+        adminAgents = await apiCall('GET', GAME_CONFIG.api.agents);
+    }
+    const agentListStr = adminAgents.map(a => `${a.id}: ${a.name} (${a.code})`).join('\n');
+    const res = await customPrompt(
+        'ASSIGN AGENT TO USER',
+        `Available Agents:\n${agentListStr}\n\nEnter Agent ID (or 0 to unassign):`,
+        adminAgents.length ? adminAgents[0].id.toString() : '0',
+        true,
+        v => !isNaN(Number(v)) ? null : 'Enter a valid numeric Agent ID'
+    );
+    if (res === null) return;
+    const agentId = Number(res);
+
+    try {
+        await apiCall('POST', '/api/admin/users/bulk-assign-agent', {
+            userIds: [userId],
+            agentId: agentId === 0 ? null : agentId
+        });
+        await customAlert('SUCCESS', 'Agent assigned successfully.');
+        loadAdminUsers();
+    } catch (e) {
+        await customAlert('ERROR', 'Assign agent failed: ' + e.message);
+    }
+}
     const userId = await customPrompt(
         'ASSIGN PLAYER TO AGENT',
         'Enter User ID to assign to this agent:',
@@ -4089,6 +4247,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (input) input.value = '';
         loadAdminUsers('');
     });
+    const adminCreateUserBtn = document.getElementById('admin-create-user-btn');
+    if (adminCreateUserBtn) adminCreateUserBtn.addEventListener('click', adminCreateUser);
+    const adminBulkAssignBtn = document.getElementById('admin-bulk-assign-btn');
+    if (adminBulkAssignBtn) adminBulkAssignBtn.addEventListener('click', adminBulkAssignAgent);
     const adminMachineRefreshBtn = document.getElementById('admin-machine-refresh-btn');
     if (adminMachineRefreshBtn) adminMachineRefreshBtn.addEventListener('click', loadAdminMachines);
     const adminAgentCreateBtn = document.getElementById('admin-agent-create-btn');

@@ -195,11 +195,16 @@
                 <!-- SUBPAGE 1: PLAYERS -->
                 <div id="admin-pane-players" class="admin-tab-pane is-active">
                     <div class="wallet-history-title">PLAYERS & WALLETS</div>
-                    <div class="admin-section-help">Search by username, then credit or debit the selected wallet with an audit note.</div>
-                    <div class="wallet-deposit-withdraw">
-                        <input id="admin-user-search" placeholder="SEARCH USERNAME" class="admin-input-lite" style="flex:1;min-width:0;">
+                    <div class="admin-section-help">Create players/agents, manage roles, bulk assign agents, or credit/debit wallets.</div>
+                    <div class="wallet-deposit-withdraw" style="flex-wrap:wrap;gap:6px;">
+                        <input id="admin-user-search" placeholder="SEARCH USERNAME" class="admin-input-lite" style="flex:1;min-width:120px;">
                         <button class="lobby-btn wallet-action-btn" id="admin-user-search-btn">SEARCH</button>
                         <button class="lobby-btn wallet-action-btn" id="admin-user-refresh-btn">ALL</button>
+                        <button class="lobby-btn wallet-action-btn" id="admin-create-user-btn" style="background:#28a745;">+ NEW USER</button>
+                    </div>
+                    <div class="wallet-deposit-withdraw" style="margin-top:6px;gap:6px;align-items:center;">
+                        <button class="lobby-btn wallet-action-btn" id="admin-bulk-assign-btn" style="font-size:11px;">ASSIGN SELECTED TO AGENT</button>
+                        <span id="admin-selected-count" style="font-size:11px;color:#aaa;">0 selected</span>
                     </div>
                     <div id="admin-users-list" class="wallet-history-list"></div>
                 </div>

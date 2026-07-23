@@ -63,6 +63,81 @@ public sealed class AdminController(
         return Ok(ApiResponse<AdminUserDetailDto>.Ok(user, traceId: HttpContext.TraceIdentifier));
     }
 
+    [HttpPost("users/create")]
+    public async Task<ActionResult<ApiResponse<AdminUserDto>>> CreateUser([FromBody] AdminCreateUserRequest request, CancellationToken cancellationToken)
+    {
+        var adminId = HttpContext.RequireAdminRole();
+        if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
+            return BadRequest(ApiResponse<AdminUserDto>.Fail("Username and Password are required", traceId: HttpContext.TraceIdentifier));
+
+        var user = await adminService.CreateUserAsync(request, cancellationToken);
+        await auditService.AppendAsync(new AdminAuditWriteDto(
+            adminId,
+            "admin",
+            "user.create",
+            "user",
+            user.UserId.ToString("N"),
+            Outcome: "succeeded",
+            Reason: $"Created user {user.Username} with role {user.Role}",
+            Metadata: new Dictionary<string, string> { { "username", user.Username }, { "role", user.Role } }));
+
+        return Ok(ApiResponse<AdminUserDto>.Ok(user, traceId: HttpContext.TraceIdentifier));
+    }
+
+    public sealed record SetRoleRequest(string Role);
+
+    [HttpPost("users/{userId:guid}/role")]
+    public async Task<ActionResult<ApiResponse<AdminUserDto>>> SetUserRole(Guid userId, [FromBody] SetRoleRequest request, CancellationToken cancellationToken)
+    {
+        var adminId = HttpContext.RequireAdminRole();
+        if (string.IsNullOrWhiteSpace(request.Role))
+            return BadRequest(ApiResponse<AdminUserDto>.Fail("Role is required", traceId: HttpContext.TraceIdentifier));
+
+        var user = await adminService.SetUserRoleAsync(userId, request.Role, cancellationToken);
+        await auditService.AppendAsync(new AdminAuditWriteDto(
+            adminId,
+            "admin",
+            "user.set_role",
+            "user",
+            userId.ToString("N"),
+            Outcome: "succeeded",
+            Reason: $"Set user role to {request.Role}",
+            Metadata: new Dictionary<string, string> { { "role", request.Role } }));
+
+        return Ok(ApiResponse<AdminUserDto>.Ok(user, traceId: HttpContext.TraceIdentifier));
+    }
+
+    public sealed record BulkAssignAgentRequest(IReadOnlyList<Guid> UserIds, int? AgentId);
+
+    [HttpPost("users/assign-agent")]
+    public async Task<ActionResult<ApiResponse<int>>> BulkAssignAgent([FromBody] BulkAssignAgentRequest request, CancellationToken cancellationToken)
+    {
+        var adminId = HttpContext.RequireAdminRole();
+        if (request.UserIds == null || request.UserIds.Count == 0)
+            return BadRequest(ApiResponse<int>.Fail("UserIds array cannot be empty", traceId: HttpContext.TraceIdentifier));
+
+        var count = await adminService.BulkAssignAgentAsync(request.UserIds, request.AgentId, cancellationToken);
+        await auditService.AppendAsync(new AdminAuditWriteDto(
+            adminId,
+            "admin",
+            "user.assign_agent",
+            "agent",
+            request.AgentId?.ToString() ?? "unassigned",
+            Outcome: "succeeded",
+            Reason: $"Assigned agent {request.AgentId} to {count} users",
+            Metadata: new Dictionary<string, string> { { "count", count.ToString() } }));
+
+        return Ok(ApiResponse<int>.Ok(count, traceId: HttpContext.TraceIdentifier));
+    }
+
+    [HttpGet("agents/summary")]
+    public async Task<ActionResult<ApiResponse<IReadOnlyList<AgentSummaryDto>>>> GetAgentsSummary(CancellationToken cancellationToken)
+    {
+        HttpContext.RequireAdminRole();
+        var summaries = await adminService.GetAgentsSummaryAsync(cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<AgentSummaryDto>>.Ok(summaries, traceId: HttpContext.TraceIdentifier));
+    }
+
     [HttpPost("users/credit")]
     public async Task<ActionResult<ApiResponse<WalletLedgerEntryDto>>> Credit([FromBody] AdminCreditRequest request, CancellationToken cancellationToken)
     {

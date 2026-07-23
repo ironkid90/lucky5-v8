@@ -42,6 +42,69 @@ public sealed class AdminService(InMemoryDataStore store, PersistenceStore persi
         return Task.FromResult(dashboard);
     }
 
+    public async Task<AdminUserDto> CreateUserAsync(AdminCreateUserRequest req, CancellationToken cancellationToken)
+    {
+        var role = string.IsNullOrWhiteSpace(req.Role) ? "Player" : req.Role.Trim();
+        var (user, profile) = await store.CreateUserWithProfileAsync(
+            req.Username,
+            req.Password,
+            req.FullName,
+            req.Email,
+            req.PhoneNumber,
+            role,
+            req.AgentId,
+            cancellationToken);
+
+        PersistStateSafe(cancellationToken);
+        return ToAdminUserDto(user);
+    }
+
+    public async Task<AdminUserDto> SetUserRoleAsync(Guid userId, string role, CancellationToken cancellationToken)
+    {
+        if (!store.Users.TryGetValue(userId, out var user))
+            throw new KeyNotFoundException("User not found");
+
+        user.Role = role;
+        await store.UpdateUserAsync(user);
+        PersistStateSafe(cancellationToken);
+        return ToAdminUserDto(user);
+    }
+
+    public async Task<int> BulkAssignAgentAsync(IReadOnlyList<Guid> userIds, int? agentId, CancellationToken cancellationToken)
+    {
+        int count = 0;
+        foreach (var userId in userIds)
+        {
+            if (store.Users.TryGetValue(userId, out var user))
+            {
+                user.AgentId = agentId;
+                await store.UpdateUserAsync(user);
+                if (store.MemberProfiles.TryGetValue(userId, out var profile))
+                {
+                    profile.AgentId = agentId;
+                    await store.UpdateProfileAsync(profile);
+                }
+                count++;
+            }
+        }
+        PersistStateSafe(cancellationToken);
+        return count;
+    }
+
+    public Task<IReadOnlyList<AgentSummaryDto>> GetAgentsSummaryAsync(CancellationToken cancellationToken)
+    {
+        var agents = store.Agents.Values
+            .Select(a =>
+            {
+                var userCount = store.Users.Values.Count(u => u.AgentId == a.Id);
+                return new AgentSummaryDto(a.Id, a.Name, a.Code, a.PhoneNumber, a.IsActive, a.CreditPool, userCount);
+            })
+            .OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return Task.FromResult<IReadOnlyList<AgentSummaryDto>>(agents);
+    }
+
     public Task<IReadOnlyList<AdminUserDto>> ListUsersAsync(CancellationToken cancellationToken)
     {
         var users = store.Users.Values
@@ -394,7 +457,21 @@ public sealed class AdminService(InMemoryDataStore store, PersistenceStore persi
     private AdminUserDto ToAdminUserDto(User user)
     {
         store.MemberProfiles.TryGetValue(user.Id, out var profile);
-        return new AdminUserDto(user.Id, user.Username, profile?.DisplayName ?? user.Username, user.PhoneNumber, profile?.WalletBalance ?? 0, user.Role, user.CreatedUtc, profile?.LastSeenUtc ?? user.CreatedUtc);
+        var agent = user.AgentId.HasValue && store.Agents.TryGetValue(user.AgentId.Value, out var a) ? a : null;
+        return new AdminUserDto(
+            user.Id,
+            user.Username,
+            profile?.DisplayName ?? user.Username,
+            user.PhoneNumber,
+            profile?.WalletBalance ?? 0m,
+            user.Role,
+            user.CreatedUtc,
+            profile?.LastSeenUtc ?? user.CreatedUtc,
+            user.Email,
+            user.FullName,
+            user.AgentId,
+            agent?.Name
+        );
     }
 
     private AdminMachineDto ToAdminMachineDto(Machine machine)

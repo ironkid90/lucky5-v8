@@ -44,6 +44,14 @@ public class AgentController(IAgentService agentService) : ControllerBase
         return Ok(ApiResponse<object>.Ok(new { assigned = true }, traceId: HttpContext.TraceIdentifier));
     }
 
+    [HttpGet("{agentId:int}/users")]
+    public async Task<ActionResult<ApiResponse<IReadOnlyList<AdminUserDto>>>> GetUsersByAgent(int agentId, CancellationToken cancellationToken)
+    {
+        var (userId, role) = HttpContext.RequireAgentOrAdminRole();
+        var users = await agentService.GetUsersByAgentAsync(agentId, cancellationToken);
+        return Ok(ApiResponse<IReadOnlyList<AdminUserDto>>.Ok(users, traceId: HttpContext.TraceIdentifier));
+    }
+
     [HttpPost("create-user")]
         public async Task<ActionResult<ApiResponse<object>>> CreateUserUnderAgent(
             [FromBody] Lucky5.Application.Requests.SignupRequest request, CancellationToken cancellationToken)
