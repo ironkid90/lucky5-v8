@@ -11,6 +11,11 @@ public interface IAdminService
     Task<IReadOnlyList<AdminUserDto>> SearchUsersAsync(string query, CancellationToken cancellationToken);
     Task<AdminUserDto> GetUserAsync(Guid userId, CancellationToken cancellationToken);
     Task<AdminUserDetailDto> GetUserDetailAsync(Guid userId, CancellationToken cancellationToken);
+    Task<AdminUserDto> CreateUserAsync(Guid adminId, AdminCreateUserRequest request, CancellationToken cancellationToken);
+    Task<AdminUserDto> UpdateUserAsync(Guid adminId, AdminUpdateUserRequest request, CancellationToken cancellationToken);
+    Task<AdminUserDto> SetUserRoleAsync(Guid adminId, Guid userId, string role, CancellationToken cancellationToken);
+    Task<AdminUserDto> BulkAssignAgentAsync(Guid adminId, BulkAssignAgentRequest request, CancellationToken cancellationToken);
+    Task<IReadOnlyList<AgentSummaryDto>> GetAgentsSummaryAsync(CancellationToken cancellationToken);
     Task<WalletLedgerEntryDto> AdminCreditAsync(Guid adminId, AdminCreditRequest request, CancellationToken cancellationToken);
     Task<IReadOnlyList<AdminMachineDto>> ListMachinesAsync(CancellationToken cancellationToken);
     Task<AdminMachineDto> GetMachineAsync(int machineId, CancellationToken cancellationToken);

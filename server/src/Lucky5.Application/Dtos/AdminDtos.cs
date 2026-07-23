@@ -8,7 +8,20 @@ public sealed record AdminUserDto(
     decimal WalletBalance,
     string Role,
     DateTime CreatedUtc,
-    DateTime LastSeenUtc);
+    DateTime LastSeenUtc,
+    string Email,
+    string FullName,
+    int? AgentId,
+    string? AgentName);
+
+public sealed record AgentSummaryDto(
+    int Id,
+    string Name,
+    string Code,
+    string PhoneNumber,
+    bool IsActive,
+    decimal CreditPool,
+    int UserCount);
 
 public sealed record AdminMachineSessionDto(
     Guid SessionId,

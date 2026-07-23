@@ -78,6 +78,53 @@ public sealed class AuthService(InMemoryDataStore store, ITokenService tokenServ
         return Task.FromResult((ToDto(store.MemberProfiles[user.Id]), challenge));
     }
 
+    public Task<MemberProfileDto> RegisterWithProfileAsync(SignupRequest request, string role, CancellationToken cancellationToken)
+    {
+        if (store.Users.Values.Any(x => x.Username.Equals(request.Username, StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new InvalidOperationException("Username already exists");
+        }
+
+        var user = new User
+        {
+            Username = request.Username,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
+            PhoneNumber = request.PhoneNumber,
+            Email = request.Email ?? string.Empty,
+            FullName = request.FullName ?? request.Username,
+            DateOfBirth = request.DateOfBirth,
+            IsOtpVerified = true,
+            PendingOtp = null,
+            PendingOtpExpiresUtc = null,
+            Role = string.IsNullOrWhiteSpace(role) ? "player" : role.ToLowerInvariant(),
+            AgentId = request.AgentId
+        };
+
+        store.Users[user.Id] = user;
+        store.Profiles[user.Id] = user;
+        store.MemberProfiles[user.Id] = new MemberProfile
+        {
+            UserId = user.Id,
+            Username = user.Username,
+            DisplayName = user.Username,
+            FullName = user.FullName,
+            Email = user.Email.Length > 0 ? user.Email : $"{user.Username}@lucky5.local",
+            PhoneNumber = user.PhoneNumber,
+            DateOfBirth = user.DateOfBirth,
+            WalletBalance = 0m,
+            Credit = 0m,
+            TotalWins = 0,
+            AgentId = user.AgentId,
+            GeneratedID = user.GeneratedID,
+            MinimumOut = 0m,
+            BonusDate = null,
+            BonusRechargeCount = 0,
+            LastSeenUtc = DateTime.UtcNow
+        };
+
+        return Task.FromResult(ToDto(store.MemberProfiles[user.Id]));
+    }
+
     public Task<bool> VerifyOtpAsync(VerifyOtpRequest request, CancellationToken cancellationToken)
     {
         var user = store.Users.Values.FirstOrDefault(x => x.Username.Equals(request.Username, StringComparison.OrdinalIgnoreCase));

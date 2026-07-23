@@ -10,6 +10,7 @@ public interface IAgentService
     Task<AgentDto> CreateAgentAsync(CreateAgentRequest request, CancellationToken cancellationToken);
     Task<AgentDto> LoadCreditAsync(int agentId, decimal amount, CancellationToken cancellationToken);
     Task AssignUserToAgentAsync(Guid userId, int agentId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<AdminUserDto>> GetUsersByAgentAsync(int agentId, CancellationToken cancellationToken);
 }
 
 public sealed record CreateAgentRequest(

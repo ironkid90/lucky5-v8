@@ -7,6 +7,7 @@ public interface IAuthService
 {
     Task<(AuthTokens Tokens, MemberProfileDto Profile)> LoginAsync(LoginRequest request, CancellationToken cancellationToken);
     Task<(MemberProfileDto Profile, PendingOtpChallengeDto Challenge)> SignupAsync(SignupRequest request, CancellationToken cancellationToken);
+    Task<MemberProfileDto> RegisterWithProfileAsync(SignupRequest request, string role, CancellationToken cancellationToken);
     Task<bool> VerifyOtpAsync(VerifyOtpRequest request, CancellationToken cancellationToken);
     Task<PendingOtpChallengeDto?> ResendOtpAsync(ResendOtpRequest request, CancellationToken cancellationToken);
     Task<AuthTokens> RefreshTokenAsync(TokenRefreshRequest request, CancellationToken cancellationToken);
