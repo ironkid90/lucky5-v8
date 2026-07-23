@@ -126,6 +126,34 @@ public sealed class AgentService(IDataStore store) : IAgentService
         await store.UpdateProfileAsync(profile);
     }
 
+    public Task<IReadOnlyList<AdminUserDto>> GetUsersByAgentAsync(int agentId, CancellationToken cancellationToken)
+    {
+        var users = store.Users.Values
+            .Where(u => u.AgentId == agentId)
+            .Select(u =>
+            {
+                var profile = store.MemberProfiles.TryGetValue(u.Id, out var p) ? p : null;
+                var agent = u.AgentId.HasValue ? _agents.GetValueOrDefault(u.AgentId.Value) : null;
+                return new AdminUserDto(
+                    u.Id,
+                    u.Username,
+                    profile?.DisplayName ?? u.Username,
+                    u.PhoneNumber,
+                    profile?.WalletBalance ?? 0m,
+                    u.Role,
+                    u.CreatedUtc,
+                    profile?.LastSeenUtc ?? u.CreatedUtc,
+                    u.Email,
+                    u.FullName,
+                    u.AgentId,
+                    agent?.Name
+                );
+            })
+            .ToList();
+
+        return Task.FromResult<IReadOnlyList<AdminUserDto>>(users);
+    }
+
     private static AgentDto ToDto(Agent a) =>
         new(a.Id, a.Name, a.Code, a.PhoneNumber, a.IsActive, a.CreditPool, a.CreatedUtc);
 }
