@@ -59,6 +59,41 @@ public sealed class AgentService(IDataStore store) : IAgentService
 
         await store.CreateAgentAsync(agent);
         _agents[id] = agent;
+
+        // Automatically create a linked User entity with role="agent" so agent can log in
+        var username = request.Code.ToLowerInvariant();
+        if (!store.Users.Values.Any(u => u.Username.Equals(username, StringComparison.OrdinalIgnoreCase)))
+        {
+            var user = new User
+            {
+                Username = username,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Agent@12345"),
+                PhoneNumber = request.PhoneNumber,
+                Email = $"{username}@agent.lucky5.local",
+                FullName = request.Name,
+                Role = "agent",
+                AgentId = agent.Id,
+                IsOtpVerified = true
+            };
+            store.Users[user.Id] = user;
+            store.Profiles[user.Id] = user;
+            store.MemberProfiles[user.Id] = new MemberProfile
+            {
+                UserId = user.Id,
+                Username = user.Username,
+                DisplayName = user.Username,
+                FullName = user.FullName,
+                Email = user.Email,
+                PhoneNumber = user.PhoneNumber,
+                WalletBalance = 0m,
+                Credit = 0m,
+                TotalWins = 0,
+                AgentId = agent.Id,
+                GeneratedID = user.GeneratedID,
+                LastSeenUtc = DateTime.UtcNow
+            };
+        }
+
         return ToDto(agent);
     }
 
