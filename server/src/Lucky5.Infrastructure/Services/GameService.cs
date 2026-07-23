@@ -76,6 +76,19 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 				: await ToMachineSessionDtoAsync(userId, session, profile.WalletBalance);
 			var activeRound = await GetActiveRoundAsync(userId, machine.Id, cancellationToken);
 
+			var allSessions = await store.GetAllMachineSessionsAsync();
+			var activeOccupantSession = allSessions.FirstOrDefault(s => s.MachineId == machine.Id && !s.IsMachineClosed && s.MachineCredits > 0m);
+			bool isOccupied = activeOccupantSession != null;
+			string? occupiedByUsername = isOccupied ? (await store.GetUserByIdAsync(activeOccupantSession!.UserId))?.Username : null;
+			DateTime? reservedUntil = isOccupied ? activeOccupantSession!.LastUpdatedUtc.AddMinutes(5) : null;
+			int idleSec = 0;
+			if (reservedUntil.HasValue)
+			{
+				var remaining = (reservedUntil.Value - DateTime.UtcNow).TotalSeconds;
+				idleSec = remaining > 0 ? (int)remaining : 0;
+			}
+			int spectatorCount = 0;
+
 			lobbyMachines.Add(new PlayerLobbyMachineDto(
 				machine.Id,
 				machine.Name,
@@ -87,7 +100,12 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 				ledger.LastDistributionMode.ToString(),
 				ledger.RoundCount,
 				sessionDto,
-				activeRound));
+				activeRound,
+				isOccupied,
+				occupiedByUsername,
+				reservedUntil,
+				idleSec,
+				spectatorCount));
 		}
 
 		return new PlayerLobbyDto(profile.UserId, profile.Username, profile.WalletBalance, profile.Credit, lobbyMachines);

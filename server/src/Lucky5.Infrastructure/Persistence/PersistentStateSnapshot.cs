@@ -19,4 +19,5 @@ public sealed record PersistentStateSnapshot
     public IReadOnlyList<MachineLedgerState> MachineLedgers { get; init; } = Array.Empty<MachineLedgerState>();
     public IReadOnlyList<GameRound> ActiveRounds { get; init; } = Array.Empty<GameRound>();
     public IReadOnlyList<WalletLedgerEntry> WalletLedgerEntries { get; init; } = Array.Empty<WalletLedgerEntry>();
+    public IReadOnlyList<Agent> Agents { get; init; } = Array.Empty<Agent>();
 }

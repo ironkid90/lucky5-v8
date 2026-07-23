@@ -18,4 +18,9 @@ public sealed record PlayerLobbyMachineDto(
     string Phase,
     int RoundCount,
     MachineSessionDto? Session,
-    ActiveRoundStateDto? ActiveRound);
+    ActiveRoundStateDto? ActiveRound,
+    bool IsOccupied = false,
+    string? OccupiedByUsername = null,
+    DateTime? ReservedUntilUtc = null,
+    int IdleSecondsRemaining = 0,
+    int ActiveSpectatorCount = 0);

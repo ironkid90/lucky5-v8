@@ -141,6 +141,11 @@ public class InMemoryDataStoreAdapter : IDataStore
         return Task.FromResult(session);
     }
 
+    public Task<List<MachineSessionState>> GetAllMachineSessionsAsync()
+    {
+        return Task.FromResult(_store.MachineSessions.Values.ToList());
+    }
+
     public Task CreateMachineSessionAsync(MachineSessionState session)
     {
         _store.MachineSessions[session.SessionId] = session;

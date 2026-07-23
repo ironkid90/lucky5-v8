@@ -22,6 +22,8 @@ window.CabinetAudio = (function () {
         bonusClaim:     { src: '/assets/sounds/bonus-claim.mp3',    volume: 0.4,  priority: 'high'   },
         doubleUpWin:    { src: '/assets/sounds/doubleup-win.mp3',   volume: 0.35, priority: 'high'   },
         doubleUpLose:   { src: '/assets/sounds/doubleup-lose.mp3',  volume: 0.25, priority: 'normal' },
+        doubleup:       { src: '/assets/sounds/doubleup-win.mp3',   volume: 0.3,  priority: 'normal' },
+        doubleUp:       { src: '/assets/sounds/doubleup-win.mp3',   volume: 0.3,  priority: 'normal' },
         cashIn:         { src: '/assets/sounds/cash-in.mp3',        volume: 0.2,  priority: 'low'    },
         cashOut:        { src: '/assets/sounds/cash-out.mp3',       volume: 0.3,  priority: 'normal' },
         hold:           { src: '/assets/sounds/hold.mp3',           volume: 0.15, priority: 'low'    },

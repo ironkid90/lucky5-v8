@@ -51,6 +51,10 @@ public sealed class InMemoryPersistentStateCoordinator : IPersistentStateCoordin
                     .OrderBy(entry => entry.CreatedUtc)
                     .ThenBy(entry => entry.Id)
                     .Select(CloneForSnapshot)
+                    .ToArray(),
+                Agents = inMemoryStore.Agents.Values
+                    .OrderBy(agent => agent.Id)
+                    .Select(CloneForSnapshot)
                     .ToArray()
             };
         }
@@ -80,6 +84,8 @@ public sealed class InMemoryPersistentStateCoordinator : IPersistentStateCoordin
             inMemoryStore.MachineLedgers.Clear();
             inMemoryStore.ActiveRounds.Clear();
             inMemoryStore.WalletLedger.Clear();
+            inMemoryStore.Agents.Clear();
+            inMemoryStore.MachineSessions.Clear();
 
             while (inMemoryStore.Ledger.TryTake(out _))
             {
@@ -150,6 +156,22 @@ public sealed class InMemoryPersistentStateCoordinator : IPersistentStateCoordin
                 cancellationToken.ThrowIfCancellationRequested();
                 inMemoryStore.Ledger.Add(entry);
                 inMemoryStore.WalletLedger.Add(entry);
+            }
+
+            foreach (var agent in snapshot.Agents.OrderBy(agent => agent.Id))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                inMemoryStore.Agents[agent.Id] = agent;
+            }
+
+            foreach (var session in snapshot.MachineSessions
+                .OrderBy(session => session.UserId)
+                .ThenBy(session => session.MachineId)
+                .ThenBy(session => session.SessionId))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                inMemoryStore.MachineSessions[session.SessionId] = session;
+                inMemoryStore.MachineSessionStates[$"{session.UserId:N}:{session.MachineId}"] = session;
             }
         }
 

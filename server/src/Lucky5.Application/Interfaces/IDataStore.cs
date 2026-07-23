@@ -29,6 +29,7 @@ public interface IDataStore
 
     Task<MachineSessionState?> GetMachineSessionAsync(Guid userId, int machineId);
     Task<MachineSessionState?> GetMachineSessionByIdAsync(Guid sessionId);
+    Task<List<MachineSessionState>> GetAllMachineSessionsAsync();
     Task CreateMachineSessionAsync(MachineSessionState session);
     Task UpdateMachineSessionAsync(MachineSessionState session);
     Task DeleteMachineSessionAsync(Guid sessionId);

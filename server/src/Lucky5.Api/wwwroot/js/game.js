@@ -3974,6 +3974,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (gameState !== 'idle') throw new Error('Finish the current round first');
                 const maxIn = walletBalance;
                 if (maxIn <= 0) throw new Error('No wallet balance to deposit');
+                setMenuPanelOpen(false);
                 const raw = await customPrompt(
                     'CASH IN MACHINE',
                     `Enter amount to deposit (Max: ${formatNum(maxIn)}):`,

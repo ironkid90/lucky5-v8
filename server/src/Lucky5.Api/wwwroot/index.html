@@ -232,25 +232,6 @@
             </div>
         </div>
 
-        <!-- Retro Cabinet-Themed Dialog Modal -->
-        <div id="admin-modal-container" class="admin-modal-overlay" style="display: none;">
-            <div class="admin-modal-box">
-                <div class="admin-modal-bezel"></div>
-                <div class="admin-modal-header">
-                    <span id="admin-modal-title">ADMIN CONTROL</span>
-                </div>
-                <div class="admin-modal-body">
-                    <div id="admin-modal-message" class="admin-modal-text">ENTER DETAILS:</div>
-                    <div id="admin-modal-inputs"></div>
-                    <div id="admin-modal-error" class="admin-modal-error-msg" style="display: none;"></div>
-                </div>
-                <div class="admin-modal-footer">
-                    <button id="admin-modal-btn-cancel" class="admin-modal-btn cancel-btn">CANCEL</button>
-                    <button id="admin-modal-btn-confirm" class="admin-modal-btn confirm-btn">CONFIRM</button>
-                </div>
-            </div>
-        </div>
-
         <div id="game-screen" data-zone="game-screen">
             <div id="paytable" data-zone="paytable">
                 <div class="pay-row rf jackpot-major" data-hand="RoyalFlush">
@@ -401,6 +382,25 @@
         <button id="btn-reset-machine" class="menu-panel-btn menu-panel-btn-reset">RESET MACHINE</button>
         <button id="btn-logout-menu" class="menu-panel-btn menu-panel-btn-logout">LOGOUT</button>
         <button id="btn-close-menu" class="menu-panel-close">CLOSE</button>
+    </div>
+
+    <!-- Retro Cabinet-Themed Dialog Modal (Root level for proper z-index overlay) -->
+    <div id="admin-modal-container" class="admin-modal-overlay" style="display: none;">
+        <div class="admin-modal-box">
+            <div class="admin-modal-bezel"></div>
+            <div class="admin-modal-header">
+                <span id="admin-modal-title">ADMIN CONTROL</span>
+            </div>
+            <div class="admin-modal-body">
+                <div id="admin-modal-message" class="admin-modal-text">ENTER DETAILS:</div>
+                <div id="admin-modal-inputs"></div>
+                <div id="admin-modal-error" class="admin-modal-error-msg" style="display: none;"></div>
+            </div>
+            <div class="admin-modal-footer">
+                <button id="admin-modal-btn-cancel" class="admin-modal-btn cancel-btn">CANCEL</button>
+                <button id="admin-modal-btn-confirm" class="admin-modal-btn confirm-btn">CONFIRM</button>
+            </div>
+        </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>

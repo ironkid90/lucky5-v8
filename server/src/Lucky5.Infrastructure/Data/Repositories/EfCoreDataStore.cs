@@ -125,6 +125,11 @@ public class EfCoreDataStore : IDataStore
         return await _context.MachineSessions.FindAsync(sessionId);
     }
 
+    public async Task<List<MachineSessionState>> GetAllMachineSessionsAsync()
+    {
+        return await _context.MachineSessions.ToListAsync();
+    }
+
     public async Task CreateMachineSessionAsync(MachineSessionState session)
     {
         _context.MachineSessions.Add(session);
