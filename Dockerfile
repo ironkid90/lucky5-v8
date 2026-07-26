@@ -13,7 +13,7 @@ WORKDIR "/src/Lucky5.Api"
 RUN dotnet publish "Lucky5.Api.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 # Stage 2: Runtime image optimization
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-preview AS final
+FROM mcr.microsoft.com/dotnet/aspnet:11.0-preview AS final
 WORKDIR /app
 COPY --from=build /app/publish .
 
