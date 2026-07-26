@@ -1,0 +1,26 @@
+[
+  {
+    "name": "Visual Machine Selection Lobby",
+    "playpoker pattern source": "SSR'd Lobby markup with aggregate counts (All 20 / Ready 15 / Busy 5) and individual machine tiles.",
+    "lucky5 current approach": "Direct launch into the game instance via generic routing.",
+    "implementation sketch": "Implement an HTML/CSS landing view showing a grid of cabinet instances with live availability, letting users click a 'READY' machine to claim it.",
+    "effort estimate": "M",
+    "user-visible benefit": "Provides an immersive 'arcade room' experience where players choose a physical-feeling machine rather than a faceless web session."
+  },
+  {
+    "name": "Fullscreen PWA Standalone Mode",
+    "playpoker pattern source": "index.html <meta> tags: apple-mobile-web-app-capable, apple-mobile-web-app-status-bar-style, and manifest.webmanifest.",
+    "lucky5 current approach": "Standard web-app behavior, which can leave browser chrome (URL bar, tabs) visible on mobile.",
+    "implementation sketch": "Add a web app manifest and corresponding meta tags to force standalone, fullscreen launch on mobile devices to hide browser UI.",
+    "effort estimate": "S",
+    "user-visible benefit": "Deepens immersion by removing browser distractions, making the game feel like a native app or a real cabinet screen."
+  },
+  {
+    "name": "Pre-hydration Asset Preloading",
+    "playpoker pattern source": "Injected hidden <div> at the top of the body with background-image tags for all cards and backgrounds to avoid pop-in.",
+    "lucky5 current approach": "Lucky5 builds cards via DOM (no PNGs), but still needs to load large retro fonts and cabinet wrapper images which may cause Flash of Unstyled Text (FOUT).",
+    "implementation sketch": "Add <link rel=\"preload\"> for the required retro font files (Arcade, VT323) and inline a hidden preloader for the cabinet PNG sprite before the main UI mounts.",
+    "effort estimate": "S",
+    "user-visible benefit": "Prevents layout shifts and jarring visual pop-ins; the cabinet looks perfectly polished from the very first frame."
+  }
+]

@@ -1,0 +1,34 @@
+[
+  {
+    "name": "Real-Time Game Spectating & Lobby Presence Synchronization",
+    "playpoker_pattern_source": "Playpoker uses custom events 'gameState', 'machinesChanged', 'spectatorsChanged', and 'watchEnded' on its Socket.io service (playpoker-api.fly.dev) to manage multi-client spectator session synchronization and real-time lobby state updates.",
+    "lucky5_current_approach": "Lucky5 implements a single-player seat-occupancy lock in CarrePokerGameHub.cs (using MachineOccupancy and connection-to-machine mapping) which strictly blocks other players from joining or watching an active cabinet session (returns MACHINE_OCCUPIED error).",
+    "implementation_sketch": "Extend CarrePokerGameHub.cs to support spectating connections. When a player connection requests to join an occupied machine, subscribe them to a read-only spectator SignalR group (machine:spectate:{machineId}). Track and broadcast the live spectator count via a new 'SpectatorsChanged' event. Update frontend game.js to connect as a spectator when the seat-occupancy lock is held by another user, rendering a live watch view and spectator counter.",
+    "effort_estimate": "M",
+    "user_visible_benefit": "Brings a social, connected arcade atmosphere to the casino environment. Players can view active machines, watch other players' high-stakes game rounds and Double-Up climbs in real-time, and celebrate big wins together."
+  },
+  {
+    "name": "Context-Bound Secure Wallet & Transaction Handshake",
+    "playpoker_pattern_source": "Playpoker restricts wallet operations (/me/wallet, /me/topups, /me/cashout-coins) exclusively to the token owner resolved directly from the secure JWT context (HS256 claims), preventing Insecure Direct Object Reference (IDOR) attacks from body parameters.",
+    "lucky5_current_approach": "Lucky5 uses claims-based identity resolution (HttpContext.RequireUserId()) but some API controller routes like AuthController.cs (e.g., Deposit, Withdraw, MoveWinToBalance) accept general TransferRequests from the body which pass arbitrary IDs and can introduce security or logic ambiguities.",
+    "implementation_sketch": "Harden AuthController.cs by eliminating TransferRequests with client-supplied user IDs from endpoints meant for personal actions. Create a specialized 'UserTransactionRequest' containing only Amount and MachineId, resolving the target user profile context strictly from the authenticated ClaimsPrincipal context (HttpContext.RequireUserId()). Keep administrative balance transfers isolated to dedicated admin controllers (AdminController.cs).",
+    "effort_estimate": "S",
+    "user_visible_benefit": "Provides absolute wallet and account security. Prevents credit theft, transaction spoofing, and malicious client-side data tampering by enforcing high-level server-side context validation."
+  },
+  {
+    "name": "Dynamic Game Rules and Server Limit Caching",
+    "playpoker_pattern_source": "Playpoker utilizes a dedicated /config HTTP endpoint to retrieve application settings, limits, RTPs, and static boundaries, permitting clients to fetch once, cache, and apply rules dynamically.",
+    "lucky5_current_approach": "Lucky5 hardcodes multiple limits, bet steps, and animation settings in the frontend scripts (game.js), while its ConfigController.cs is restricted solely to public Firebase metadata.",
+    "implementation_sketch": "Extend ConfigController.cs to expose a /api/Config/rules endpoint which retrieves bet steps, RTPs, maximum pay limits, and UI/animation parameters from the backend settings. Modify game.js to load, cache (using browser localStorage), and dynamically apply these boundaries during cabinet initialization, utilizing query-string cache-busting.",
+    "effort_estimate": "S",
+    "user_visible_benefit": "Ensures instantaneous configuration changes without frontend redeployments, speeds up start times on low-bandwidth networks via cached rulesets, and guarantees alignment between client constraints and server authority."
+  },
+  {
+    "name": "State-Versioned Resilient Client Reconnection System",
+    "playpoker_pattern_source": "Playpoker's Socket.io implementation uses automated reconnect cycles coupled with direct game state versions to instantly recover context when connectivity fluctuates.",
+    "lucky5_current_approach": "Lucky5 has a ReconnectSync method on CarrePokerGameHub.cs but game.js has basic reconnection logic that does not track sequence numbers or synchronize state-versions to trigger automated re-handshakes mid-game.",
+    "implementation_sketch": "Update game.js frontend to monitor the sequence number and state version on every incoming SignalR message. Build a background heartbeat monitor in game.js. On signal drop, initiate immediate silent reconnection, and invoke ReconnectSync(machineId, lastStateVersion, lastSequenceNumber) to replay delta states or apply a structural catch-up snapshot if states diverged.",
+    "effort_estimate": "M",
+    "user_visible_benefit": "Improves gameplay resilience on flaky networks (mobile/Wi-Fi). If a player experiences a connection drop mid-round or during a critical Double-Up gamble, the game seamlessly recovers and matches the server's state without disrupting the session."
+  }
+]

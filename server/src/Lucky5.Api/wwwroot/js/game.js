@@ -3376,9 +3376,7 @@ function updateAdminStats() {
 function showAdmin() {
     if (currentRole !== 'admin') return;
     activateShellScreen('admin', 'admin');
-    loadAdminUsers();
-    loadAdminAgents();
-    loadAdminMachines();
+    loadAdminDashboard();
 }
 
 async function loadAdminUsers(query = '') {
@@ -3425,6 +3423,7 @@ async function loadAdminUsers(query = '') {
                     <div style="display:flex;gap:4px;">
                         <button class="lobby-btn lobby-btn-sm" data-role="${user.userId}" data-current-role="${user.role || 'Player'}">ROLE</button>
                         <button class="lobby-btn lobby-btn-sm" data-assign-agent="${user.userId}">AGENT</button>
+                        <button class="lobby-btn lobby-btn-sm" data-view-user="${user.userId}" style="background:#1565c0;">VIEW</button>
                     </div>
                 </div>
             `;
@@ -3438,6 +3437,7 @@ async function loadAdminUsers(query = '') {
         wrap.querySelectorAll('[data-debit]').forEach(btn => btn.addEventListener('click', () => adminAdjustWallet(btn.dataset.debit, true)));
         wrap.querySelectorAll('[data-role]').forEach(btn => btn.addEventListener('click', () => adminSetUserRole(btn.dataset.role, btn.dataset.currentRole)));
         wrap.querySelectorAll('[data-assign-agent]').forEach(btn => btn.addEventListener('click', () => adminAssignSingleUserToAgent(btn.dataset.assignAgent)));
+        wrap.querySelectorAll('[data-view-user]').forEach(btn => btn.addEventListener('click', () => adminViewPlayerDetail(btn.dataset.viewUser)));
         updateAdminStats();
     } catch (e) {
         wrap.innerHTML = `<div class="wallet-history-empty">${escapeHtml(e.message)}</div>`;
@@ -3657,7 +3657,7 @@ async function adminCreateUser() {
     if (!res) return;
     const [fullName, phoneNumber, username, password, email, role] = res;
     try {
-        await apiCall('POST', '/api/admin/users', {
+        await apiCall('POST', '/api/admin/users/create', {
             fullName: fullName.trim(),
             phoneNumber: phoneNumber.trim(),
             username: username.trim(),
@@ -3712,8 +3712,156 @@ async function adminBulkAssignAgent() {
         loadAdminUsers();
     } catch (e) {
         await customAlert('ERROR', 'Bulk assign failed: ' + e.message);
-    }
-}
+            }
+        }
+
+        // ──────────────────────────────────────────────────
+        //  ADMIN — DASHBOARD
+        // ──────────────────────────────────────────────────
+        async function loadAdminDashboard() {
+            try {
+                const dashboard = await apiCall('GET', '/api/admin/dashboard');
+                // Populate stats
+                document.getElementById('db-stat-users').textContent = dashboard.userCount;
+                document.getElementById('db-stat-players').textContent = dashboard.playerCount;
+                document.getElementById('db-stat-agents').textContent = dashboard.adminCount > 0 ? '--' : dashboard.adminCount;
+                document.getElementById('db-stat-admins').textContent = dashboard.adminCount;
+                document.getElementById('db-stat-wallets').textContent = formatNum(dashboard.totalWalletBalance || 0);
+                document.getElementById('db-stat-active-sessions').textContent = dashboard.activeMachineSessions;
+                document.getElementById('db-stat-open-machines').textContent = `${dashboard.openMachineCount} / ${dashboard.machineCount}`;
+                document.getElementById('db-stat-rtp').textContent = ((dashboard.observedRtp || 0) * 100).toFixed(1) + '%';
+                document.getElementById('db-stat-c-in').textContent = formatNum(dashboard.totalCapitalIn || 0);
+                document.getElementById('db-stat-c-out').textContent = formatNum(dashboard.totalCapitalOut || 0);
+                document.getElementById('db-stat-credits-today').textContent = '--';
+                document.getElementById('db-stat-debits-today').textContent = '--';
+                document.getElementById('admin-stat-users').textContent = dashboard.userCount;
+                document.getElementById('admin-stat-agents').textContent = '--';
+                document.getElementById('admin-stat-machines').textContent = dashboard.machineCount;
+
+                // Load recent ledger transactions
+                const audit = await apiCall('GET', '/api/admin/audit?take=30').catch(() => []);
+                const wrap = document.getElementById('admin-dashboard-ledger');
+                if (!wrap) return;
+                if (!audit || !audit.length) { wrap.innerHTML = '<div class="wallet-history-empty">NO RECENT ACTIVITY</div>'; return; }
+                wrap.innerHTML = '';
+                audit.forEach(entry => {
+                    const row = document.createElement('div');
+                    row.className = 'wallet-history-row admin-data-row';
+                    row.innerHTML = `
+                        <div class="wallet-history-info">
+                            <div class="wallet-history-type">${escapeHtml(entry.action || 'ACTION').toUpperCase()} <span class="admin-badge is-muted">${escapeHtml(entry.entityType || '')}/${escapeHtml(entry.entityId || '')}</span></div>
+                            <div class="wallet-history-date">${escapeHtml(entry.reason || '—')} • ${escapeHtml(entry.outcome || '')}</div>
+                            <div class="wallet-history-date">${formatTransactionDate(entry.createdUtc)}</div>
+                        </div>
+                    `;
+                    wrap.appendChild(row);
+                });
+            } catch (e) {
+                console.error('Dashboard load failed:', e);
+            }
+        }
+
+        // ──────────────────────────────────────────────────
+        //  ADMIN — AUDIT LOG
+        // ──────────────────────────────────────────────────
+        async function loadAdminAuditLog() {
+            const wrap = document.getElementById('admin-audit-list');
+            if (!wrap) return;
+            wrap.innerHTML = '<div class="wallet-history-empty">LOADING AUDIT LOG...</div>';
+            try {
+                const audit = await apiCall('GET', '/api/admin/audit?take=200');
+                if (!audit || !audit.length) { wrap.innerHTML = '<div class="wallet-history-empty">NO AUDIT RECORDS</div>'; return; }
+                wrap.innerHTML = '';
+                audit.forEach(entry => {
+                    const row = document.createElement('div');
+                    row.className = 'wallet-history-row admin-data-row';
+                    row.innerHTML = `
+                        <div class="wallet-history-info">
+            <div class="wallet-history-type">
+                ${escapeHtml(entry.action || 'ACTION').toUpperCase()}
+                <span class="admin-badge is-muted">${escapeHtml(entry.entityType || '').toUpperCase()} ▶ ${escapeHtml(entry.entityId || '—').toUpperCase()}</span>
+                <span class="admin-badge">${escapeHtml(entry.outcome || '?').toUpperCase()}</span>
+            </div>
+            <div class="wallet-history-date">REASON: ${escapeHtml(entry.reason || '—')}</div>
+            <div class="wallet-history-date">${formatTransactionDate(entry.createdUtc)} • ADMIN ${escapeHtml((entry.actorId || '').substring(0, 10))}</div>
+        </div>
+        `;
+        wrap.appendChild(row);
+        });
+        } catch (e) {
+            wrap.innerHTML = `<div class="wallet-history-empty">${escapeHtml(e.message)}</div>`;
+            }
+        }
+
+        // ──────────────────────────────────────────────────
+        //  ADMIN — PLAYER DETAIL VIEW
+        // ──────────────────────────────────────────────────
+        async function adminViewPlayerDetail(userId) {
+            try {
+                const detail = await apiCall('GET', `/api/admin/users/${userId}/detail`);
+                const u = detail.user;
+                const content = document.getElementById('admin-player-detail-content');
+                if (!content) return;
+
+                // Hide all panes, show detail
+                ['dashboard', 'players', 'agents', 'machines', 'audit', 'player-detail'].forEach(t => {
+                    const pane = document.getElementById(`admin-pane-${t}`);
+                    if (pane) { pane.classList.remove('is-active'); pane.style.display = 'none'; }
+                });
+                const detailPane = document.getElementById('admin-pane-player-detail');
+                if (detailPane) { detailPane.classList.add('is-active'); detailPane.style.display = 'block'; }
+
+                content.innerHTML = `
+                    <div class="wallet-history-row" style="background:#1a1a2e;padding:12px;border-radius:4px;margin-bottom:10px;">
+                        <div class="wallet-history-type" style="font-size:16px;">${escapeHtml(u.username).toUpperCase()} — ${escapeHtml(u.displayName)}</div>
+                        <div class="wallet-history-date">${escapeHtml(u.fullName || 'No Name')} • ${escapeHtml(u.role).toUpperCase()}</div>
+                        <div class="wallet-history-date">${escapeHtml(detail.email || 'No email')} • ${escapeHtml(u.phoneNumber)}</div>
+                        <div class="wallet-history-date">WALLET ${formatNum(u.walletBalance)} • CREDIT ${formatNum(detail.credit)} • TOTAL WINS ${detail.totalWins}</div>
+                        <div class="wallet-history-date">AGENT ${detail.agentId || 'None'} • GENERATED ID ${escapeHtml(detail.generatedId)}</div>
+                        <div class="wallet-history-date">CREATED ${formatTransactionDate(u.createdUtc)} • LAST SEEN ${formatTransactionDate(u.lastSeenUtc)}</div>
+                        <div class="wallet-history-date">MINIMUM OUT ${formatNum(detail.minimumOut)} • BONUS COUNT ${detail.bonusRechargeCount} • NET LOSS ${formatNum(detail.sessionNetLoss)}</div>
+                    </div>
+
+                    <div class="wallet-history-title">RECENT LEDGER (25)</div>
+                    ${(detail.recentLedger || []).length === 0 ? '<div class="wallet-history-empty">NO TRANSACTIONS</div>' :
+                        (detail.recentLedger || []).map(entry => `
+                            <div class="wallet-history-row admin-data-row">
+                                <div class="wallet-history-info">
+                                    <div class="wallet-history-type">${entry.type} <span class="admin-badge">${entry.amount >= 0 ? '+' + formatNum(entry.amount) : formatNum(entry.amount)}</span></div>
+                                    <div class="wallet-history-date">BAL ${formatNum(entry.balanceAfter)} • ${entry.reference}</div>
+                                    <div class="wallet-history-date">${formatTransactionDate(entry.createdUtc)}</div>
+                                </div>
+                            </div>
+                        `).join('')}
+
+                    <div class="wallet-history-title" style="margin-top:12px;">SESSIONS (${(detail.sessions || []).length})</div>
+                    ${(detail.sessions || []).length === 0 ? '<div class="wallet-history-empty">NO ACTIVE SESSIONS</div>' :
+                        (detail.sessions || []).map(session => `
+                            <div class="wallet-history-row admin-data-row">
+                                <div class="wallet-history-info">
+                                    <div class="wallet-history-type">MACHINE ${session.machineId}: ${escapeHtml(session.machineName)}</div>
+                                    <div class="wallet-history-date">CREDITS ${formatNum(session.machineCredits)} • CASH IN ${formatNum(session.totalCashIn)} • ${session.isMachineClosed ? 'CLOSED' : 'OPEN'}</div>
+                                    <div class="wallet-history-date">SINCE ${formatTransactionDate(session.createdUtc)}</div>
+                                </div>
+                            </div>
+                        `).join('')}
+
+                    <div class="wallet-history-title" style="margin-top:12px;">ACTIVE ROUNDS (${(detail.activeRounds || []).length})</div>
+                    ${(detail.activeRounds || []).length === 0 ? '<div class="wallet-history-empty">NO ACTIVE ROUNDS</div>' :
+                        (detail.activeRounds || []).map(round => `
+                            <div class="wallet-history-row admin-data-row">
+                                <div class="wallet-history-info">
+                                    <div class="wallet-history-type">MACHINE ${round.machineId}: ${escapeHtml(round.machineName)} <span class="admin-badge is-warn">${round.phase}</span></div>
+                                    <div class="wallet-history-date">BET ${formatNum(round.betAmount)} • HAND ${escapeHtml(round.handRank)} • WIN ${formatNum(round.winAmount)}</div>
+                                    <div class="wallet-history-date">${formatTransactionDate(round.createdUtc)} • AGE ${round.ageSeconds}s</div>
+                                </div>
+                            </div>
+                        `).join('')}
+                `;
+            } catch (e) {
+                await customAlert('ERROR', 'Failed to load player detail: ' + e.message);
+            }
+        }
 
 async function adminSetUserRole(userId, currentRole) {
     const newRole = await customPrompt(
@@ -4233,9 +4381,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Lazy/refresh data on tab switch
-            if (targetTab === 'players') loadAdminUsers(document.getElementById('admin-user-search')?.value || '');
-            if (targetTab === 'agents') loadAdminAgents();
-            if (targetTab === 'machines') loadAdminMachines();
+                        if (targetTab === 'dashboard') loadAdminDashboard();
+                        if (targetTab === 'players') loadAdminUsers(document.getElementById('admin-user-search')?.value || '');
+                        if (targetTab === 'agents') loadAdminAgents();
+                        if (targetTab === 'machines') loadAdminMachines();
+                        if (targetTab === 'audit') loadAdminAuditLog();
         });
     });
 
@@ -4257,6 +4407,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (adminAgentCreateBtn) adminAgentCreateBtn.addEventListener('click', createAdminAgent);
     const adminAgentRefreshBtn = document.getElementById('admin-agent-refresh-btn');
     if (adminAgentRefreshBtn) adminAgentRefreshBtn.addEventListener('click', loadAdminAgents);
+    const adminAuditRefreshBtn = document.getElementById('admin-audit-refresh-btn');
+    if (adminAuditRefreshBtn) adminAuditRefreshBtn.addEventListener('click', loadAdminAuditLog);
+    const adminPlayerDetailBackBtn = document.getElementById('admin-player-detail-back-btn');
+    if (adminPlayerDetailBackBtn) adminPlayerDetailBackBtn.addEventListener('click', () => {
+        // Switch back to players tab
+        document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('is-active'));
+        const playerTabBtn = document.querySelector('.admin-tab-btn[data-tab="players"]');
+        if (playerTabBtn) { playerTabBtn.classList.add('is-active'); playerTabBtn.click(); }
+    });
 
     const navLobby = document.getElementById('nav-lobby');
     const navWallet = document.getElementById('nav-wallet');

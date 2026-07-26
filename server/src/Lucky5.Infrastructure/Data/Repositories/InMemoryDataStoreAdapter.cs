@@ -16,6 +16,9 @@ public class InMemoryDataStoreAdapter : IDataStore
 {
     private readonly InMemoryDataStore _store;
 
+    // Expose the inner store for services that need direct enumeration (AgentService.GetUsersByAgentAsync)
+    public InMemoryDataStore InnerStore => _store;
+
     public InMemoryDataStoreAdapter(InMemoryDataStore store)
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));

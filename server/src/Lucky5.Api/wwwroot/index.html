@@ -187,13 +187,39 @@
                     </div>
                 </div>
                 <div class="admin-subnav-tabs" role="tablist">
-                    <button class="admin-tab-btn is-active" data-tab="players">PLAYERS</button>
-                    <button class="admin-tab-btn" data-tab="agents">AGENTS</button>
-                    <button class="admin-tab-btn" data-tab="machines">MACHINES</button>
-                </div>
+                                    <button class="admin-tab-btn is-active" data-tab="dashboard">DASHBOARD</button>
+                                    <button class="admin-tab-btn" data-tab="players">PLAYERS</button>
+                                    <button class="admin-tab-btn" data-tab="agents">AGENTS</button>
+                                    <button class="admin-tab-btn" data-tab="machines">MACHINES</button>
+                                    <button class="admin-tab-btn" data-tab="audit">AUDIT LOG</button>
+                                </div>
+
+                                <!-- SUBPAGE 0: DASHBOARD -->
+                                <div id="admin-pane-dashboard" class="admin-tab-pane is-active">
+                                    <div class="wallet-history-title">DASHBOARD — LIVE FLOOR OVERVIEW</div>
+                                    <div class="admin-section-help">Real-time metrics: player counts, wallet totals, machine status, recent transactions.</div>
+
+                                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin-bottom:12px;">
+                                        <div class="admin-stat-card"><span>TOTAL USERS</span><strong id="db-stat-users">--</strong></div>
+                                        <div class="admin-stat-card"><span>PLAYERS</span><strong id="db-stat-players">--</strong></div>
+                                        <div class="admin-stat-card"><span>AGENTS</span><strong id="db-stat-agents">--</strong></div>
+                                        <div class="admin-stat-card"><span>ADMINS</span><strong id="db-stat-admins">--</strong></div>
+                                        <div class="admin-stat-card"><span>TOTAL WALLETS</span><strong id="db-stat-wallets">--</strong></div>
+                                        <div class="admin-stat-card"><span>ACTIVE SESSIONS</span><strong id="db-stat-active-sessions">--</strong></div>
+                                        <div class="admin-stat-card"><span>OPEN MACHINES</span><strong id="db-stat-open-machines">--</strong></div>
+                                        <div class="admin-stat-card"><span>OBSERVED RTP</span><strong id="db-stat-rtp">--</strong></div>
+                                        <div class="admin-stat-card"><span>CAPITAL IN</span><strong id="db-stat-c-in">--</strong></div>
+                                        <div class="admin-stat-card"><span>CAPITAL OUT</span><strong id="db-stat-c-out">--</strong></div>
+                                        <div class="admin-stat-card"><span>TODAY CREDITS</span><strong id="db-stat-credits-today">--</strong></div>
+                                        <div class="admin-stat-card"><span>TODAY DEBITS</span><strong id="db-stat-debits-today">--</strong></div>
+                                    </div>
+
+                                    <div class="wallet-history-title">RECENT LEDGER ACTIVITY</div>
+                                    <div id="admin-dashboard-ledger" class="wallet-history-list" style="max-height:300px;overflow-y:auto;"></div>
+                                </div>
 
                 <!-- SUBPAGE 1: PLAYERS -->
-                <div id="admin-pane-players" class="admin-tab-pane is-active">
+                <div id="admin-pane-players" class="admin-tab-pane" style="display:none;">
                     <div class="wallet-history-title">PLAYERS & WALLETS</div>
                     <div class="admin-section-help">Create players/agents, manage roles, bulk assign agents, or credit/debit wallets.</div>
                     <div class="wallet-deposit-withdraw" style="flex-wrap:wrap;gap:6px;">
@@ -233,7 +259,26 @@
                         <button class="lobby-btn wallet-action-btn" id="admin-machine-refresh-btn" style="flex:1;">REFRESH MACHINES</button>
                     </div>
                     <div id="admin-machines-list" class="wallet-history-list"></div>
-                </div>
+                                    </div>
+
+                                    <!-- SUBPAGE 4: AUDIT LOG -->
+                                    <div id="admin-pane-audit" class="admin-tab-pane" style="display:none;">
+                                        <div class="wallet-history-title">ADMIN AUDIT LOG</div>
+                                        <div class="admin-section-help">Track all admin actions: user creation, role changes, credit/debit operations, machine resets.</div>
+                                        <div class="wallet-deposit-withdraw">
+                                            <button class="lobby-btn wallet-action-btn" id="admin-audit-refresh-btn" style="flex:1;">REFRESH AUDIT LOG</button>
+                                        </div>
+                                        <div id="admin-audit-list" class="wallet-history-list" style="max-height:500px;overflow-y:auto;"></div>
+                                    </div>
+
+                                    <!-- SUBPAGE: PLAYER DETAIL (shown dynamically) -->
+                                    <div id="admin-pane-player-detail" class="admin-tab-pane" style="display:none;">
+                                        <div class="wallet-history-title">PLAYER DETAIL</div>
+                                        <div class="wallet-deposit-withdraw">
+                                            <button class="lobby-btn wallet-action-btn" id="admin-player-detail-back-btn">&lt; BACK TO PLAYERS</button>
+                                        </div>
+                                        <div id="admin-player-detail-content" style="padding:8px;"></div>
+                                    </div>
             </div>
         </div>
 
