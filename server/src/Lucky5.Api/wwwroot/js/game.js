@@ -2931,7 +2931,14 @@ async function setupSignalR() {
     }
     hubConnection = new signalR.HubConnectionBuilder()
         .withUrl(`${API}/CarrePokerGameHub`, { accessTokenFactory: () => token })
-        .withAutomaticReconnect()
+        .withAutomaticReconnect({
+            nextRetryDelayInMilliseconds: retryContext => {
+                // Exponential backoff: 0, 2s, 5s, 10s, 30s, 30s...
+                var delays = [0, 2000, 5000, 10000, 30000];
+                var idx = Math.min(retryContext.previousRetryCount, delays.length - 1);
+                return delays[idx];
+            }
+        })
         .build();
 
     hubConnection.on('MachineStateUpdated', (state) => {
@@ -2944,7 +2951,13 @@ async function setupSignalR() {
         console.error('SignalR error:', err);
     });
 
+    hubConnection.onreconnecting((error) => {
+        console.warn('[SignalR] Reconnecting...', error ? error.message : '');
+        showMessage('RECONNECTING...');
+    });
+
     hubConnection.onreconnected(async () => {
+        console.log('[SignalR] Reconnected successfully.');
         if (machineId > 0) {
             try { 
                 if (isSpectatorMode) {
@@ -2959,6 +2972,16 @@ async function setupSignalR() {
                 } catch (_) {}
             }
         }
+        if (gameState === 'idle') {
+            showMessage('INSERT COIN');
+        }
+    });
+
+    hubConnection.onclose((error) => {
+        console.error('[SignalR] Connection closed permanently:', error ? error.message : 'unknown');
+        hubConnection = null;
+        machineJoined = false;
+        showMessage('CONNECTION LOST - PLEASE REFRESH');
     });
 
     try {
