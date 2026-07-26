@@ -138,23 +138,46 @@ const preloadedImages = {};
 
 function preloadAllAssets() {
     return new Promise((resolve) => {
+        let isFinished = false;
+
+        function finishPreload() {
+            if (isFinished) return;
+            isFinished = true;
+            const loader = document.getElementById('asset-loader');
+            if (loader) {
+                loader.classList.add('done');
+                if (typeof CabinetClock !== 'undefined' && CabinetClock?.delayMs) {
+                    CabinetClock.delayMs(500, () => { loader.style.display = 'none'; });
+                } else {
+                    setTimeout(() => { loader.style.display = 'none'; }, 500);
+                }
+            }
+            resolve();
+        }
+
+        // Hard timeout unblocker (2.5s max) to guarantee the app never hangs on asset loading
+        const timeoutTimer = setTimeout(() => {
+            console.warn('[AssetLoader] Preload timeout unblocker triggered after 2.5s');
+            finishPreload();
+        }, 2500);
+
         const allPaths = [];
+        if (typeof CARD_BACK_SRC !== 'undefined' && CARD_BACK_SRC) {
+            allPaths.push(CARD_BACK_SRC);
+        }
 
-        // Card images are no longer preloaded as they are now DOM-based
-        allPaths.push(CARD_BACK_SRC);
-
-const buttonFiles = [
-             'bet.png', 'bet_on.png',
-             'big.png', 'big_on.png',
-             'small.png', 'small_on.png',
-             'deal_draw.png', 'deal_draw_on.png',
-             'cancel_hold.png', 'cancel_hold_on.png',
-             'hold_off.png', 'hold_on.png',
-             'take_half.png', 'take_half_on.png',
-             'take_score.png', 'take_score_on.png',
-             'menu.png'
-         ];
-         buttonFiles.forEach(f => allPaths.push(`/assets/images/${f}`));
+        const buttonFiles = [
+            'bet.png', 'bet_on.png',
+            'big.png', 'big_on.png',
+            'small.png', 'small_on.png',
+            'deal_draw.png', 'deal_draw_on.png',
+            'cancel_hold.png', 'cancel_hold_on.png',
+            'hold_off.png', 'hold_on.png',
+            'take_half.png', 'take_half_on.png',
+            'take_score.png', 'take_score_on.png',
+            'menu.png'
+        ];
+        buttonFiles.forEach(f => allPaths.push(`/assets/images/${f}`));
 
         allPaths.push('/assets/images/board.png');
         allPaths.push('/assets/images/lucky5.png');
@@ -162,6 +185,12 @@ const buttonFiles = [
         allPaths.push('/assets/images/splash.png');
 
         const total = allPaths.length;
+        if (total === 0) {
+            clearTimeout(timeoutTimer);
+            finishPreload();
+            return;
+        }
+
         let loaded = 0;
         const fillEl = document.getElementById('loader-fill');
         const textEl = document.getElementById('loader-text');
@@ -172,12 +201,8 @@ const buttonFiles = [
             if (fillEl) fillEl.style.width = pct + '%';
             if (textEl) textEl.textContent = `LOADING ${loaded}/${total}`;
             if (loaded >= total) {
-                const loader = document.getElementById('asset-loader');
-                if (loader) {
-                    loader.classList.add('done');
-                    CabinetClock.delayMs(500, () => { loader.style.display = 'none'; });
-                }
-                resolve();
+                clearTimeout(timeoutTimer);
+                finishPreload();
             }
         }
 
