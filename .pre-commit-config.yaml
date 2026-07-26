@@ -1,0 +1,27 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: detect-private-key
+      - id: mixed-line-ending
+        args: ['--fix=no']
+
+  - repo: local
+    hooks:
+      - id: eslint
+        name: ESLint (JS)
+        entry: npx eslint
+        language: node
+        files: \.js$
+        args: ['server/src/Lucky5.Api/wwwroot/js']
+
+      - id: dotnet-format
+        name: dotnet-format (C#)
+        entry: dotnet format server/Lucky5.sln --verify-no-changes
+        language: system
+        files: \.cs$
+        pass_filenames: false

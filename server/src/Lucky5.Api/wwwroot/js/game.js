@@ -225,6 +225,17 @@ function randomCardSrc() {
 function $(sel) { return document.querySelector(sel); }
 function $$(sel) { return document.querySelectorAll(sel); }
 
+/**
+ * Sanitize a string for safe HTML insertion. Escapes <, >, &, ", '.
+ * Use this whenever user-controlled data might end up in innerHTML or similar.
+ */
+function safeHtml(text) {
+    if (typeof text !== 'string') return '';
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode(text));
+    return div.innerHTML;
+}
+
 // ── 3. API LAYER ─────────────────────────────────────────────────────────
 // All backend calls go through apiCall().  Endpoint strings come from
 // GAME_CONFIG.api so swapping the backend only requires editing game-config.js.
@@ -1514,6 +1525,15 @@ async function doSwitchDealer() {
 
         const isLucky5 = result.status === 'Lucky5';
         if (isLucky5) {
+            const flash = document.getElementById('lucky5-flash');
+            if (flash) {
+                flash.classList.remove('active');
+                void flash.offsetWidth;
+                flash.classList.add('active-quick');
+            }
+            // Wait for the quick flashes before revealing the 5S
+            await new Promise(resolve => setTimeout(resolve, 500));
+            if (flash) flash.classList.remove('active-quick');
             triggerLucky5Flash();
         }
 

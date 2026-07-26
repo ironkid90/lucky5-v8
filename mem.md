@@ -54,7 +54,7 @@
 |------|------|
 | `index.html?v=...` | Cabinet shell, CSS/JS load order, cache-bust versions |
 | `game-config.js?v=9` | VSYNC timing, variant identity, paytable, rules, assets, audio |
-| `game.js?v=30` | Core engine, state machine, DU logic, fallback render paths |
+| `game.js?v=32` | Core engine, state machine, DU logic, fallback render paths |
 | `cabinet-stage-vnext.js?v=10` | Card choreography, hold lamps, DU viewport — all `delayTicks()` |
 | `cabinet-clock.js?v=1` | 60Hz deterministic tick clock, `delayTicks()`, `CabinetInput` scanner |
 | `cabinet-orchestrator-vnext.js?v=2` | State sync, button guards, input capture, deal verification |

@@ -1108,6 +1108,21 @@ html, body {
     animation: lucky5-strobe-pulse 0.7s cubic-bezier(0.15, 0.85, 0.35, 1) forwards !important;
 }
 
+#lucky5-flash.active-quick {
+    animation: lucky5-strobe-quick 0.5s linear forwards !important;
+}
+
+@keyframes lucky5-strobe-quick {
+    0%, 20%, 40%, 60%, 80%, 100% {
+        opacity: 0 !important;
+        background-color: #ffffff !important;
+    }
+    10%, 30%, 50%, 70%, 90% {
+        opacity: 0.95 !important;
+        background-color: #ffffff !important;
+    }
+}
+
 @keyframes lucky5-strobe-pulse {
     0% {
         opacity: 0.9 !important;

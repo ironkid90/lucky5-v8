@@ -155,6 +155,29 @@ app.Use(async (context, next) =>
     await next();
 });
 
+app.Use(async (context, next) =>
+{
+    // Content Security Policy — start with report-only in development,
+    // enforced in production.
+    var isProduction = !app.Environment.IsDevelopment();
+    var headerName = isProduction
+        ? "Content-Security-Policy"
+        : "Content-Security-Policy-Report-Only";
+
+    context.Response.Headers[headerName] =
+        "default-src 'self'; " +
+        "script-src 'self' 'unsafe-inline' https://www.gstatic.com; " +
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+        "connect-src 'self' ws: wss:; " +
+        "img-src 'self' data:; " +
+        "font-src 'self' https://fonts.gstatic.com; " +
+        "frame-ancestors 'none'; " +
+        "base-uri 'self'; " +
+        "form-action 'self'";
+
+    await next();
+});
+
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
