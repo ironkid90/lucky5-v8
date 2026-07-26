@@ -61,14 +61,14 @@ const GAME_CONFIG = Object.freeze({
     // frames at runtime by CabinetClock.delayMs().
     timing: Object.freeze({
         // ── Global stagger (one value drives everything) ──
-        staggerFrames:        12,   // 200ms — AI9 cabinet frame analysis
+        staggerFrames:        11,   // ~183ms — AI9 cabinet frame analysis (~180ms requirement)
 
         // Main-hand deal
         dealBaseFrames:        5,   //  83ms — pause before first card
         dealDurationFrames:   11,   // 183ms — slide settle time
 
         // Draw (replacing non-held cards) — slightly slower, more deliberate
-        drawStaggerFrames:    18,   // 300ms — deliberate redraw stagger (slower than deal)
+        drawStaggerFrames:    6,    // 100ms — deliberate redraw stagger (~100ms requirement)
         drawOutFrames:         1,   //   1 frame — old cards vanish instantly
         drawDurationFrames:   11,   // 183ms — replacement slide settle
         drawRevealStartFrames: 3,   //  50ms — delay before first replacement
@@ -81,12 +81,12 @@ const GAME_CONFIG = Object.freeze({
         get dealAnimDurationMs() { return Math.round(this.dealDurationFrames   * 1000 / 60); },
         get drawOutMs()          { return Math.round(this.drawOutFrames        * 1000 / 60); },
         get drawInMs()           { return Math.round(this.drawDurationFrames   * 1000 / 60); },
-        get drawStaggerMs()      { return Math.round(this.staggerFrames        * 1000 / 60); },
+        get drawStaggerMs()      { return Math.round(this.drawStaggerFrames    * 1000 / 60); },
         get drawRevealStartMs()  { return Math.round(this.drawRevealStartFrames * 1000 / 60); },
 
         // Double-up: shuffle animation
         // The active slot cycles through card faces visibly, like a spinning reel.
-        shuffleFrameMs:       100, // Calibrated shuffle cadence (~100ms per frame swap)
+        shuffleFrameMs:       130, // Calibrated shuffle cadence (~130ms per frame swap)
 
         // Double-up: reveal sequence
         duRevealDelayMs:      150,  // wait after server responds before showing challenger card
@@ -94,25 +94,21 @@ const GAME_CONFIG = Object.freeze({
         duStaggerPerCardMs:   80,  // stagger between cards on a fresh DU page
 
         // Win collection / drain-to-credits
-        //   Duration scales with amount: ~1.0s at 500K, ~6.5s at 5M, capped at 20s.
-        //   Formula in animateDrainToCredits: minMs + (maxMs-minMs) * clamp01(amount/5M).
-        //   Min clamped at countUpMinMs (1.0s), max clamped at countUpMaxMs (20s).
-        //   Consistent feel across all payout sizes — small wins drain fast,
-        //   large wins drain slow but cap at 20s (not 65s) to avoid feeling stuck.
-        countUpMinMs:         1000,
-        countUpMaxMs:         15000,
+        //   Duration scales with amount: ~1.5s at 500K, ~60s at 40M.
+        countUpMinMs:         1500,
+        countUpMaxMs:         60000,
         creditTickMs:         50,  // digit-flash toggle during count-up (mechanical reel tick cadence)
 
         // Jackpot fill animation (for jackpot-level wins)
         //   Same scaling as animateDrainToCredits: amount / 1_000_000 * 1500.
-        //   500K → 750ms, 10M → 15s, capped at 20s for consistent pacing.
-        //   Jackpot wins behave like a mini machine-close: everything freezes,
-        //   the jackpot counter drains slowly into credits, then DU page appears.
-        jackpotFillMinMs:     750,
-        jackpotFillMaxMs:     20000,
+        jackpotFillMinMs:     1500,
+        jackpotFillMaxMs:     60000,
 
         // Lucky5 safe / machine-closed payout drain
         drainDelayMs:         500,   // brief pause before starting the drain animation
+
+        // Double-up transition delay
+        winToDoubleUpDelayMs: 800,   // delay before auto-entering DU mode after a win
 
         // Double-up exit delays
         exitDuLoseMs:         1000,  // delay before exiting DU after a loss (no siphon)

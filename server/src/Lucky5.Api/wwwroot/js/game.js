@@ -1985,7 +1985,9 @@ async function doDeal() {
                                 return;
                             }
                             if (roundDoubleUpAvailable) {
-                                startDoubleUpFlow();
+                                CabinetClock.delayMs(T.winToDoubleUpDelayMs || 800, () => {
+                                    startDoubleUpFlow();
+                                });
                             } else {
                                 showWinActionMessage();
                                 setButtonStates();
@@ -3967,28 +3969,6 @@ async function adminAssignSingleUserToAgent(userId) {
         loadAdminUsers();
     } catch (e) {
         await customAlert('ERROR', 'Assign agent failed: ' + e.message);
-    }
-}
-    const userId = await customPrompt(
-        'ASSIGN PLAYER TO AGENT',
-        'Enter User ID to assign to this agent:',
-        '',
-        false, // text
-        (val) => {
-            const clean = val.trim();
-            if (!clean) return 'User ID is required';
-            if (!/^[a-zA-Z0-9\-]{1,50}$/.test(clean)) return 'Invalid User ID format';
-            return null;
-        }
-    );
-    if (!userId) return;
-    try {
-        await apiCall('POST', GAME_CONFIG.api.agentAssignUser(agentId, userId.trim()));
-        await customAlert('SUCCESS', `User assigned to agent successfully.`);
-        await loadAdminAgents();
-        await loadAdminUsers(document.getElementById('admin-user-search')?.value || '');
-    } catch (e) {
-        await customAlert('ERROR', 'Failed: ' + e.message);
     }
 }
 
