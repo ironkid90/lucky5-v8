@@ -13,10 +13,11 @@ public sealed class GameServiceSimple : IGameService
     public GameServiceSimple(
         InMemoryDataStore store,
         IEntropyGenerator entropyGenerator,
-        IPersistentStateStore persistentStateStore)
+        IPersistentStateStore persistentStateStore,
+        ISpectatorTracker spectatorTracker)
     {
         _ = persistentStateStore;
-        inner = new GameService(new InMemoryDataStoreAdapter(store), entropyGenerator, new InMemoryMachineStateCache(new MachineCacheTtlOptions()));
+        inner = new GameService(new InMemoryDataStoreAdapter(store), entropyGenerator, new InMemoryMachineStateCache(new MachineCacheTtlOptions()), spectatorTracker);
     }
 
     public Task<IReadOnlyList<string>> GetGamesAsync(CancellationToken cancellationToken) => inner.GetGamesAsync(cancellationToken);

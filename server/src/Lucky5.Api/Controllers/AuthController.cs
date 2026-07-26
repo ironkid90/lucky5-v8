@@ -80,7 +80,7 @@ public sealed class AuthController(IAuthService authService, IHostEnvironment en
     [HttpPost("TransferBalance")]
     public async Task<ActionResult<ApiResponse<WalletLedgerEntryDto>>> TransferBalance([FromBody] TransferRequest request, CancellationToken cancellationToken)
     {
-        var userId = HttpContext.RequireAdminRole();
+        var userId = HttpContext.RequireUserId();
         var row = await authService.TransferBalanceAsync(userId, request, cancellationToken);
         return Ok(ApiResponse<WalletLedgerEntryDto>.Ok(row, traceId: HttpContext.TraceIdentifier));
     }
@@ -96,7 +96,7 @@ public sealed class AuthController(IAuthService authService, IHostEnvironment en
     [HttpPost("UpdateCredit")]
     public async Task<ActionResult<ApiResponse<WalletLedgerEntryDto>>> UpdateCredit([FromBody] TransferRequest request, CancellationToken cancellationToken)
     {
-        var userId = HttpContext.RequireAdminRole();
+        var userId = HttpContext.RequireUserId();
         var row = await authService.UpdateCreditAsync(userId, request, cancellationToken);
         return Ok(ApiResponse<WalletLedgerEntryDto>.Ok(row, traceId: HttpContext.TraceIdentifier));
     }

@@ -93,6 +93,9 @@ let adminAgents = [];
 let adminMachines = [];
 let lucky5FlashResetTimer = null;
 let duCallToken = null;
+let clientStateVersion = 0;
+let clientSequenceNumber = 0;
+let isSpectatorMode = false;
 
 // ── 1. ENGINE BOOTSTRAP ───────────────────────────────────────────────────
 // Local aliases so engine logic never hard-codes variant-specific values.
@@ -476,6 +479,8 @@ function resetGameRuntimeState({ clearSelection = false } = {}) {
     winAmount = 0;
     roundId = null;
     machineJoined = false;
+    clientStateVersion = 0;
+    clientSequenceNumber = 0;
 
     if (clearSelection) {
         clearCurrentMachineSelection();
@@ -573,6 +578,11 @@ function applyCabinetSnapshot(snapshot) {
     const evaluation = readCabinetField(snapshot, 'evaluation') || {};
     const sessionState = readCabinetField(snapshot, 'session') || {};
     const normalizedJackpots = normalizeCabinetJackpots(readCabinetField(snapshot, 'jackpot'));
+
+    const version = readCabinetField(snapshot, 'stateVersion', 'state_version', 'version');
+    const sequence = readCabinetField(snapshot, 'sequenceNumber', 'sequence_number', 'sequence');
+    if (version !== null && version !== undefined) clientStateVersion = Number(version) || 0;
+    if (sequence !== null && sequence !== undefined) clientSequenceNumber = Number(sequence) || 0;
 
     const nextStake = parseCabinetNumber(readCabinetField(credits, 'stake'), currentBet);
     if (nextStake > 0) {
@@ -1385,7 +1395,7 @@ function setButtonStates() {
     const takeScoreBtn = $('#btn-take-score');
     const takeHalfBtn = $('#btn-take-half');
 
-    if (takeScoreAnimating) {
+    if (takeScoreAnimating || isSpectatorMode) {
         betBtn.disabled = true;
         dealBtn.disabled = true;
         cancelBtn.disabled = true;
@@ -2913,7 +2923,18 @@ async function setupSignalR() {
 
     hubConnection.onreconnected(async () => {
         if (machineId > 0) {
-            try { await hubConnection.invoke('JoinMachine', machineId); } catch (_) {}
+            try { 
+                if (isSpectatorMode) {
+                    await hubConnection.invoke('JoinMachineAsSpectator', machineId);
+                } else {
+                    await hubConnection.invoke('ReconnectSync', machineId, clientStateVersion, clientSequenceNumber);
+                }
+            } catch (err) {
+                console.error('ReconnectSync failed, falling back to JoinMachine:', err);
+                try {
+                    await hubConnection.invoke('JoinMachine', machineId);
+                } catch (_) {}
+            }
         }
     });
 
@@ -2946,6 +2967,17 @@ async function joinMachine(id) {
     }
 }
 
+async function joinMachineAsSpectator(id) {
+    if (!isHubConnected()) return;
+    try {
+        await hubConnection.invoke('JoinMachineAsSpectator', id);
+        machineJoined = true;
+    } catch (e) {
+        console.error('JoinMachineAsSpectator failed:', e);
+        machineJoined = false;
+    }
+}
+
 async function leaveMachine(id) {
     if (!isHubConnected()) return;
     try {
@@ -2954,9 +2986,21 @@ async function leaveMachine(id) {
     } catch (_) {}
 }
 
+async function leaveMachineAsSpectator(id) {
+    if (!isHubConnected()) return;
+    try {
+        await hubConnection.invoke('LeaveMachineAsSpectator', id);
+        machineJoined = false;
+    } catch (_) {}
+}
+
 async function doLogout() {
     if (machineJoined && machineId > 0) {
-        await leaveMachine(machineId);
+        if (isSpectatorMode) {
+            await leaveMachineAsSpectator(machineId);
+        } else {
+            await leaveMachine(machineId);
+        }
     }
     if (hubConnection) {
         try { await hubConnection.stop(); } catch (_) {}
@@ -2989,15 +3033,23 @@ async function loadAvailableMachines() {
     try {
         const machineData = await apiCall('GET', GAME_CONFIG.api.machines);
         // Convert machines to game cards
-        AVAILABLE_GAMES = machineData.map(machine => ({
-            id: `machine-${machine.id}`,
-            machineId: machine.id,
-            name: machine.name.toUpperCase(),
-            icon: '/assets/images/lucky5.png',
-            status: machine.isOpen ? 'playable' : 'unavailable',
-            minBet: machine.minBet,
-            maxBet: machine.maxBet
-        }));
+        AVAILABLE_GAMES = machineData.map(machine => {
+            const minBet = window.SERVER_RULES && window.SERVER_RULES.minStake !== undefined ? window.SERVER_RULES.minStake : machine.minBet;
+            const maxBet = window.SERVER_RULES && window.SERVER_RULES.maxStake !== undefined ? window.SERVER_RULES.maxStake : machine.maxBet;
+            
+            return {
+                id: `machine-${machine.id}`,
+                machineId: machine.id,
+                name: machine.name.toUpperCase(),
+                icon: '/assets/images/lucky5.png',
+                status: machine.isOpen ? 'playable' : 'unavailable',
+                minBet: minBet,
+                maxBet: maxBet,
+                isOccupied: machine.isOccupied,
+                occupiedByUsername: machine.occupiedByUsername,
+                activeSpectatorCount: machine.activeSpectatorCount
+            };
+        });
         return AVAILABLE_GAMES;
     } catch (e) {
         console.error('Failed to load machines:', e);
@@ -3048,9 +3100,15 @@ function renderGameGrid() {
             name: g.name,
             minBet: g.minBet,
             maxBet: g.maxBet,
-            isOpen: g.status === 'playable'
+            isOpen: g.status === 'playable',
+            isOccupied: g.isOccupied,
+            occupiedByUsername: g.occupiedByUsername,
+            activeSpectatorCount: g.activeSpectatorCount
         }));
-        CabinetShell.renderLobbyMachineCards(rawMachines, machine => openGame(`machine-${machine.id}`, machine.id));
+        CabinetShell.renderLobbyMachineCards(rawMachines, machine => {
+            const options = machine.isOccupied ? { isSpectator: true } : {};
+            openGame(`machine-${machine.id}`, machine.id, options);
+        });
         return;
     }
 
@@ -3096,7 +3154,10 @@ function renderGameGrid() {
         card.appendChild(badge);
 
         if (game.status === 'playable') {
-            card.addEventListener('click', () => openGame(game.id, game.machineId));
+            card.addEventListener('click', () => {
+                const options = game.isOccupied ? { isSpectator: true } : {};
+                openGame(game.id, game.machineId, options);
+            });
         }
 
         grid.appendChild(card);
@@ -4017,12 +4078,22 @@ async function enterLobbyAfterLogin(profileData) {
 async function initGame(options = {}) {
     const { allowLobbyFallback = false } = options;
     try {
-        const [machineData, rulesData] = await Promise.all([
+        const [machineData, rulesData, configRulesResponse] = await Promise.all([
             apiCall('GET', GAME_CONFIG.api.machines),
-            apiCall('GET', GAME_CONFIG.api.defaultRules)
+            apiCall('GET', GAME_CONFIG.api.defaultRules),
+            apiCall('GET', GAME_CONFIG.api.configRules).catch(() => null)
         ]);
         machines = machineData;
         paytable = rulesData.payoutMultipliers;
+        if (configRulesResponse && configRulesResponse.configured) {
+            window.SERVER_RULES = configRulesResponse.rules;
+            machines.forEach(m => {
+                if (window.SERVER_RULES.minStake !== undefined) m.minBet = window.SERVER_RULES.minStake;
+                if (window.SERVER_RULES.maxStake !== undefined) m.maxBet = window.SERVER_RULES.maxStake;
+            });
+        } else {
+            window.SERVER_RULES = null;
+        }
         if (machines.length > 0) {
             const selectedMachine = machines.find(m => m.id === machineId);
             const hasExplicitSelection = Number.isInteger(machineId) && machineId > 0;
@@ -4085,7 +4156,14 @@ async function initGame(options = {}) {
         }
 
         await setupSignalR();
-        await joinMachine(machineId);
+        isSpectatorMode = !!options.isSpectator;
+        if (isSpectatorMode) {
+            await joinMachineAsSpectator(machineId);
+            setButtonStates();
+            showMessage('SPECTATOR MODE', 'win');
+        } else {
+            await joinMachine(machineId);
+        }
 
     } catch (e) {
         showMessage('Error: ' + e.message, 'lose');

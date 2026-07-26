@@ -12,7 +12,7 @@ using Lucky5.Domain.Entities;
 using Lucky5.Domain.Game.CleanRoom;
 using Lucky5.Application.Interfaces;
 
-public sealed class GameService(IDataStore store, IEntropyGenerator entropyGenerator, IMachineStateCache stateCache) : IGameService
+public sealed class GameService(IDataStore store, IEntropyGenerator entropyGenerator, IMachineStateCache stateCache, ISpectatorTracker spectatorTracker) : IGameService
 {
 	private const decimal CashInUnit = 200_000m;
 	private const decimal MaxSessionCashIn = 1_000_000m;
@@ -47,7 +47,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 	};
 
 	public GameService(IDataStore store, IEntropyGenerator entropyGenerator)
-		: this(store, entropyGenerator, new InMemoryMachineStateCache(new MachineCacheTtlOptions()))
+		: this(store, entropyGenerator, new InMemoryMachineStateCache(new MachineCacheTtlOptions()), new SpectatorTracker())
 	{
 	}
 
@@ -87,7 +87,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 				var remaining = (reservedUntil.Value - DateTime.UtcNow).TotalSeconds;
 				idleSec = remaining > 0 ? (int)remaining : 0;
 			}
-			int spectatorCount = 0;
+			int spectatorCount = spectatorTracker.GetSpectatorCount(machine.Id);
 
 			lobbyMachines.Add(new PlayerLobbyMachineDto(
 				machine.Id,

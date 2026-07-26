@@ -134,6 +134,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRewardService, RewardService>();
         services.AddSingleton<INotificationService, FirebaseNotificationService>();
         services.AddScoped<IAgentService, AgentService>();
+        services.AddSingleton<ISpectatorTracker, SpectatorTracker>();
 
         return services;
     }
