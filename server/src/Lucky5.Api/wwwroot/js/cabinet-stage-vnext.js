@@ -23,10 +23,10 @@ window.CabinetStage = (function () {
             staggerFrames:        Number(timing.staggerFrames)        || 12,
             dealBaseFrames:       Number(timing.dealBaseFrames)       || 5,
             dealDurationFrames:   Number(timing.dealDurationFrames)   || 11,
-            drawStaggerFrames:    Number(timing.drawStaggerFrames)    || 18,
+            drawStaggerFrames:    Number(timing.drawStaggerFrames || timing.staggerFrames) || 12,
             drawOutFrames:        Number(timing.drawOutFrames)        || 1,
-            drawDurationFrames:   Number(timing.drawDurationFrames)   || 11,
-            drawRevealStartFrames:Number(timing.drawRevealStartFrames)|| 3,
+            drawDurationFrames:   Number(timing.drawDurationFrames || timing.dealDurationFrames) || 11,
+            drawRevealStartFrames:Number(timing.drawRevealStartFrames !== undefined ? timing.drawRevealStartFrames : (timing.dealBaseFrames || 5)) || 5,
             shuffleFrameMs: Number(timing.shuffleFrameMs) || 100,
             lucky5ActiveMs: Number(timing.lucky5FlashDurationMs) || 1000
         };
@@ -730,8 +730,8 @@ window.CabinetStage = (function () {
 
         let pending = 0;
 
-        const baseFrames = Math.max(0, Number(_config.drawRevealStartFrames) !== undefined ? Number(_config.drawRevealStartFrames) : 3);
-        const staggerFrames = Math.max(1, Number(_config.drawStaggerFrames) || 18);
+        const baseFrames = Math.max(0, Number(_config.drawRevealStartFrames !== undefined ? _config.drawRevealStartFrames : (_config.dealBaseFrames || 5)));
+        const staggerFrames = Math.max(1, Number(_config.drawStaggerFrames || _config.staggerFrames || 12));
 
         cards.forEach((card, i) => {
             if (!held.has(i)) {

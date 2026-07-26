@@ -24,11 +24,11 @@
 
 ## VSYNC-Locked Timing (60Hz Cabinet Clock)
 
-- **One global stagger**: `staggerFrames: 12` (200ms) drives ALL card reveals (deal, draw, DU)
+- **One global stagger**: `staggerFrames: 11` (or `12` in wildwitch) drives ALL card reveals (deal, draw/redeal, DU). Deal and redeal (draw) timings are strictly equal and identical (`staggerFrames`, `dealBaseFrames: 5`, `dealDurationFrames: 11`).
 - All card animation uses `CabinetClock.delayTicks()` — zero ms→frame conversion jitter
-- Config: `game-config.js` → frame values (`staggerFrames`, `dealBaseFrames: 5`, `dealDurationFrames: 11`)
+- Config: `game-config.js` → frame values (`staggerFrames: 11`, `dealBaseFrames: 5`, `dealDurationFrames: 11`, `drawStaggerFrames: 11`, `drawRevealStartFrames: 5`)
 - Legacy ms aliases via computed getters for backward compat with game.js fallback paths
-- Total deal: ~900ms (5 cards), animation: cards appear in-place with scale-pop "thump" effect (`.card-deal-thump` / `v8-card-thump-in` keyframe: scale 0.65→1.08→0.94→1.02→1.0). No off-screen slide or drop-from-above. Draw replacement: `.card-draw-thump` / `v8-card-draw-thump` keyframe (scale 0.55→1.10→0.92→1.03→1.0), only non-held cards animate. Old `deal-in`/`slide-in` classes (translateY(-100%) drop) removed.
+- Total deal / full redeal: ~900ms (5 cards), animation: cards appear in-place with scale-pop "thump" effect (`.card-deal-thump` / `v8-card-thump-in` keyframe: scale 0.65→1.08→0.94→1.02→1.0). No off-screen slide or drop-from-above. Draw replacement: `.card-draw-thump` / `v8-card-draw-thump` keyframe (scale 0.55→1.10→0.92→1.03→1.0), only non-held cards animate. Old `deal-in`/`slide-in` classes (translateY(-100%) drop) removed.
 
 ## Button System
 

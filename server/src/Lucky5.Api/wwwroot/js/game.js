@@ -315,7 +315,7 @@ function renderDrawStage(cardData, held, onComplete) {
     }
     renderCards(cardData, false);
     if (onComplete) {
-        window.CabinetClock.delayMs(400, onComplete);
+        window.CabinetClock.delayMs(T.dealBaseMs + (4 * T.dealStaggerMs) + T.dealAnimDurationMs + 160, onComplete);
     }
 }
 

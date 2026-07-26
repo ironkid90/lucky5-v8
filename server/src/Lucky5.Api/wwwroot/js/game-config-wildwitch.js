@@ -62,11 +62,11 @@ const GAME_CONFIG = Object.freeze({
         dealBaseFrames:        5,   //  83ms — pause before first card
         dealDurationFrames:   11,   // 183ms — slide settle time
 
-        // Draw (replacing non-held cards) — slightly slower, more deliberate
-        drawStaggerFrames:    18,   // 300ms — deliberate redraw stagger
+        // Draw (replacing non-held cards) — equal timing to initial deal
+        drawStaggerFrames:    12,   // 200ms — equal to deal stagger (staggerFrames)
         drawOutFrames:         1,   //   1 frame — old cards vanish instantly
-        drawDurationFrames:   11,   // 183ms — replacement slide settle
-        drawRevealStartFrames: 3,   //  50ms — delay before first replacement
+        drawDurationFrames:   11,   // 183ms — replacement slide settle (equal to dealDurationFrames)
+        drawRevealStartFrames: 5,   //  83ms — equal to dealBaseFrames
 
         // Legacy ms aliases — derived from staggerFrames at 60fps
         get dealBaseMs()         { return this.staggerFrames <= 12 ?  80 : Math.round(this.dealBaseFrames    * 1000 / 60); },
