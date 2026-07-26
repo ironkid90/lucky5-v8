@@ -143,6 +143,7 @@ function preloadAllAssets() {
         function finishPreload() {
             if (isFinished) return;
             isFinished = true;
+            assetsReady = true;
             const loader = document.getElementById('asset-loader');
             if (loader) {
                 loader.classList.add('done');
@@ -266,8 +267,9 @@ async function apiCall(method, path, body) {
     const errors = json?.errors ?? json?.Errors;
     const message = json?.message ?? json?.Message;
     const payload = normalizeApiPayload(json?.data ?? json?.Data ?? json ?? null);
+    const isSuccess = json?.success ?? json?.Success ?? true;
 
-    if (!res.ok || String(statusText || '').toLowerCase() === 'error') {
+    if (!res.ok || String(statusText || '').toLowerCase() === 'error' || isSuccess === false) {
         throw new Error(message || errors?.[0] || 'Request failed');
     }
 
@@ -2857,41 +2859,15 @@ function duTakeHalf() {
 }
 
 async function doLogin(username, password) {
-    const res = await fetch(`${API}/api/Auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-    });
-    const json = await res.json();
-    if (!res.ok || json.status === 'error') {
-        throw new Error(json.message || 'Login failed');
-    }
-    return json.data;
+    return await apiCall('POST', '/api/Auth/login', { username, password });
 }
 
 async function doSignup(username, password) {
-    const res = await fetch(`${API}/api/Auth/signup`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password, phoneNumber: '0000000000' })
-    });
-    const json = await res.json();
-    if (!res.ok || json.status === 'error') {
-        throw new Error(json.message || 'Signup failed');
-    }
-    return json.data;
+    return await apiCall('POST', '/api/Auth/signup', { username, password, phoneNumber: '0000000000' });
 }
 
 async function doVerifyOtp(username, otpCode) {
-    const res = await fetch(`${API}/api/Auth/verify-otp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, otpCode })
-    });
-    const json = await res.json();
-    if (!res.ok || json?.success === false) {
-        throw new Error(json?.message || 'OTP verification failed');
-    }
+    return await apiCall('POST', '/api/Auth/verify-otp', { username, otpCode });
 }
 
 function storeToken(t) {
@@ -4229,14 +4205,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (window.CabinetBonus) CabinetBonus.init();
     const authBtn = $('#auth-submit');
-    authBtn.disabled = true;
-    authBtn.textContent = 'LOADING...';
+    if (authBtn) {
+        authBtn.disabled = false;
+        authBtn.textContent = 'LOGIN';
+    }
 
     let assetsReady = false;
     preloadAllAssets().then(() => {
         assetsReady = true;
-        authBtn.disabled = false;
-        authBtn.textContent = 'LOGIN';
+        if (authBtn && authBtn.textContent === 'LOADING...') {
+            authBtn.disabled = false;
+            authBtn.textContent = isLogin ? 'LOGIN' : 'SIGN UP';
+        }
         if (window.CabinetStage) {
             CabinetStage.initButtonAssets();
             CabinetStage.initCardSlots();
@@ -4244,62 +4224,93 @@ document.addEventListener('DOMContentLoaded', () => {
                 CabinetStage.precacheAllCards();
             }
         }
+    }).catch((err) => {
+        console.warn('[AssetLoader] Preload catch:', err);
+        assetsReady = true;
+        if (authBtn && authBtn.textContent === 'LOADING...') {
+            authBtn.disabled = false;
+            authBtn.textContent = isLogin ? 'LOGIN' : 'SIGN UP';
+        }
     });
 
     const authScreen = $('#auth-screen');
     const authError = $('#auth-error');
     const authToggle = $('#auth-toggle');
+    const authForm = $('#auth-form');
     let isLogin = true;
 
-    authToggle.addEventListener('click', () => {
-        isLogin = !isLogin;
-        $('#auth-title').textContent = isLogin ? 'LOGIN' : 'SIGN UP';
-        authBtn.textContent = isLogin ? 'LOGIN' : 'SIGN UP';
-        authToggle.innerHTML = isLogin
-            ? '<span class="auth-toggle-label">NO ACCOUNT?</span> <span>SIGN UP</span>'
-            : '<span class="auth-toggle-label">HAVE ACCOUNT?</span> <span>LOGIN</span>';
-        authError.textContent = '';
-    });
+    if (authForm) {
+        authForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (authBtn) authBtn.click();
+        });
+    }
 
-    authBtn.addEventListener('click', async () => {
-        if (!assetsReady) {
-            authError.textContent = 'Assets still loading, please wait';
-            return;
-        }
-        const username = $('#auth-username').value.trim();
-        const password = $('#auth-password').value.trim();
-        if (!username || !password) {
-            authError.textContent = 'Fill in all fields';
-            return;
-        }
-        authError.textContent = '';
-        authBtn.disabled = true;
-        authBtn.textContent = 'LOADING...';
+    if (authToggle) {
+        authToggle.addEventListener('click', () => {
+            isLogin = !isLogin;
+            $('#auth-title').textContent = isLogin ? 'LOGIN' : 'SIGN UP';
+            if (authBtn) authBtn.textContent = isLogin ? 'LOGIN' : 'SIGN UP';
+            authToggle.innerHTML = isLogin
+                ? '<span class="auth-toggle-label">NO ACCOUNT?</span> <span>SIGN UP</span>'
+                : '<span class="auth-toggle-label">HAVE ACCOUNT?</span> <span>LOGIN</span>';
+            if (authError) authError.textContent = '';
+        });
+    }
 
-        try {
-            let profileData;
-            if (isLogin) {
-                const data = await doLogin(username, password);
-                storeToken(data.tokens.accessToken);
-                profileData = data.profile;
-            } else {
-                const signup = await doSignup(username, password);
-                const previewCode = signup?.otp?.previewCode;
-                if (!previewCode) {
-                    throw new Error('OTP preview unavailable. Verify the account before cabinet login.');
-                }
-                await doVerifyOtp(username, previewCode);
-                const data = await doLogin(username, password);
-                storeToken(data.tokens.accessToken);
-                profileData = data.profile;
+    if (authBtn) {
+        authBtn.addEventListener('click', async () => {
+            console.log('[Auth] Submit click triggered. isLogin =', isLogin);
+            const usernameInput = $('#auth-username');
+            const passwordInput = $('#auth-password');
+            const username = usernameInput ? usernameInput.value.trim() : '';
+            const password = passwordInput ? passwordInput.value.trim() : '';
+            
+            if (!username || !password) {
+                if (authError) authError.textContent = 'Fill in all fields';
+                return;
             }
-            await enterLobbyAfterLogin(profileData);
-        } catch (e) {
-            authError.textContent = e.message;
-            authBtn.disabled = false;
-            authBtn.textContent = isLogin ? 'LOGIN' : 'SIGN UP';
-        }
-    });
+            if (authError) authError.textContent = '';
+            authBtn.disabled = true;
+            authBtn.textContent = 'LOADING...';
+
+            try {
+                let profileData;
+                if (isLogin) {
+                    console.log('[Auth] Attempting doLogin for user:', username);
+                    const data = await doLogin(username, password);
+                    console.log('[Auth] Login response data:', data);
+                    const accessToken = data?.tokens?.accessToken || data?.tokens?.AccessToken || data?.accessToken;
+                    if (!accessToken) {
+                        throw new Error('Access token missing from login response');
+                    }
+                    storeToken(accessToken);
+                    profileData = data.profile || data.Profile || data;
+                } else {
+                    console.log('[Auth] Attempting doSignup for user:', username);
+                    const signup = await doSignup(username, password);
+                    const previewCode = signup?.otp?.previewCode;
+                    if (!previewCode) {
+                        throw new Error('OTP preview unavailable. Verify the account before cabinet login.');
+                    }
+                    await doVerifyOtp(username, previewCode);
+                    const data = await doLogin(username, password);
+                    const accessToken = data?.tokens?.accessToken || data?.tokens?.AccessToken || data?.accessToken;
+                    if (!accessToken) {
+                        throw new Error('Access token missing from login response');
+                    }
+                    storeToken(accessToken);
+                    profileData = data.profile || data.Profile || data;
+                }
+                await enterLobbyAfterLogin(profileData);
+            } catch (e) {
+                console.error('[Auth] Error during auth:', e);
+                if (authError) authError.textContent = e.message || 'Authentication failed';
+                authBtn.disabled = false;
+                authBtn.textContent = isLogin ? 'LOGIN' : 'SIGN UP';
+            }
+        });
+    }
 
     bindSingleButton('btn-bet', doBet);
     bindSingleButton('btn-deal', doDeal);
