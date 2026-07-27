@@ -2,6 +2,7 @@ using System.Net;
 using System.Security.Claims;
 using System.Text.Json;
 using Lucky5.Api.Observability;
+using Lucky5.Api.Middleware;
 using Lucky5.Application.Contracts;
 using Lucky5.Application.Dtos;
 using Lucky5.Infrastructure.Services;
@@ -13,6 +14,8 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Configuration.AddEnvironmentVariables();
+
+builder.Services.AddMemoryCache(); // for rate limiting
 
 // NOTE: Rate limiting disabled for .NET 10 compatibility.
 // Re-enable when Microsoft.AspNetCore.RateLimiter has a stable .NET 10/11 build.
@@ -184,6 +187,7 @@ app.UseStaticFiles();
 app.UseRouting();
 app.UseCors();
 app.UseLangfuseTraceContext();
+app.UseMiddleware<SlidingWindowRateLimiterMiddleware>();
 // NOTE: Rate limiting disabled for .NET 10 compatibility - re-enable when stable
 // app.UseRateLimiter();
 app.MapControllers();
