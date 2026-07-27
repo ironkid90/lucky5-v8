@@ -469,7 +469,7 @@
    Colors per AI9 reference: */
 #paytable .pay-row {
     color: #ffaa00 !important;  /* Default: gold/amber */
-    font-family: 'Arcade', 'ARCADE', 'Courier New', monospace !important;
+    font-family: 'ARCADE', 'Arcade', 'Press Start 2P', 'Courier New', monospace !important;
     font-size: 1.05cqh !important;
     font-weight: bold !important;
     letter-spacing: 0.08cqh !important;
@@ -525,7 +525,7 @@
     flex-direction: column !important;
     align-items: flex-end !important;
     justify-content: flex-start !important;
-    font-family: 'Arcade', 'ARCADE', 'Courier New', monospace !important;
+    font-family: 'ARCADE', 'Arcade', 'Press Start 2P', 'Courier New', monospace !important;
     font-weight: bold !important;
     letter-spacing: 0.1cqh !important;
     line-height: 1.2 !important;
@@ -534,22 +534,26 @@
 #credits {
     color: #33ff33 !important;  /* CREDIT: green */
     font-size: 1.0cqh !important;
+    font-family: 'ARCADE', 'Arcade', 'Press Start 2P', 'Courier New', monospace !important;
 }
 
 #credits span {
     font-size: 1.4cqh !important;
     display: block !important;
+    font-family: inherit !important;
 }
 
 #stake-display {
     color: #ffaa00 !important;  /* STAKE: gold */
     font-size: 1.0cqh !important;
     margin-top: 0.5cqh !important;
+    font-family: 'ARCADE', 'Arcade', 'Press Start 2P', 'Courier New', monospace !important;
 }
 
 #stake-display span {
     font-size: 1.4cqh !important;
     display: block !important;
+    font-family: inherit !important;
 }
 
 /* Machine info block (SERIE/KENT/S/N + jackpot counters): */
@@ -929,6 +933,17 @@ html, body {
 #game-screen.active #bottom-row .cab-btn::after {
     display: none !important;
     content: none !important;
+}
+
+/* Ensure disabled buttons show a visibly dimmed state even when active-screen rules override opacity.
+   AI9 reference: disabled buttons are visibly darker/greyed out, not hidden.
+   Apply after the active-screen force-opacity rules so :disabled takes priority. */
+#game-screen.active #hold-row .cab-btn:disabled,
+#game-screen.active #action-row .cab-btn:disabled,
+#game-screen.active #bottom-row .cab-btn:disabled {
+    opacity: 0.55 !important;
+    filter: grayscale(0.65) brightness(0.45) !important;
+    cursor: default !important;
 }
 
 #menu-panel.menu-panel {
