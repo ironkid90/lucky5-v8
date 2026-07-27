@@ -288,7 +288,12 @@ function normalizeApiPayload(value) {
     }
     return normalized;
 }
+const transportClient = typeof Lucky5ApiClient !== 'undefined'
+    ? new Lucky5ApiClient.ApiClient({ baseUrl: API, tokenProvider: () => token })
+    : null;
+
 async function apiCall(method, path, body) {
+    if (transportClient) return transportClient.request(method, path, body);
     const opts = {
         method,
         headers: { 'Content-Type': 'application/json' }
@@ -3043,15 +3048,13 @@ async function setupSignalR() {
         if (machineId > 0) {
             try { 
                 if (isSpectatorMode) {
-                    await hubConnection.invoke('JoinMachineAsSpectator', machineId);
+                    await invokeHub('JoinMachineAsSpectator', machineId);
                 } else {
-                    await hubConnection.invoke('ReconnectSync', machineId, clientStateVersion, clientSequenceNumber);
+                    await invokeHub('ReconnectSync', machineId, clientStateVersion, clientSequenceNumber);
                 }
             } catch (err) {
                 console.error('ReconnectSync failed, falling back to JoinMachine:', err);
-                try {
-                    await hubConnection.invoke('JoinMachine', machineId);
-                } catch (_) {}
+                try { await invokeHub('JoinMachine', machineId); } catch (_) {}
             }
         }
         if (gameState === 'idle') {
@@ -3084,10 +3087,15 @@ function isHubConnected() {
     return hubConnection.state === 'Connected';
 }
 
+function invokeHub(method, ...args) {
+    if (transportClient) return transportClient.invokeHub(hubConnection, method, ...args);
+    return hubConnection.invoke(method, ...args);
+}
+
 async function joinMachine(id) {
     if (!isHubConnected()) return;
     try {
-        await hubConnection.invoke('JoinMachine', id);
+        await invokeHub('JoinMachine', id);
         machineJoined = true;
     } catch (e) {
         console.error('JoinMachine failed:', e);
@@ -3098,7 +3106,7 @@ async function joinMachine(id) {
 async function joinMachineAsSpectator(id) {
     if (!isHubConnected()) return;
     try {
-        await hubConnection.invoke('JoinMachineAsSpectator', id);
+        await invokeHub('JoinMachineAsSpectator', id);
         machineJoined = true;
     } catch (e) {
         console.error('JoinMachineAsSpectator failed:', e);
@@ -3109,7 +3117,7 @@ async function joinMachineAsSpectator(id) {
 async function leaveMachine(id) {
     if (!isHubConnected()) return;
     try {
-        await hubConnection.invoke('LeaveMachine', id);
+        await invokeHub('LeaveMachine', id);
         machineJoined = false;
     } catch (_) {}
 }
@@ -3117,7 +3125,7 @@ async function leaveMachine(id) {
 async function leaveMachineAsSpectator(id) {
     if (!isHubConnected()) return;
     try {
-        await hubConnection.invoke('LeaveMachineAsSpectator', id);
+        await invokeHub('LeaveMachineAsSpectator', id);
         machineJoined = false;
     } catch (_) {}
 }
@@ -4556,7 +4564,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     window.addEventListener('beforeunload', () => {
         if (machineJoined && isHubConnected() && machineId > 0) {
-            hubConnection.invoke('LeaveMachine', machineId).catch(() => {});
+            invokeHub('LeaveMachine', machineId).catch(() => {});
         }
     });
 

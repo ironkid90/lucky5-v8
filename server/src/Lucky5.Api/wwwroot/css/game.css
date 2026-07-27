@@ -2405,18 +2405,18 @@ body {
 
 /* ── Admin Subnav Tabs & Responsive Subpages ── */
 .admin-subnav-tabs {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
     gap: 8px;
     margin: 16px 0 12px;
     border-bottom: 2px solid rgba(255,215,0,0.25);
     padding-bottom: 8px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    overflow: visible;
 }
 
 .admin-tab-btn {
-    flex: 1 1 0;
-    min-width: 90px;
+    min-width: 0;
+    width: 100%;
     padding: 10px 14px;
     font-family: 'Press Start 2P', monospace;
     font-size: 8px;
@@ -2472,12 +2472,11 @@ body {
     }
 
     .admin-subnav-tabs {
-        flex-wrap: nowrap;
-        justify-content: flex-start;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        overflow: visible;
     }
 
     .admin-tab-btn {
-        flex: 0 0 auto;
         padding: 8px 12px;
         font-size: 7px;
     }
