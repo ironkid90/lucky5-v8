@@ -1,5 +1,5 @@
 # Stage 1: Build the backend and assets
-FROM mcr.microsoft.com/dotnet/sdk:10.0-preview AS build
+FROM mcr.microsoft.com/dotnet/sdk:11.0-preview AS build
 WORKDIR /src
 
 COPY ["server/src/Lucky5.Api/Lucky5.Api.csproj", "Lucky5.Api/"]
