@@ -127,6 +127,9 @@ let duCallToken = null;
 let clientStateVersion = 0;
 let clientSequenceNumber = 0;
 let isSpectatorMode = false;
+let heartbeatInterval = null;
+let lastNetworkError = null;
+let isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
 
 // ── 1. ENGINE BOOTSTRAP ───────────────────────────────────────────────────
 // Local aliases so engine logic never hard-codes variant-specific values.
@@ -956,6 +959,65 @@ function showMessage(text, type) {
     const msg = $('#game-message');
     msg.textContent = text;
     msg.className = type || '';
+}
+
+function showNetworkErrorBanner(message, retryFn) {
+    let banner = document.getElementById('network-error-banner');
+    if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'network-error-banner';
+        banner.className = 'network-error-banner';
+        banner.innerHTML = '<span class="network-error-text"></span> <button class="network-error-retry">RETRY</button>';
+        document.body.appendChild(banner);
+        banner.querySelector('.network-error-retry').addEventListener('click', () => {
+            banner.style.display = 'none';
+            if (typeof retryFn === 'function') retryFn();
+            else location.reload();
+        });
+    }
+    banner.querySelector('.network-error-text').textContent = message;
+    banner.style.display = 'flex';
+    lastNetworkError = message;
+}
+
+function hideNetworkErrorBanner() {
+    const banner = document.getElementById('network-error-banner');
+    if (banner) banner.style.display = 'none';
+    lastNetworkError = null;
+}
+
+function showOfflineBanner() {
+    let banner = document.getElementById('offline-banner');
+    if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'offline-banner';
+        banner.className = 'offline-banner';
+        banner.textContent = '⚠ OFFLINE — Waiting for connection...';
+        document.body.appendChild(banner);
+    }
+    banner.style.display = 'block';
+}
+
+function hideOfflineBanner() {
+    const banner = document.getElementById('offline-banner');
+    if (banner) banner.style.display = 'none';
+    showMessage('RECONNECTED');
+}
+
+function startHeartbeat() {
+    stopHeartbeat();
+    heartbeatInterval = setInterval(() => {
+        if (isHubConnected() && machineId > 0) {
+            invokeHub('Heartbeat', machineId).catch(() => {});
+        }
+    }, (window.GAME_CONFIG?.timing?.heartbeatMs || 15000));
+}
+
+function stopHeartbeat() {
+    if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+        heartbeatInterval = null;
+    }
 }
 
 function normalizeLuckyMultiplier(value, fallback = 1) {
@@ -3062,39 +3124,44 @@ async function setupSignalR() {
     });
 
     hubConnection.onreconnected(async () => {
-        console.log('[SignalR] Reconnected successfully.');
-        if (machineId > 0) {
-            try { 
-                if (isSpectatorMode) {
-                    await invokeHub('JoinMachineAsSpectator', machineId);
-                } else {
-                    await invokeHub('ReconnectSync', machineId, clientStateVersion, clientSequenceNumber);
+            console.log('[SignalR] Reconnected successfully.');
+            hideNetworkErrorBanner();
+            if (machineId > 0) {
+                try { 
+                    if (isSpectatorMode) {
+                        await invokeHub('JoinMachineAsSpectator', machineId);
+                    } else {
+                        await invokeHub('ReconnectSync', machineId, clientStateVersion, clientSequenceNumber);
+                    }
+                } catch (err) {
+                    console.error('ReconnectSync failed, falling back to JoinMachine:', err);
+                    try { await invokeHub('JoinMachine', machineId); } catch (_) {}
                 }
-            } catch (err) {
-                console.error('ReconnectSync failed, falling back to JoinMachine:', err);
-                try { await invokeHub('JoinMachine', machineId); } catch (_) {}
             }
-        }
-        if (gameState === 'idle') {
-            showMessage('INSERT COIN');
-        }
-    });
+            startHeartbeat();
+            if (gameState === 'idle') {
+                showMessage('INSERT COIN');
+            }
+        });
 
     hubConnection.onclose((error) => {
-        console.error('[SignalR] Connection closed permanently:', error ? error.message : 'unknown');
-        hubConnection = null;
-        machineJoined = false;
-        showMessage('CONNECTION LOST - PLEASE REFRESH');
-    });
+            console.error('[SignalR] Connection closed permanently:', error ? error.message : 'unknown');
+            hubConnection = null;
+            machineJoined = false;
+            stopHeartbeat();
+            showNetworkErrorBanner('CONNECTION LOST — Click RETRY to reconnect', setupSignalR);
+        });
 
     try {
-        await hubConnection.start();
-    } catch (e) {
-        console.error('SignalR connection failed:', e);
-        machineJoined = false;
-        try { await hubConnection.stop(); } catch (_) {}
-        hubConnection = null;
-    }
+            await hubConnection.start();
+            startHeartbeat();
+        } catch (e) {
+            console.error('SignalR connection failed:', e);
+            machineJoined = false;
+            try { await hubConnection.stop(); } catch (_) {}
+            hubConnection = null;
+            showNetworkErrorBanner('SIGNALR CONNECTION FAILED — Click RETRY', setupSignalR);
+        }
 }
 
 function isHubConnected() {
@@ -4718,4 +4785,18 @@ function updateBonusHandText() {
 }
 
 window.addEventListener('resize', scaleCabinet);
+
+window.addEventListener('online', () => {
+    isOnline = true;
+    hideOfflineBanner();
+    showMessage('RECONNECTED');
+    if (!isHubConnected() && token) {
+        setupSignalR().catch(() => {});
+    }
+});
+
+window.addEventListener('offline', () => {
+    isOnline = false;
+    showOfflineBanner();
+});
 
