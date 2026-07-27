@@ -116,6 +116,7 @@ PrintEnhancedSummary($"{rounds:N0} rounds", mainResult);
 if (varianceReport)
 {
     PrintVarianceReport();
+    PrintFairnessReport();
 }
 
 // Determine pass/fail based on RTP bounds
@@ -1113,6 +1114,204 @@ void PrintVarianceReport()
 
     var counterplay200k = RunSimulation(200_000, PlayerBehavior.CounterplaySabotage, 0, true);
     PrintEnhancedSummary("Counterplay sabotage 200k", counterplay200k);
+}
+
+void PrintFairnessReport()
+{
+    Console.WriteLine();
+    Console.WriteLine("--- Fairness / Pattern Detection Report ---");
+
+    // Run a dedicated fairness-tracking simulation with per-round win/loss recording.
+    const int fairnessRounds = 50_000;
+    var winLoss = new List<bool>(fairnessRounds);
+    var sessionOutcomes = new List<decimal>();
+    var first30Rtps = new List<decimal>();
+    var last30Rtps = new List<decimal>();
+
+    var fLedger = new MachineLedgerState { MachineId = 1, TargetRtp = cfg.TargetRtp };
+    var fSession = new SessionState();
+    fSession.StartNewSession();
+
+    decimal sessionStartIn = 0m;
+    decimal sessionStartOut = 0m;
+
+    for (var i = 0; i < fairnessRounds; i++)
+    {
+        if (fSession.PendingReset || fSession.MachineCredits < Bet + (Bet * cfg.DrawAnteMultiplier))
+        {
+            // Record session outcome
+            var sessionIn = fLedger.CapitalIn - sessionStartIn;
+            var sessionOut = fLedger.CapitalOut - sessionStartOut;
+            if (sessionIn > 0m)
+                sessionOutcomes.Add(decimal.Round(sessionOut / sessionIn, 4));
+            sessionStartIn = fLedger.CapitalIn;
+            sessionStartOut = fLedger.CapitalOut;
+            fSession.StartNewSession();
+        }
+
+        fSession.BeginRound();
+        var seed = DeterministicSeed.FromString($"fairness-{i}");
+        var policyState = BuildPolicyState(fLedger);
+        var policyResolution = MachinePolicy.ResolvePolicy(policyState, seed);
+        var policyMode = policyResolution.DistributionMode;
+        if (fSession.CounterplayScore >= 3 && policyMode == PolicyDistributionMode.Cold)
+            policyMode = PolicyDistributionMode.Neutral;
+
+        var drawAnte = (int)(Bet * cfg.DrawAnteMultiplier);
+        var totalAnte = Bet + drawAnte;
+        fLedger.CapitalIn += totalAnte;
+        fLedger.RoundCount++;
+        fLedger.RoundsSinceMediumWin++;
+        fLedger.RoundsSinceLucky5Hit++;
+        if (fLedger.CooldownRoundsRemaining > 0) fLedger.CooldownRoundsRemaining--;
+        fLedger.ActiveFourOfAKindSlot = (fLedger.RoundCount % 2 == 0) ? (int)(seed % 2) : 1 - (int)(seed % 2);
+        ApplyJackpotContributions(fLedger);
+        fSession.MachineCredits -= totalAnte;
+
+        var deck = FiveCardDrawEngine.BuildStandardDeck();
+        var altered = MachinePolicy.AlterDeck(deck, policyMode, seed, fLedger.ConsecutiveLosses);
+        var shuffled = FiveCardDrawEngine.ShuffleDeck(seed, "hand", altered);
+        var hand = shuffled.Take(5).ToArray();
+        var drawState = FiveCardDrawState.Create(seed, shuffled, hand);
+        var holdMask = ComputeBehaviorHolds(hand, PlayerBehavior.Balanced, seed, i, false, new SimulationResult(PlayerBehavior.Balanced, 0));
+        drawState = FiveCardDrawEngine.Reduce(drawState, new RoundAction(RoundActionKind.SetHoldMask, HoldMask: holdMask));
+        drawState = FiveCardDrawEngine.Reduce(drawState, new RoundAction(RoundActionKind.Draw));
+
+        var evaluation = FiveCardDrawEngine.EvaluateHand(drawState.Hand);
+        var rawBasePayout = FiveCardDrawEngine.ResolvePayout(evaluation, Bet, paytable);
+        var basePayout = rawBasePayout;
+        if (basePayout > 0 && drawState.Hand.Any(c => c.Rank == 14))
+            basePayout *= Math.Max(1, cfg.ResolvedSpecialRules.BaseGameAceWinMultiplier);
+
+        var scaleResolution = MachinePolicy.ResolvePolicy(BuildPolicyState(fLedger), seed);
+        var payoutScale = scaleResolution.ForTier(MachinePolicy.ClassifyHand(evaluation.Category));
+        var scaledBasePayout = basePayout > 0 ? (int)Math.Round(basePayout * payoutScale, MidpointRounding.AwayFromZero) : 0;
+        var payout = scaledBasePayout;
+
+        if (scaledBasePayout > 0)
+        {
+            fLedger.CapitalOut += scaledBasePayout;
+            fLedger.ConsecutiveLosses = 0;
+            var jp = ResolveJackpot(ref fLedger, evaluation, scaledBasePayout, hand);
+            if (jp.TotalPayout > 0)
+            {
+                fLedger.CapitalOut += jp.TotalPayout - scaledBasePayout;
+                payout = (int)jp.TotalPayout;
+            }
+            fLedger.CooldownRoundsRemaining = MachinePolicy.ComputeCooldownLength(evaluation.Category, seed);
+        }
+        else
+        {
+            fLedger.ConsecutiveLosses++;
+        }
+
+        winLoss.Add(scaledBasePayout > 0);
+        fSession.MachineCredits += payout;
+
+        // Collect first-30 and last-30 RTP windows per session batch
+        if (i < 30)
+        {
+            var rtp30 = fLedger.CapitalIn <= 0m ? 0m : decimal.Round(fLedger.CapitalOut / fLedger.CapitalIn, 4);
+            first30Rtps.Add(rtp30);
+        }
+        if (i >= fairnessRounds - 30)
+        {
+            var rtp30 = fLedger.CapitalIn <= 0m ? 0m : decimal.Round(fLedger.CapitalOut / fLedger.CapitalIn, 4);
+            last30Rtps.Add(rtp30);
+        }
+
+        if (fSession.MachineCredits >= cfg.CloseThreshold)
+            fSession.PendingReset = true;
+    }
+
+    // Record final session
+    var finalIn = fLedger.CapitalIn - sessionStartIn;
+    var finalOut = fLedger.CapitalOut - sessionStartOut;
+    if (finalIn > 0m)
+        sessionOutcomes.Add(decimal.Round(finalOut / finalIn, 4));
+
+    // ── Metric 1: Autocorrelation (lag-1 of win/loss) ──
+    int n = winLoss.Count;
+    if (n > 1)
+    {
+        double mean = winLoss.Average(w => w ? 1.0 : 0.0);
+        double num = 0, den = 0;
+        for (int i = 0; i < n; i++)
+        {
+            double xi = (winLoss[i] ? 1.0 : 0.0) - mean;
+            den += xi * xi;
+            if (i > 0)
+                num += xi * ((winLoss[i - 1] ? 1.0 : 0.0) - mean);
+        }
+        double autocorr = den > 0 ? num / den : 0;
+        Console.WriteLine($"  Lag-1 autocorrelation: {autocorr:F4} (target |r| < 0.05) {(Math.Abs(autocorr) < 0.05 ? "✓" : "✗ DETECTABLE")}");
+    }
+
+    // ── Metric 2: Streak distribution ──
+    var lossStreaks = new List<int>();
+    int currentStreak = 0;
+    foreach (var w in winLoss)
+    {
+        if (w) { if (currentStreak > 0) lossStreaks.Add(currentStreak); currentStreak = 0; }
+        else currentStreak++;
+    }
+    if (currentStreak > 0) lossStreaks.Add(currentStreak);
+    lossStreaks.Sort();
+    if (lossStreaks.Count > 0)
+    {
+        int P50 = lossStreaks[lossStreaks.Count / 2];
+        int P95 = lossStreaks[(int)(lossStreaks.Count * 0.95)];
+        int P99 = lossStreaks[(int)(lossStreaks.Count * 0.99)];
+        int max = lossStreaks.Last();
+        Console.WriteLine($"  Loss streak: P50={P50} | P95={P95} | P99={P99} | max={max} (target P95 < 15) {(P95 < 15 ? "✓" : "✗")}");
+    }
+
+    // ── Metric 3: Session outcome distribution ──
+    if (sessionOutcomes.Count > 0)
+    {
+        sessionOutcomes.Sort();
+        var sessP10 = sessionOutcomes[(int)(sessionOutcomes.Count * 0.10)];
+        var sessP50 = sessionOutcomes[sessionOutcomes.Count / 2];
+        var sessP90 = sessionOutcomes[(int)(sessionOutcomes.Count * 0.90)];
+        var sessMean = sessionOutcomes.Average();
+        var sessVar = sessionOutcomes.Average(x => (double)((x - sessMean) * (x - sessMean)));
+        Console.WriteLine($"  Session RTP: P10={sessP10:P2} | P50={sessP50:P2} | P90={sessP90:P2} | mean={sessMean:P2} | σ={Math.Sqrt(sessVar):F3}");
+    }
+
+    // ── Metric 4: Pattern detection (3-round patterns) ──
+    var patterns = new Dictionary<string, int> { ["LLL"] = 0, ["LLW"] = 0, ["LWL"] = 0, ["WLL"] = 0, ["WLW"] = 0 };
+    for (int i = 0; i < n - 2; i++)
+    {
+        var key = $"{(winLoss[i] ? 'W' : 'L')}{(winLoss[i + 1] ? 'W' : 'L')}{(winLoss[i + 2] ? 'W' : 'L')}";
+        if (patterns.ContainsKey(key)) patterns[key]++;
+    }
+    int totalPatterns = patterns.Values.Sum();
+    double winRate = winLoss.Average(w => w ? 1.0 : 0.0);
+    double loseRate = 1.0 - winRate;
+    Console.WriteLine("  3-round pattern frequencies (expected vs actual):");
+    bool patternsOk = true;
+    foreach (var (key, count) in patterns.OrderBy(kv => kv.Key))
+    {
+        double expectedFreq = key[0] == 'W' ? winRate : loseRate;
+        expectedFreq *= key[1] == 'W' ? winRate : loseRate;
+        expectedFreq *= key[2] == 'W' ? winRate : loseRate;
+        double actualFreq = (double)count / totalPatterns;
+        double delta = Math.Abs(actualFreq - expectedFreq);
+        bool ok = delta < 0.05;
+        if (!ok) patternsOk = false;
+        Console.WriteLine($"    {key}: actual={actualFreq:P3} expected={expectedFreq:P3} Δ={delta:P3} {(ok ? "✓" : "✗")}");
+    }
+    Console.WriteLine($"  Pattern uniformity: {(patternsOk ? "PASS ✓" : "FAIL ✗ — detectable pattern bias")}");
+
+    // ── Metric 5: Warmup detection (first-30 vs last-30 RTP) ──
+    if (first30Rtps.Count > 0 && last30Rtps.Count > 0)
+    {
+        var first30Mean = first30Rtps.Average();
+        var last30Mean = last30Rtps.Average();
+        var diff = Math.Abs(first30Mean - last30Mean);
+        var warmupOk = diff < 0.05m;
+        Console.WriteLine($"  Warmup: first-30 RTP={first30Mean:P2} | last-30 RTP={last30Mean:P2} | Δ={diff:P2} (target < 5%) {(warmupOk ? "✓" : "✗")}");
+    }
 }
 
 static string DescribeBehavior(PlayerBehavior behavior) => behavior switch

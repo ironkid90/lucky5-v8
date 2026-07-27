@@ -459,9 +459,10 @@
    3. CRT SCREEN COLORS & TEXT RENDERING
    ───────────────────────────────────────────────────────────────────────────── */
 
-/* CRT background: pure black (arcade cabinet CRT field). */
+/* CRT background: very dark navy-gray (powered-on CRT idle glow), NOT pure black.
+   Matching ai9 reference — the CRT tube has a slight ambient illumination even when "black". */
 #game-screen {
-    background-color: #000000 !important;
+    background-color: #0a0d14 !important;
 }
 
 /* Paytable text: ARCADE dot-matrix font (or fallback monospace).
@@ -517,13 +518,13 @@
     text-shadow: none !important;
 }
 #paytable .pay-row.fl {
-    color: #ffaa00 !important;  /* FLUSH: gold */
+    color: #00ffff !important;  /* FLUSH: cyan */
 }
 #paytable .pay-row.st {
-    color: #00dddd !important;  /* STRAIGHT: cyan */
+    color: #ffff00 !important;  /* STRAIGHT: yellow */
 }
 #paytable .pay-row.tok {
-    color: #ffaa00 !important;  /* 3 OF A KIND: gold */
+    color: #ffa500 !important;  /* 3 OF A KIND: orange */
 }
 #paytable .pay-row.tp {
     color: #00dddd !important;  /* 2 PAIR: cyan */
