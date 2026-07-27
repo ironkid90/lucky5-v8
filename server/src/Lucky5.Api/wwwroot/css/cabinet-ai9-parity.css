@@ -136,7 +136,7 @@
     flex: none !important;
     overflow: hidden !important;
     border-radius: 0 !important;  /* AI9: sharp edges */
-    border: 1px solid #000 !important;  /* AI9: 1px solid black border */
+        border: none !important;       /* AI9: pixel-edge — no drawn border, white face against black background */
 }
 
 /* Win amount display row: below cards, centered. */

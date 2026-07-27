@@ -425,17 +425,17 @@ public sealed record EngineConfig(
 	//   SF:   +800 per round
 	//   FH:   +300 per round
 	//   Kent: +200 per round
-	decimal JackpotFourOfAKindCap = 99_999m,
-	decimal JackpotFullHouseRank14Cap = 20_000_000m,
-	decimal JackpotStraightFlushCap = 10_000_000m,
+	decimal JackpotFourOfAKindCap = 999_999m,
+	decimal JackpotFullHouseRank14Cap = 9_999_999m,
+	decimal JackpotStraightFlushCap = 9_999_999m,
 	decimal JackpotKentCap = 5_000_000m,
 	int JackpotFourOfAKindContribution = 500,
 		int JackpotFullHouseContribution = 300,
 		int JackpotStraightFlushContribution = 800,
 		int JackpotKentContribution = 200,
-	decimal JackpotFourOfAKindStart = 20_000m,
-	decimal JackpotFullHouseStart = 90_000m,
-	decimal JackpotStraightFlushStart = 850_000m,
+	decimal JackpotFourOfAKindStart = 200_000m,
+	decimal JackpotFullHouseStart = 1_000_000m,
+	decimal JackpotStraightFlushStart = 1_000_000m,
 	decimal JackpotKentStart = 500_000m
 )
 {

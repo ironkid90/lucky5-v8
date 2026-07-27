@@ -487,11 +487,12 @@
     min-height: 0;
     width: 100%;
     background: #fff;
-    border: 1px solid #000;
-    border-radius: 0;
-    overflow: hidden;
-    display: block;
-}
+    border: none;                     /* AI9: pixel-edge, no drawn border */
+        border-radius: 0;
+        overflow: hidden;
+        display: block;
+        box-shadow: none;                 /* No inset/gold glow on card face */
+    }
 
 .card-slot .card-face > div {
     width: 100%;

@@ -2804,64 +2804,6 @@ function animateDrainToCredits(amount, startBalance, handRank = null) {
 /// Reverse drain: siphons displayed WIN amount back to zero.
 /// Base CREDITS meter remains UNCHANGED — only the WIN display counts down.
 /// Used for DU loss siphon — the player watches their winnings disappear.
-function animateReverseDrain(amount, startBalance, handRank = null) {
-    return new Promise((resolve) => {
-        takeScoreAnimating = true;
-        setButtonStates();
-
-        // Same duration formula as animateDrainToCredits
-        const totalDuration = Math.min(T.countUpMaxMs, Math.max(T.countUpMinMs, amount / 1_000_000 * 1500));
-        const winEl = $('#win-indicator');
-        const winAmountEl = $('#win-amount-value');
-        const msgEl = $('#game-message');
-        const payRow = handRank ? document.querySelector(`.pay-row[data-hand="${handRank}"]`) : null;
-        const payAmountEl = payRow ? payRow.querySelector('.pay-amount') : null;
-
-        if (payRow) {
-            payRow.classList.remove('active');
-            payRow.classList.add('du-highlight');
-        }
-
-        const totalTicks = CabinetClock.msToTicks(totalDuration);
-        let elapsedTicks = 0;
-
-        const tickHandler = function(tickCount) {
-            elapsedTicks++;
-            const progress = Math.min(elapsedTicks / totalTicks, 1);
-            const ease = 1 - Math.pow(1 - progress, 3);
-            const drained = Math.floor(amount * ease);
-            const remaining = amount - drained;
-
-            if (winAmountEl) winAmountEl.textContent = remaining > 0 ? formatNum(remaining) : '';
-            if (payAmountEl) payAmountEl.textContent = remaining > 0 ? formatNum(remaining) : '0';
-
-            if (remaining > 0) {
-                if (winEl) winEl.textContent = `LOSE ${formatNum(remaining)}`;
-            } else {
-                if (winEl) winEl.textContent = '';
-            }
-
-            if (msgEl) {
-                msgEl.textContent = `SIPHONING...`;
-                msgEl.className = 'lose';
-            }
-
-            if (progress >= 1) {
-                CabinetClock.unregisterHandler(tickHandler);
-                balance = startBalance;
-                updateCredits();
-                if (winEl) winEl.textContent = '';
-                if (winAmountEl) winAmountEl.textContent = '';
-                takeScoreAnimating = false;
-                updatePaytable();
-                resolve();
-            }
-        };
-
-        CabinetClock.registerHandler(tickHandler);
-    });
-}
-
 async function mainTakeScore() {
     if (!(gameState === 'win' || gameState === 'doubleup') || takeScoreAnimating) return;
     playPress();

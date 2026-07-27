@@ -181,18 +181,9 @@ public static class MachinePolicy
 
         var liveScale = ResolveLivePayoutScale(state, jitter, cfg);
 
-        if (state.RoundCount < cfg.WarmupRounds)
-        {
-            var warmupProgress = cfg.WarmupRounds <= 1
-                ? 1m
-                : Math.Clamp((state.RoundCount - 1m) / (cfg.WarmupRounds - 1m), 0m, 1m);
-
-            return new PayoutScaleResult(
-                Lerp(cfg.WarmupOpeningSmallScale, liveScale.SmallScale, warmupProgress),
-                Lerp(cfg.WarmupOpeningMediumScale, liveScale.MediumScale, warmupProgress),
-                Lerp(cfg.WarmupOpeningBigScale, liveScale.BigScale, warmupProgress));
-        }
-
+        // Warmup: controller is inactive for first 30 rounds (no correction),
+        // but we do NOT artificially boost payouts. The live scale at baseline
+        // is used directly — no generosity burst that machine-hoppers can exploit.
         return liveScale;
     }
 
@@ -216,20 +207,10 @@ public static class MachinePolicy
             correction = Math.Clamp(-drift * cfg.CorrectionGain * rampFactor, -cfg.MaxCorrection, cfg.MaxCorrection);
         }
 
-        decimal crisisBoost = 0m;
-        if (state.ConsecutiveLosses >= cfg.CrisisThreshold)
-            crisisBoost = cfg.CrisisScaleBoost;
+        // Warmup bias removed — no artificial generosity in early rounds.
+        // Crisis boost replaced by continuous pity in ComputePityBoost.
 
-        var warmupBias = 0m;
-        if (state.RoundCount > 0 && state.RoundCount <= cfg.WarmupRounds)
-        {
-            var decay = cfg.WarmupRounds <= 1
-                ? 0m
-                : 1m - ((state.RoundCount - 1m) / (cfg.WarmupRounds - 1m));
-            warmupBias = Math.Max(0m, decay) * 0.08m;
-        }
-
-        var rawScale = equilibriumScale + correction + warmupBias + jitter + crisisBoost;
+        var rawScale = equilibriumScale + correction + jitter;
         var smallScale = rawScale * cfg.SmallTierFactor;
         var mediumScale = rawScale * cfg.MediumTierFactor;
         var bigScale = rawScale * cfg.BigTierFactor;
@@ -338,20 +319,17 @@ public static class MachinePolicy
 
     private static decimal ComputePityBoost(MachinePolicyState state, EngineConfig cfg)
     {
-        decimal boost = 0m;
-        
-        if (state.ConsecutiveLosses >= cfg.StreakHardThreshold)
-            boost += 0.06m;
-        else if (state.ConsecutiveLosses >= cfg.StreakSoftThreshold)
-        {
-            var progress = (decimal)(state.ConsecutiveLosses - cfg.StreakSoftThreshold) / (cfg.StreakHardThreshold - cfg.StreakSoftThreshold);
-            boost += 0.02m + progress * 0.04m;
-        }
-        
+        // Continuous sigmoid pity — no discrete tiers that create predictable relief waves.
+        // sigmoid((losses - 6) / 3) ramps smoothly: ~0 at 0 losses, ~0.5 at 6 losses, ~0.88 at 12 losses.
+        var x = (double)(state.ConsecutiveLosses - 6) / 3.0;
+        var sigmoid = 1.0 / (1.0 + Math.Exp(-x));
+        var boost = (decimal)(sigmoid * 0.14); // max ~0.12 at 12+ losses
+
+        // Drought bonus (smooth, not discrete)
         if (state.RoundsSinceMediumWin >= cfg.MediumWinDroughtThreshold)
             boost += 0.02m;
-        
-        return boost;
+
+        return Math.Min(boost, cfg.PityBoostCap);
     }
 
     private static decimal ComputeJackpotLeakAdjustment(MachinePolicyState state, EngineConfig cfg)
@@ -408,16 +386,24 @@ public static class MachinePolicy
     {
         var cfg = config ?? Cfg;
         var rng = new SplitMix64Rng(DeterministicSeed.Derive(entropySeed, "cooldown-jitter"));
-        var jitter = rng.NextInt(3) - 1;
 
-        var baseCooldown = winCategory switch
+        // Weighted random cooldown: prevents the "every win = 2 quiet rounds" pattern.
+        // Distribution: 1r=20%, 2r=35%, 3r=25%, 4r=15%, 5r=5%
+        var roll = rng.NextUnit();
+        var weightedCooldown = roll switch
         {
-            HandCategory.FourOfAKind or HandCategory.StraightFlush or HandCategory.RoyalFlush => cfg.CooldownLength + 1,
-            HandCategory.FullHouse or HandCategory.Flush or HandCategory.Straight => cfg.CooldownLength,
-            _ => Math.Max(cfg.CooldownLength - 1, 1)
+            < 0.20 => 1,
+            < 0.55 => 2,
+            < 0.80 => 3,
+            < 0.95 => 4,
+            _ => 5
         };
 
-        return Math.Max(baseCooldown + jitter, 1);
+        // Big wins get +1 cooldown
+        if (winCategory is HandCategory.FourOfAKind or HandCategory.StraightFlush or HandCategory.RoyalFlush)
+            weightedCooldown += 1;
+
+        return Math.Max(weightedCooldown, 1);
     }
 
     // Overload for simulation compatibility (no entropy seed)
@@ -465,12 +451,21 @@ public static class MachinePolicy
     {
         var cfg = config ?? Cfg;
         var pressure = ComputeDoubleUpDeckPressure(state, roundsSinceLucky5Hit, netSinceLastClose, roundPolicyMode, openingAmount, machineCreditBaseline, cfg);
+
+        var rng = new SplitMix64Rng(DeterministicSeed.Derive(entropySeed, "double-up-deck-pressure"));
+
+        // Deck anomaly: 8% chance per DU session to invert pressure.
+        // Creates surprise outcomes that break pattern tracking.
+        if (rng.NextUnit() < 0.08)
+        {
+            pressure = -pressure;
+        }
+
         if (Math.Abs(pressure) < 0.12m)
         {
             return standardDeck;
         }
 
-        var rng = new SplitMix64Rng(DeterministicSeed.Derive(entropySeed, "double-up-deck-pressure"));
         return pressure > 0m
             ? BuildPressureDoubleUpDeck(standardDeck, pressure, roundsSinceLucky5Hit, rng, cfg)
             : BuildRecoveryDoubleUpDeck(standardDeck, -pressure, roundsSinceLucky5Hit, rng, cfg);
@@ -535,19 +530,10 @@ public static class MachinePolicy
                 pressure += (doubleUpExcess / Math.Max(cfg.TargetDoubleUpRtp, 0.0001m)) * 0.38m;
             }
 
-            if (state.ConsecutiveLosses >= cfg.StreakHardThreshold)
-            {
-                pressure -= 0.20m;
-            }
-            else if (state.ConsecutiveLosses >= cfg.StreakSoftThreshold)
-            {
-                pressure -= 0.10m;
-            }
-
-            if (state.RoundsSinceMediumWin >= cfg.MediumWinDroughtThreshold)
-            {
-                pressure -= 0.08m;
-            }
+            // Pity relief REMOVED from DU deck pressure.
+            // Pity now only affects base-game payout scale (single-channel).
+            // The DU deck remains neutral during loss streaks — the player's only
+            // enemy is the cards themselves, not a ratcheting difficulty system.
         }
 
         if (cfg.CloseThreshold > 0m && machineCreditBaseline > 0 && openingAmount > 0)
@@ -582,7 +568,11 @@ public static class MachinePolicy
         EngineConfig cfg)
     {
         var deck = new List<CleanRoomCard>(standardDeck);
-        var removalBudget = Math.Clamp((int)Math.Ceiling(pressure * cfg.DoubleUpPressureMaxKeyRemovals), 1, cfg.DoubleUpPressureMaxKeyRemovals);
+        // Randomized removal budget: prevents deterministic pattern detection.
+        // Budget varies between 50-100% of the theoretical max, adding genuine surprise.
+        var maxBudget = Math.Clamp((int)Math.Ceiling(pressure * cfg.DoubleUpPressureMaxKeyRemovals), 1, cfg.DoubleUpPressureMaxKeyRemovals);
+        var randomizedMax = Math.Max(maxBudget / 2, rng.NextInt(maxBudget + 1));
+        var removalBudget = randomizedMax;
         var removals = 0;
 
         removals += RemoveMatching(deck, card => card.Rank == 14, removalBudget - removals, rng, cfg);
