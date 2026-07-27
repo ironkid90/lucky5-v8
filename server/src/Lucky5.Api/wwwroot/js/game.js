@@ -1600,6 +1600,7 @@ function setButtonStates() {
 }
 
 let betResetPending = false;
+let betRampRunning = false;
 
 async function doBet() {
     if (gameState === 'doubleup') {
@@ -1607,16 +1608,36 @@ async function doBet() {
         return;
     }
     if (gameState !== 'idle') return;
-    playPress();
+    if (betRampRunning) return; // Prevent double-press during ramp
+
     const machine = machines.find(m => m.id === machineId);
     if (!machine) return;
 
     const step = machine.betIncrement || GAME_RULES.betStep; // 100-credit steps
 
     if (currentBet < machine.minBet) {
-        // Ramp phase: fill from 0 to minBet in 100-credit steps
-        currentBet = Math.min(currentBet + step, machine.minBet);
-    } else if (betResetPending) {
+        // Auto-ramp: rapidly fill from current to minBet in 100-credit steps
+        betRampRunning = true;
+        const rampInterval = setInterval(() => {
+            currentBet = Math.min(currentBet + step, machine.minBet);
+            playPress();
+            updateStakeDisplay();
+            updatePaytable();
+            if (currentBet >= machine.minBet) {
+                clearInterval(rampInterval);
+                betRampRunning = false;
+                jackpotRankArmed = true;
+                window.jackpotRankArmed = true;
+                updateBonusHandText();
+                setButtonStates();
+            }
+        }, 50); // 50ms per tick = ~1.25s for 2500 min bet
+        return;
+    }
+
+    playPress();
+
+    if (betResetPending) {
         currentBet = machine.minBet;
         betResetPending = false;
     } else if (currentBet >= machine.maxBet) {

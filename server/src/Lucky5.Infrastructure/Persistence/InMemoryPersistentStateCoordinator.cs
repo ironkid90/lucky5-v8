@@ -242,8 +242,8 @@ public sealed class InMemoryPersistentStateCoordinator : IPersistentStateCoordin
     private static IReadOnlyList<Machine> CreateSeedMachines()
         =>
         [
-            new() { Id = 1, GameId = 1, Name = "Beirut 5K", MachineSerial = "105001", MachineSerie = "27", VariantState = "{\"MachineKent\": \"1\"}", IsOpen = true, MinBet = 5000, MaxBet = 10000 },
-            new() { Id = 2, GameId = 1, Name = "Hamra 10K", MachineSerial = "105002", MachineSerie = "27", VariantState = "{\"MachineKent\": \"2\"}", IsOpen = true, MinBet = 10000, MaxBet = 20000 },
-            new() { Id = 3, GameId = 1, Name = "VIP 50K", MachineSerial = "105003", MachineSerie = "27", VariantState = "{\"MachineKent\": \"3\"}", IsOpen = false, MinBet = 50000, MaxBet = 100000 }
+            new() { Id = 1, GameId = 1, Name = "Hamra 2.5K", MachineSerial = "105001", MachineSerie = "27", VariantState = "{\"MachineKent\": \"1\"}", IsOpen = true, MinBet = 2500, MaxBet = 5000 },
+            new() { Id = 2, GameId = 1, Name = "Beirut 5K", MachineSerial = "105002", MachineSerie = "27", VariantState = "{\"MachineKent\": \"2\"}", IsOpen = true, MinBet = 5000, MaxBet = 10000 },
+            new() { Id = 3, GameId = 1, Name = "VIP 10K", MachineSerial = "105003", MachineSerie = "27", VariantState = "{\"MachineKent\": \"3\"}", IsOpen = true, MinBet = 10000, MaxBet = 20000 }
         ];
 }

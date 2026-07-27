@@ -1372,6 +1372,10 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 				return;
 
 			case "swap_double_up_card":
+				// Legacy alias: this IS the dealer-switch action used by older clients.
+				await SwitchDealerAsync(userId, GetRequiredGuidPayload(command.Payload, "round_id"), cancellationToken);
+				return;
+			case "swap_challenger_card":
 				await SwapDoubleUpCardAsync(userId, GetRequiredGuidPayload(command.Payload, "round_id"), GetRequiredIntPayload(command.Payload, "swap_position"), cancellationToken);
 				return;
 
