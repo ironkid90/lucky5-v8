@@ -495,7 +495,20 @@
 }
 #paytable .pay-row.fh,
 #paytable .pay-row.fh .hand-name,
-#paytable .pay-row.fh .pay-amount,
+#paytable .pay-row.fh .pay-amount {
+    color: #ffffff !important;  /* FULL HOUSE: white text */
+    /* Permanent white rectangular outline box — always visible, not just when active */
+    border: 1px solid #ffffff !important;
+    border-radius: 2px !important;
+    padding: 0.05cqh 0.3cqh !important;
+    margin: 0.05cqh 0 !important;
+}
+#paytable .pay-row.fh.active,
+#paytable .pay-row.fh.active .hand-name,
+#paytable .pay-row.fh.active .pay-amount {
+    background-color: #ffffff !important;
+    color: #000000 !important;  /* White bg + black text when active */
+}
 #paytable .pay-row.jackpot-selected,
 #paytable .pay-row.jackpot-selected .hand-name,
 #paytable .pay-row.jackpot-selected .pay-amount {
@@ -592,6 +605,23 @@
 
 #jackpot-counters .jp-counter:nth-child(2) {
     color: #ff3333 !important;  /* Center (SF): red */
+}
+
+/* "4 OF A KIND WINS BONUS" banner — split colored spans, centered below jackpot counters */
+#bonus-hand-text {
+    text-align: center !important;
+    margin-top: 0.3cqh !important;
+    font-family: 'ARCADE', 'Arcade', 'Press Start 2P', 'Courier New', monospace !important;
+    font-weight: bold !important;
+    letter-spacing: 0.08cqh !important;
+}
+#bonus-hand-text .bonus-4k {
+    color: #ffaa00 !important;       /* Yellow */
+    font-size: 1.25cqh !important;
+}
+#bonus-hand-text .bonus-wins {
+    color: #ffffff !important;       /* White */
+    font-size: 1.0cqh !important;
 }
 
 /* Info bar (INSERT COIN, etc.): */
