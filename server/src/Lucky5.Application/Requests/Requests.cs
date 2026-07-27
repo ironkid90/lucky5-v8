@@ -12,6 +12,7 @@ public sealed record SignupRequest(
 public sealed record VerifyOtpRequest(string Username, string OtpCode);
 public sealed record ResendOtpRequest(string Username);
 public sealed record TransferRequest(decimal Amount, string Reference, string Direction);
+public sealed record UserTransactionRequest(decimal Amount, int MachineId = 0);
 public sealed record ContactReportRequest(int ContactTypeId, string Subject, string Message);
 public sealed record DealRequest(int MachineId, decimal BetAmount);
 public sealed record DrawRequest(Guid RoundId, int[] HoldIndexes);

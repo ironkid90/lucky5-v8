@@ -86,7 +86,7 @@ public sealed class AuthController(IAuthService authService, IHostEnvironment en
     }
 
     [HttpPost("MoveWinToBalance")]
-    public async Task<ActionResult<ApiResponse<WalletLedgerEntryDto>>> MoveWinToBalance([FromBody] TransferRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<WalletLedgerEntryDto>>> MoveWinToBalance([FromBody] UserTransactionRequest request, CancellationToken cancellationToken)
     {
         var userId = HttpContext.RequireUserId();
         var row = await authService.MoveWinToBalanceAsync(userId, request, cancellationToken);
@@ -96,24 +96,24 @@ public sealed class AuthController(IAuthService authService, IHostEnvironment en
     [HttpPost("UpdateCredit")]
     public async Task<ActionResult<ApiResponse<WalletLedgerEntryDto>>> UpdateCredit([FromBody] TransferRequest request, CancellationToken cancellationToken)
     {
-        var userId = HttpContext.RequireUserId();
+        var userId = HttpContext.RequireAdminRole();
         var row = await authService.UpdateCreditAsync(userId, request, cancellationToken);
         return Ok(ApiResponse<WalletLedgerEntryDto>.Ok(row, traceId: HttpContext.TraceIdentifier));
     }
 
     [HttpPost("Deposit")]
-    public async Task<ActionResult<ApiResponse<WalletLedgerEntryDto>>> Deposit([FromBody] TransferRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<WalletLedgerEntryDto>>> Deposit([FromBody] UserTransactionRequest request, CancellationToken cancellationToken)
     {
         var userId = HttpContext.RequireUserId();
-        var row = await authService.UpdateCreditAsync(userId, request, cancellationToken);
+        var row = await authService.DepositAsync(userId, request, cancellationToken);
         return Ok(ApiResponse<WalletLedgerEntryDto>.Ok(row, traceId: HttpContext.TraceIdentifier));
     }
 
     [HttpPost("Withdraw")]
-    public async Task<ActionResult<ApiResponse<WalletLedgerEntryDto>>> Withdraw([FromBody] TransferRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<WalletLedgerEntryDto>>> Withdraw([FromBody] UserTransactionRequest request, CancellationToken cancellationToken)
     {
         var userId = HttpContext.RequireUserId();
-        var row = await authService.UpdateCreditAsync(userId, request, cancellationToken);
+        var row = await authService.WithdrawAsync(userId, request, cancellationToken);
         return Ok(ApiResponse<WalletLedgerEntryDto>.Ok(row, traceId: HttpContext.TraceIdentifier));
     }
 

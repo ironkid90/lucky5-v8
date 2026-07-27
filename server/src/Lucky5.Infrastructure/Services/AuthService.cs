@@ -185,14 +185,35 @@ public sealed class AuthService(InMemoryDataStore store, ITokenService tokenServ
         return Task.FromResult(AdjustBalance(userId, request.Amount, "TransferBalance", request.Reference));
     }
 
-    public Task<WalletLedgerEntryDto> MoveWinToBalanceAsync(Guid userId, TransferRequest request, CancellationToken cancellationToken)
+    public Task<WalletLedgerEntryDto> MoveWinToBalanceAsync(Guid userId, UserTransactionRequest request, CancellationToken cancellationToken)
     {
-        return Task.FromResult(AdjustBalance(userId, request.Amount, "MoveWinToBalance", request.Reference));
+        if (request.Amount <= 0) throw new InvalidOperationException("Amount must be positive.");
+        var reference = request.MachineId > 0 ? $"Machine_{request.MachineId}" : "Cashout";
+        return Task.FromResult(AdjustBalance(userId, request.Amount, "MoveWinToBalance", reference));
     }
 
     public Task<WalletLedgerEntryDto> UpdateCreditAsync(Guid userId, TransferRequest request, CancellationToken cancellationToken)
     {
         return Task.FromResult(AdjustCredit(userId, request.Amount, "UpdateCredit", request.Reference));
+    }
+
+    public Task<WalletLedgerEntryDto> DepositAsync(Guid userId, UserTransactionRequest request, CancellationToken cancellationToken)
+    {
+        if (request.Amount <= 0) throw new InvalidOperationException("Deposit amount must be positive.");
+        var reference = request.MachineId > 0 ? $"Machine_{request.MachineId}" : "Deposit";
+        return Task.FromResult(AdjustCredit(userId, request.Amount, "Deposit", reference));
+    }
+
+    public Task<WalletLedgerEntryDto> WithdrawAsync(Guid userId, UserTransactionRequest request, CancellationToken cancellationToken)
+    {
+        if (request.Amount <= 0) throw new InvalidOperationException("Withdraw amount must be positive.");
+        if (!store.MemberProfiles.TryGetValue(userId, out var profile) || profile.Credit < request.Amount)
+        {
+            throw new InvalidOperationException("Insufficient credit.");
+        }
+        var reference = request.MachineId > 0 ? $"Machine_{request.MachineId}" : "Withdraw";
+        // Pass negative amount to deduct
+        return Task.FromResult(AdjustCredit(userId, -request.Amount, "Withdraw", reference));
     }
 
     public Task<WalletLedgerEntryDto> RechargeBonusAsync(Guid userId, decimal rechargeAmount, CancellationToken cancellationToken)

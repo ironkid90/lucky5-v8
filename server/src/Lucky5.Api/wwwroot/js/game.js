@@ -50,6 +50,35 @@ let currentRole = normalizeRole(sessionStorage.getItem('lucky5_role'));
 let balance = 0;
 let walletBalance = 0;
 let currentBet = 5000;
+
+let GAME_RULES = {
+    betStep: 100,
+    doubleUpMaxRounds: 5,
+    doubleUpTakeHalfEnabled: true
+};
+
+async function loadGameRules() {
+    try {
+        const cacheKey = 'lucky5_game_rules';
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+            GAME_RULES = { ...GAME_RULES, ...JSON.parse(cached) };
+        }
+        
+        const res = await fetch(`${API_BASE_URL}/api/config/rules?t=${Date.now()}`);
+        if (res.ok) {
+            const data = await res.json();
+            if (data.configured && data.rules) {
+                GAME_RULES = { ...GAME_RULES, ...data.rules };
+                if (!GAME_RULES.betStep) GAME_RULES.betStep = 100;
+                localStorage.setItem(cacheKey, JSON.stringify(GAME_RULES));
+            }
+        }
+    } catch (e) {
+        console.warn('Failed to load dynamic rules', e);
+    }
+}
+
 let machineId = Number.parseInt(sessionStorage.getItem('lucky5_machineId') || '0', 10) || 0;
 let roundId = null;
 let cards = [];
@@ -59,6 +88,8 @@ let winAmount = 0;
 let machines = [];
 let paytable = {};
 let pressSound = null;
+let lastStateVersion = 0;
+let lastSequenceNumber = 0;
 let duSwitchesRemaining = 0;
 let duIsNoLoseActive = false;
 let duLuckyMultiplier = 1;
@@ -1462,7 +1493,7 @@ function setButtonStates() {
     bigBtn.disabled = !(isDoubleUp || canStartDoubleUpFromWin());
     smallBtn.disabled = !(isDoubleUp || canStartDoubleUpFromWin());
     takeScoreBtn.disabled = !(gameState === 'win' || isDoubleUp);
-    takeHalfBtn.disabled = !(gameState === 'win' || isDoubleUp) || takeHalfUsedThisRound;
+    takeHalfBtn.disabled = !GAME_RULES.doubleUpTakeHalfEnabled || !(gameState === 'win' || isDoubleUp) || takeHalfUsedThisRound;
 
     holdBtns.forEach((btn, i) => {
         if (i === 0 && canAdjustJackpotRank()) {
@@ -1497,7 +1528,7 @@ async function doBet() {
     } else if (currentBet >= machine.maxBet) {
         currentBet = machine.maxBet;
     } else {
-        currentBet = Math.min(currentBet + 100, machine.maxBet);
+        currentBet = Math.min(currentBet + GAME_RULES.betStep, machine.maxBet);
     }
     jackpotRankArmed = true;
     updateStakeDisplay();
@@ -2942,8 +2973,59 @@ async function setupSignalR() {
         .build();
 
     hubConnection.on('MachineStateUpdated', (state) => {
-        if (state && state.jackpots) {
-            updateJackpotDisplay(state.jackpots);
+        if (state) {
+            if (state.state_version !== undefined) clientStateVersion = state.state_version;
+            if (state.sequence_number !== undefined) clientSequenceNumber = state.sequence_number;
+            if (state.jackpots || state.Jackpot) {
+                updateJackpotDisplay(state.jackpots || state.Jackpot);
+            }
+            if (isSpectatorMode) {
+                const roundSnapshot = buildRoundSnapshotFromCabinetSnapshot(state);
+                if (roundSnapshot) {
+                    restoreRoundFromSnapshot(roundSnapshot);
+                } else {
+                    resetGameRuntimeState({ clearSelection: false });
+                }
+            }
+        }
+    });
+
+    hubConnection.on('SpectatorsChanged', (data) => {
+        if (data && data.machineId === machineId) {
+            const spectatorCountEl = document.getElementById('spectator-count') || (() => {
+                const el = document.createElement('div');
+                el.id = 'spectator-count';
+                el.style.position = 'absolute';
+                el.style.top = '10px';
+                el.style.right = '10px';
+                el.style.color = '#fff';
+                el.style.fontFamily = 'VT323, monospace';
+                el.style.fontSize = '24px';
+                el.style.zIndex = '1000';
+                document.body.appendChild(el);
+                return el;
+            })();
+            spectatorCountEl.textContent = `SPECTATORS: ${data.count}`;
+            spectatorCountEl.style.display = data.count > 0 ? 'block' : 'none';
+        }
+    });
+
+    hubConnection.on('CabinetSnapshotEvent', (snapshot) => {
+        if (snapshot) {
+            if (snapshot.state_version !== undefined) clientStateVersion = snapshot.state_version;
+            if (snapshot.sequence_number !== undefined) clientSequenceNumber = snapshot.sequence_number;
+            const roundSnapshot = buildRoundSnapshotFromCabinetSnapshot(snapshot);
+            if (roundSnapshot) restoreRoundFromSnapshot(roundSnapshot);
+        }
+    });
+
+    hubConnection.on('CabinetReplayEvent', (replay) => {
+        if (replay && replay.Snapshot) {
+            const snapshot = replay.Snapshot;
+            if (snapshot.state_version !== undefined) clientStateVersion = snapshot.state_version;
+            if (snapshot.sequence_number !== undefined) clientSequenceNumber = snapshot.sequence_number;
+            const roundSnapshot = buildRoundSnapshotFromCabinetSnapshot(snapshot);
+            if (roundSnapshot) restoreRoundFromSnapshot(roundSnapshot);
         }
     });
 
@@ -4195,7 +4277,8 @@ async function initGame(options = {}) {
 }
 
 // ── 11. DOM BOOTSTRAP ──────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    await loadGameRules();
     const urlParams = new URLSearchParams(window.location.search);
     const urlToken = urlParams.get('token') || urlParams.get('auth');
     if (urlToken) {
