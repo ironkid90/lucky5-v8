@@ -961,29 +961,53 @@ function showMessage(text, type) {
     msg.className = type || '';
 }
 
+let _autoRetryTimer = null;
+let _autoRetryCount = 0;
+
 function showNetworkErrorBanner(message, retryFn) {
+    // Smooth auto-sync overlay — no manual RETRY button.
+    // Auto-retries with exponential backoff, shows subtle syncing indicator.
     let banner = document.getElementById('network-error-banner');
     if (!banner) {
         banner = document.createElement('div');
         banner.id = 'network-error-banner';
         banner.className = 'network-error-banner';
-        banner.innerHTML = '<span class="network-error-text"></span> <button class="network-error-retry">RETRY</button>';
-        document.body.appendChild(banner);
-        banner.querySelector('.network-error-retry').addEventListener('click', () => {
-            banner.style.display = 'none';
-            if (typeof retryFn === 'function') retryFn();
-            else location.reload();
-        });
+        banner.innerHTML = '<div class="sync-spinner"></div><span class="network-error-text"></span>';
+        document.getElementById('cabinet-viewport').appendChild(banner);
     }
-    banner.querySelector('.network-error-text').textContent = message;
+    banner.querySelector('.network-error-text').textContent = 'SYNCING...';
     banner.style.display = 'flex';
     lastNetworkError = message;
+
+    // Auto-retry with exponential backoff: 2s, 4s, 8s, 16s, max 30s
+    if (_autoRetryTimer) clearTimeout(_autoRetryTimer);
+    _autoRetryCount = 0;
+    const doRetry = async () => {
+        _autoRetryCount++;
+        const delay = Math.min(2000 * Math.pow(2, _autoRetryCount - 1), 30000);
+        console.log(`[AutoSync] Retry attempt ${_autoRetryCount}, next in ${delay}ms`);
+        try {
+            if (typeof retryFn === 'function') {
+                await retryFn();
+            }
+            // If retryFn succeeded (no throw), the banner will be hidden by onreconnected
+        } catch (e) {
+            console.warn('[AutoSync] Retry failed, will try again:', e.message);
+        }
+        _autoRetryTimer = setTimeout(doRetry, delay);
+    };
+    _autoRetryTimer = setTimeout(doRetry, 2000);
 }
 
 function hideNetworkErrorBanner() {
     const banner = document.getElementById('network-error-banner');
     if (banner) banner.style.display = 'none';
     lastNetworkError = null;
+    if (_autoRetryTimer) {
+        clearTimeout(_autoRetryTimer);
+        _autoRetryTimer = null;
+    }
+    _autoRetryCount = 0;
 }
 
 function showOfflineBanner() {
