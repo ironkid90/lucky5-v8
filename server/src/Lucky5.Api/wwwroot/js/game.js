@@ -399,11 +399,29 @@ function bindSingleButton(id, handler) {
     }
     const node = nodes[0];
     if (!node) return;
-    node.addEventListener('click', () => {
+
+    // Accessibility: ensure buttons are keyboard-operable
+    if (node.tagName !== 'BUTTON' && node.tagName !== 'A') {
+        node.setAttribute('role', 'button');
+        node.setAttribute('tabindex', '0');
+    }
+    if (!node.getAttribute('aria-label')) {
+        node.setAttribute('aria-label', id.replace(/^(btn|admin)-/, '').replace(/-/g, ' ').toUpperCase());
+    }
+
+    const activate = () => {
         if (window.CabinetInput) {
             window.CabinetInput.trigger(id, handler);
         } else {
             handler();
+        }
+    };
+
+    node.addEventListener('click', activate);
+    node.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            activate();
         }
     });
 }
