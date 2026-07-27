@@ -53,6 +53,13 @@ This machine has a single canonical MCP store at `C:\Users\Gabi.WIN-CD45QMUUPFF\
 - **ROM lineage profiles**: [server/src/Lucky5.Domain/Game/CleanRoom/LineageProfiles.cs](server/src/Lucky5.Domain/Game/CleanRoom/LineageProfiles.cs); acquired sets under [goldenpoker/roms/](goldenpoker/roms/)
 - **AI9 Parity (historical worklogs)**: [docs/AI9_PARITY_GROUND_TRUTH_AND_WORKLOG.md](docs/AI9_PARITY_GROUND_TRUTH_AND_WORKLOG.md), [docs/AI9_PARITY_IMPLEMENTATION_SUMMARY.md](docs/AI9_PARITY_IMPLEMENTATION_SUMMARY.md) — these are historical; current timing is VSYNC-locked at 60Hz with staggerFrames=12 per [mem.md](mem.md)
 
+## Lucky5 specific UI & Architecture Rules
+
+- **Mobile Viewport Clamping**: To preserve the strict 9:16 arcade ratio, never use generic `100%` sizing. Use `height: 100dvh;`, `max-width: calc(100dvh * 9 / 16);`, and `aspect-ratio: 9 / 16;` on `#cabinet-viewport` to prevent dynamic address bar cropping on mobile.
+- **Modal Layering**: Modal overlays (Admin, Cash-in) must be direct children of the `<body>` to escape stacking contexts. They require a z-index higher than the menu panel (e.g. `.admin-modal-overlay { z-index: 100000 !important; }`).
+- **Menu State**: Always trigger `setMenuPanelOpen(false);` *before* opening a `customPrompt` or modal overlay from the menu.
+- **Audio Events**: Any new sound mapped via `CabinetAudio.queue('eventName')` must be explicitly added to `DEFAULT_EVENTS` in `cabinet-audio-vnext.js`.
+
 ## Tooling: ContextStream
 
 ContextStream is the authoritative code/context and planning layer for this project.
