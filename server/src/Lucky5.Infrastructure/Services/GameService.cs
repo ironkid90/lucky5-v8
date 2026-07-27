@@ -58,7 +58,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 
 	public async Task<IReadOnlyList<MachineListingDto>> GetMachinesAsync(CancellationToken cancellationToken)
 		=> (await store.GetMachinesAsync())
-			.Select(x => new MachineListingDto(x.Id, x.Name, x.IsOpen, x.MinBet, x.MaxBet))
+			.Select(x => new MachineListingDto(x.Id, x.Name, x.IsOpen, x.MinBet, x.MaxBet, x.BetIncrement))
 			.ToArray();
 
 	public async Task<PlayerLobbyDto> GetLobbyAsync(Guid userId, CancellationToken cancellationToken)

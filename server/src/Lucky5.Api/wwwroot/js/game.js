@@ -49,7 +49,7 @@ let currentUsername = sessionStorage.getItem('lucky5_username') || '';
 let currentRole = normalizeRole(sessionStorage.getItem('lucky5_role'));
 let balance = 0;
 let walletBalance = 0;
-let currentBet = 5000;
+let currentBet = 0; // Starts at 0; bet ramp fills to minBet in 100-credit steps
 
 let GAME_RULES = {
     betStep: 100,
@@ -1573,7 +1573,10 @@ function setButtonStates() {
         betBtn.classList.remove('is-switch');
     }
 
-    dealBtn.disabled = !(gameState === 'idle' || gameState === 'hold') || machineClosed;
+    // DEAL enabled during idle only if bet is set (ramp complete or last-hand), or during hold phase
+    const machine = machines.find(m => m.id === machineId);
+    const betReady = currentBet >= (machine?.minBet || 1) || (balance > 0 && currentBet > 0);
+    dealBtn.disabled = !(gameState === 'idle' && betReady || gameState === 'hold') || machineClosed;
     cancelBtn.disabled = gameState !== 'hold';
     bigBtn.disabled = !(isDoubleUp || canStartDoubleUpFromWin());
     smallBtn.disabled = !(isDoubleUp || canStartDoubleUpFromWin());
@@ -1607,14 +1610,21 @@ async function doBet() {
     playPress();
     const machine = machines.find(m => m.id === machineId);
     if (!machine) return;
-    if (betResetPending) {
+
+    const step = machine.betIncrement || GAME_RULES.betStep; // 100-credit steps
+
+    if (currentBet < machine.minBet) {
+        // Ramp phase: fill from 0 to minBet in 100-credit steps
+        currentBet = Math.min(currentBet + step, machine.minBet);
+    } else if (betResetPending) {
         currentBet = machine.minBet;
         betResetPending = false;
     } else if (currentBet >= machine.maxBet) {
-        currentBet = machine.maxBet;
+        currentBet = machine.minBet; // Cycle back to min
     } else {
-        currentBet = Math.min(currentBet + GAME_RULES.betStep, machine.maxBet);
+        currentBet = Math.min(currentBet + step, machine.maxBet);
     }
+
     jackpotRankArmed = true;
     updateStakeDisplay();
     updatePaytable();
@@ -3122,8 +3132,12 @@ function invokeHub(method, ...args) {
 async function joinMachine(id) {
     if (!isHubConnected()) return;
     try {
+        currentBet = 0; // Reset stake to 0 when joining; bet ramp fills to minBet
+        betResetPending = false;
         await invokeHub('JoinMachine', id);
         machineJoined = true;
+        updateStakeDisplay();
+        setButtonStates();
     } catch (e) {
         console.error('JoinMachine failed:', e);
         machineJoined = false;
