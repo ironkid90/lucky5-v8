@@ -22,7 +22,7 @@
   "scripts": {
     "lint": "npx eslint \"server/src/Lucky5.Api/wwwroot/js/*.js\"",
     "format:check": "dotnet format server/Lucky5.sln --verify-no-changes",
-    "test": "node --test tests/frontend/*.test.mjs"
+    "test": "node --test tests/frontend/api-client.test.mjs tests/frontend/cabinet-store.test.mjs"
   },
   "repository": {
     "type": "git",
