@@ -135,10 +135,6 @@ public static class RtpSimulationTests
             var policyMode = policyRes.DistributionMode;
             var scale = policyRes.EffectiveScale;
 
-            // Debug: print first 5 scales
-            if (i < 5)
-                Console.WriteLine($"  [DEBUG] round {i}: scale={scale:F4}, baseRtp={policyState.BaseRtp:F4}, observedRtp={policyState.ObservedRtp:F4}, minObsBase={config.MinimumObservedBaseRtp:F4}");
-
             totalScale += scale;
             scaleN++;
 
