@@ -317,36 +317,39 @@ public sealed record PresentationNoisePlan(
 /// </summary>
 public sealed record EngineConfig(
 	// === Payout Scale ===
+	// RTP composition: Base(~55%) + Jackpot(~3.25%) + DoubleUp(~22%) = 80%
+	// TargetDoubleUpRtp raised to 0.22 to reflect ace auto-win + optimal BIG/SMALL reality.
+	// This prevents the controller from over-suppressing base payouts.
 	decimal TargetRtp = 0.80m,
-	decimal TargetDoubleUpRtp = 0.1400m,
-	decimal MinimumObservedBaseRtp = 0.3800m,
-	decimal DefaultPayoutScale = 1.15m,
-		decimal MinPayoutScale = 0.35m,
-			decimal MaxPayoutScale = 2.05m,
-	int WarmupRounds = 60,
-	int ConvergenceHorizon = 320,
-	decimal CorrectionGain = 1.00m,
-	decimal MaxCorrection = 0.28m,
-	decimal DeadZone = 0.0125m,
-	int RtpSmoothingWindow = 280,
-	int RtpMinSamplesForControl = 30,
+	decimal TargetDoubleUpRtp = 0.2200m,
+	decimal MinimumObservedBaseRtp = 0.3000m,
+	decimal DefaultPayoutScale = 1.25m,
+		decimal MinPayoutScale = 0.45m,
+			decimal MaxPayoutScale = 2.15m,
+	int WarmupRounds = 40,
+	int ConvergenceHorizon = 400,
+	decimal CorrectionGain = 0.85m,
+	decimal MaxCorrection = 0.22m,
+	decimal DeadZone = 0.020m,
+	int RtpSmoothingWindow = 300,
+	int RtpMinSamplesForControl = 25,
 	decimal MaxDriftClamp = 0.150m,
-	decimal JitterAmplitude = 0.020m,
+	decimal JitterAmplitude = 0.025m,
 	decimal SmallTierFactor = 1.00m,
 	decimal MediumTierFactor = 1.04m,
 	decimal BigTierFactor = 1.08m,
-	decimal WarmupOpeningSmallScale = 1.15m,
-	decimal WarmupOpeningMediumScale = 1.18m,
-	decimal WarmupOpeningBigScale = 1.20m,
+	decimal WarmupOpeningSmallScale = 1.25m,
+	decimal WarmupOpeningMediumScale = 1.28m,
+	decimal WarmupOpeningBigScale = 1.30m,
 
 	// === Envelope & Orbit Clamp ===
 	decimal EnvelopeScaleClamp = 0.18m,
 	decimal RollingMeanScaleAlpha = 0.05m,
 	decimal HouseEdgeBufferCap = 0.06m,
-	decimal JackpotRtpSoftCap = 0.030m,
+	decimal JackpotRtpSoftCap = 0.060m,
 	decimal JackpotLeakDamp = 0.40m,
-	decimal DoubleUpRtpHardCap = 0.130m,
-	decimal PityBoostCap = 0.14m,
+	decimal DoubleUpRtpHardCap = 0.280m,
+	decimal PityBoostCap = 0.10m,
 
 	// === Double-Up Deck Pressure ===
 	int DoubleUpPressureMinRounds = 12,
