@@ -22,9 +22,6 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 	private const string CabinetPaytableHash = "sha256:cbe816c3eaa3d13cf0a55850ffb27140b856a35015a8fd44d41bd507babdb196";
 	private const int CabinetReplayMaxEvents = 128;
 	private static readonly EngineConfig EngineCfg = EngineConfig.Default;
-	// Legacy fallback — prefer machine.CloseThreshold for tier-based thresholds.
-	// TODO: Replace all MachineCloseCredits usages with machine.CloseThreshold.
-	private static readonly decimal MachineCloseCredits = EngineCfg.CloseThreshold;
 	private static readonly ConcurrentDictionary<string, SemaphoreSlim> CabinetCommandLocks = new(StringComparer.OrdinalIgnoreCase);
 	private static readonly JsonSerializerOptions CabinetJsonOptions = new(JsonSerializerDefaults.Web)
 	{
@@ -151,7 +148,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 	public async Task<MachineSessionDto> CashInAsync(Guid userId, int machineId, decimal amount, CancellationToken cancellationToken)
 	{
 		var profile = await RequireProfileAsync(userId);
-		await RequireMachineAsync(machineId);
+		var machine = await RequireMachineAsync(machineId);
 		var session = await RequireMachineSessionAsync(userId, machineId, createIfMissing: true);
 
 		if (amount <= 0)
@@ -177,7 +174,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		session.MachineCredits += amount;
 		session.TotalCashIn += amount;
 		session.LastUpdatedUtc = DateTime.UtcNow;
-		session.IsMachineClosed = session.MachineCredits >= MachineCloseCredits;
+		session.IsMachineClosed = session.MachineCredits >= machine.CloseThreshold;
 
 		await store.UpdateMachineSessionAsync(session);
 
@@ -889,7 +886,8 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 
 			await store.UpdateMachineLedgerAsync(ledger);
 
-			session.IsMachineClosed = session.MachineCredits >= MachineCloseCredits;
+			var machine = await RequireMachineAsync(round.MachineId);
+			session.IsMachineClosed = session.MachineCredits >= machine.CloseThreshold;
 			await store.UpdateMachineSessionAsync(session);
 
 			var profile = await RequireProfileAsync(userId);
@@ -920,6 +918,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		if (round.TakeHalfUsed)
 			throw new InvalidOperationException("Take-half already used this round");
 
+		var machine = await RequireMachineAsync(round.MachineId);
 		var session = await RequireMachineSessionAsync(userId, round.MachineId, createIfMissing: false);
 		var currentAmount = round.DoubleUpSession != null ? round.DoubleUpSession.CurrentAmount : (int)round.WinAmount;
 		if (currentAmount <= 1) throw new InvalidOperationException("Amount too small to split");
@@ -930,7 +929,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		// Add half to machine credits immediately
 		session.MachineCredits += half;
 		session.LastUpdatedUtc = DateTime.UtcNow;
-		session.IsMachineClosed = session.MachineCredits >= MachineCloseCredits;
+		session.IsMachineClosed = session.MachineCredits >= machine.CloseThreshold;
 
 		// Update round state
 		round.TakeHalfUsed = true;
@@ -1901,9 +1900,10 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 			return;
 		}
 
+		var machine = await RequireMachineAsync(round.MachineId);
 		session.MachineCredits += cashoutCredits;
 		session.LastUpdatedUtc = DateTime.UtcNow;
-		session.IsMachineClosed = session.MachineCredits >= MachineCloseCredits;
+		session.IsMachineClosed = session.MachineCredits >= machine.CloseThreshold;
 		round.IsPayoutSettled = true;
 		round.SettledAmount += cashoutCredits;
 		var ledgerDelta = round.SettledAmount - round.OriginalWinAmount;
@@ -2573,10 +2573,12 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 
 	private async Task<MachineSessionState> RequireMachineSessionAsync(Guid userId, int machineId, bool createIfMissing)
 	{
+		var machine = await store.GetMachineAsync(machineId);
+		var closeThreshold = machine?.CloseThreshold ?? EngineCfg.CloseThreshold;
 		var session = await store.GetMachineSessionAsync(userId, machineId);
 		if (session != null)
 		{
-			if (NormalizeMachineSession(session))
+			if (NormalizeMachineSession(session, closeThreshold))
 			{
 				await store.UpdateMachineSessionAsync(session);
 				InvalidateCaches(userId, machineId);
@@ -2592,7 +2594,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		return session;
 	}
 
-	private static bool NormalizeMachineSession(MachineSessionState session)
+	private static bool NormalizeMachineSession(MachineSessionState session, decimal closeThreshold)
 	{
 		var changed = false;
 
@@ -2616,7 +2618,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 				changed = true;
 			}
 		}
-		else if (!session.IsMachineClosed && session.MachineCredits >= MachineCloseCredits)
+		else if (!session.IsMachineClosed && session.MachineCredits >= closeThreshold)
 		{
 			session.IsMachineClosed = true;
 			changed = true;

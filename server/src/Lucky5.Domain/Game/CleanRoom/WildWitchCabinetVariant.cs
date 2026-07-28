@@ -34,7 +34,7 @@ public sealed class WildWitchCabinetVariant : ICabinetVariantEngine
     private static readonly CleanRoomCard FiveOfSpades = new(5, 'S');
     private const int DoubleUpThreshold = 7; // BIG >= 7, SMALL < 7 (but Ace auto-wins both ways)
 
-    public IDoubleUpSession StartDoubleUp(int openingAmount, ulong seedRoot, int machineCreditBaseline, int boardBetAmount)
+    public IDoubleUpSession StartDoubleUp(int openingAmount, ulong seedRoot, int machineCreditBaseline, int boardBetAmount, int? closeThreshold = null)
     {
         // Wild Witch double-up uses BIG/SMALL against fixed threshold
         var options = new Lucky5DoubleUpOptions
@@ -42,7 +42,7 @@ public sealed class WildWitchCabinetVariant : ICabinetVariantEngine
             MaxSwitchesPerRound = 1, // Single switch in Wild Witch
             FirstLuckyMultiplier = 2,
             RepeatLuckyMultiplier = 2,
-            MaxCreditLimit = 10_000_000,
+            MaxCreditLimit = closeThreshold ?? 10_000_000,
             AceCountsHiOrLo = true,
             LuckyFiveArmsNoLose = true
         };

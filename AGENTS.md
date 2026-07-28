@@ -34,6 +34,9 @@ This machine has a single canonical MCP store at `C:\Users\Gabi.WIN-CD45QMUUPFF\
 - The backend is responsible for managing balance, machine state, session state, jackpots, and all realtime interactions.
 - The retro cabinet aesthetic is a core product feature. Do not modernize the UI into a generic casino interface.
 - By default, persistence is in-memory. File-based snapshots are used only if `Persistence:FileStore:RootPath` is configured.
+- **DO NOT modify `EngineConfig` default values** without reading `mem.md` "RTP Engine — Current State" section first. These values are tuned for 80% RTP and changing one affects all others.
+- **DO NOT change `Lucky5DoubleUpOptions`** (MaxSwitchesPerRound, AceCountsHiOrLo, LuckyFiveArmsNoLose). These are the core DU game rules. The deck pressure system handles difficulty, not rule changes.
+- **DO NOT use `--no-dependencies`** for builds after changing Domain project files. Always do a full `dotnet build server/Lucky5.sln` to ensure all projects pick up changes.
 
 ### Commands
 
@@ -44,7 +47,8 @@ This machine has a single canonical MCP store at `C:\Users\Gabi.WIN-CD45QMUUPFF\
 
 ### Grounding Documentation
 
-- **Current Truth (always up to date)**: [mem.md](mem.md) — VSYNC timing, card design, button system, file versions, pitfalls
+- **Current Truth (always up to date)**: [mem.md](mem.md) — VSYNC timing, card design, button system, file versions, pitfalls, **RTP Engine state**
+- **RTP Simulation**: `server/tests/Lucky5.Tests/RtpSimulationTests.cs` — Monte Carlo 100K rounds
 - **Project Overview**: [README.md](README.md) (setup, commands, and repo structure)
 - **Development History**: [docs/DEVELOPMENT_HISTORY_AND_CURRENT_STATE.md](docs/DEVELOPMENT_HISTORY_AND_CURRENT_STATE.md)
 - **Gameplay & Cabinet Reference**: [docs/README.md](docs/README.md), [docs/LUCKY5_AUTHORITATIVE_GAMEPLAY_REFERENCE.md](docs/LUCKY5_AUTHORITATIVE_GAMEPLAY_REFERENCE.md), [docs/MACHINE_BEHAVIOR_REFERENCE.md](docs/MACHINE_BEHAVIOR_REFERENCE.md)

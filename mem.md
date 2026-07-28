@@ -72,3 +72,51 @@
 - Admin modal was `position: absolute` (trapped in game-screen stacking context) → now `position: fixed; z-index: 20000`
 - `.card-suit-large` overflows smaller DU frames without `overflow: hidden` + `clamp()` sizing
 - `cqh` units require container query context on `#game-screen` (container-type: size)
+- **Build OOM**: If `dotnet build` fails with `OutOfMemoryException` in `GenerateGlobalUsings`, kill the running `Lucky5.Api` process first (it locks the DLLs)
+
+## RTP Engine — Current State (2026-07-28)
+
+**Target:** 80% composite RTP, configurable via `EngineConfig.TargetRtp`.
+
+**RTP Composition:**
+- Base game: ~45-50% (controlled by payout scale, target ~42%)
+- Double-up: ~35-40% (2 switches + ace auto-win + 5♠ no-lose, pressure-regulated)
+- Jackpot: ~3.25% (progressive pools, accumulates slowly)
+- **Total target:** 80% via controller auto-adjustment
+
+**Key EngineConfig Values (CoreModels.cs):**
+- `TargetRtp = 0.80` — overall RTP target
+- `TargetDoubleUpRtp = 0.35` — accepts generous DU (2 switches + ace auto-win)
+- `MinimumObservedBaseRtp = 1.50` — un-scaled Lebanese paytable EV (~1.48)
+- `MinPayoutScale = 0.25` — floor for controller scaling
+- `MaxCorrection = 0.28` — max controller adjustment per step
+- `MaxDriftClamp = 0.20` — how much drift the controller can detect
+- `DoubleUpRtpHardCap = 0.40` — DU leak clamp threshold
+- `DoubleUpPressureMaxKeyRemovals = 35` — max cards removed under pressure
+- `CloseThreshold = 40_000_000` — machine close threshold
+
+**Double-Up Game Rules (preserved from original):**
+- `MaxSwitchesPerRound = 2` — player sees 3 dealer cards (original + 2 switches)
+- `AceCountsHiOrLo = true` — ace auto-wins on challenger position
+- `LuckyFiveArmsNoLose = true` — 5♠ found via switch arms no-lose mode
+- `FirstLuckyMultiplier = 4` — first 5♠ switch: 4× amount
+- `RepeatLuckyMultiplier = 2` — subsequent 5♠ switches: 2× amount
+
+**Deck Pressure System (MachinePolicy.cs) — "Lam3a Engine":**
+- **Cold mode (machine running hot):** Removes aces, ADDS duplicate middle ranks (7,8,9,6,10) for close calls
+- **Recovery mode (machine running cold):** Adds 5♠ (30% chance), high cards, trap cards
+- **Anomaly:** 15% chance per DU session to invert pressure direction entirely
+- **Effect:** DU feels tense (close calls, ties, "2 vs 3") not scripted. Every round feels like it could go either way.
+
+**Controller Feedback Loop:**
+1. Observed RTP drifts above target → Cold mode kicks in
+2. Cold mode removes aces + adds middle ranks → DU win rate drops
+3. Players get more close calls → take score earlier → DU contribution drops
+4. Observed RTP converges toward target
+5. 15% anomaly: sometimes the deck HELPS the player unexpectedly (surprise streaks), sometimes BURNS them
+
+**Simulation Limitations:**
+- The simulation uses approximate hand frequencies, not the real draw engine
+- Jackpot RTP is inflated (~19% vs real game's ~3.25%) due to simplified progressive pool
+- The real game's controller converges to 80% because its jackpot contribution is much lower
+- Do NOT rely on simulation RTP numbers as ground truth — they verify the controller LOGIC works, not exact percentages
