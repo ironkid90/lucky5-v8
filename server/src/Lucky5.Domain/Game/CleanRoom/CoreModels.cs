@@ -320,20 +320,26 @@ public sealed record EngineConfig(
 	// RTP composition: Base(~55%) + Jackpot(~3.25%) + DoubleUp(~22%) = 80%
 	// TargetDoubleUpRtp raised to 0.22 to reflect ace auto-win + optimal BIG/SMALL reality.
 	// This prevents the controller from over-suppressing base payouts.
+	//
+	// MinimumObservedBaseRtp = the un-scaled base game EV for the Lebanese paytable (~1.50).
+	// This is used as the denominator in the equilibrium scale formula:
+	//   equilibriumScale = targetBaseRtp / MinimumObservedBaseRtp
+	// The controller always uses this floor (since observed base RTP is scaled and thus lower),
+	// giving a constant equilibrium scale that the correction term fine-tunes.
 	decimal TargetRtp = 0.80m,
 	decimal TargetDoubleUpRtp = 0.2200m,
-	decimal MinimumObservedBaseRtp = 0.3000m,
+	decimal MinimumObservedBaseRtp = 1.5000m,
 	decimal DefaultPayoutScale = 1.25m,
-		decimal MinPayoutScale = 0.45m,
+		decimal MinPayoutScale = 0.25m,
 			decimal MaxPayoutScale = 2.15m,
 	int WarmupRounds = 40,
 	int ConvergenceHorizon = 400,
 	decimal CorrectionGain = 0.85m,
-	decimal MaxCorrection = 0.22m,
+	decimal MaxCorrection = 0.28m,
 	decimal DeadZone = 0.020m,
 	int RtpSmoothingWindow = 300,
 	int RtpMinSamplesForControl = 25,
-	decimal MaxDriftClamp = 0.150m,
+	decimal MaxDriftClamp = 0.200m,
 	decimal JitterAmplitude = 0.025m,
 	decimal SmallTierFactor = 1.00m,
 	decimal MediumTierFactor = 1.04m,
@@ -397,7 +403,7 @@ public sealed record EngineConfig(
 	// === Soft Caps ===
 	decimal SoftCapWarning = 12_000_000m,
 	decimal SoftCapHard = 18_000_000m,
-	decimal CloseThreshold = 24_000_000m,
+	decimal CloseThreshold = 40_000_000m,
 
 	// === Jackpots (Fixed Increment Mode) ===
 	// Jackpots increase by fixed increments each round (not % of bet).

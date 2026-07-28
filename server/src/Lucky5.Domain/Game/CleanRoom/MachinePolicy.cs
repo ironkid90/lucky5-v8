@@ -207,13 +207,23 @@ public static class MachinePolicy
             correction = Math.Clamp(-drift * cfg.CorrectionGain * rampFactor, -cfg.MaxCorrection, cfg.MaxCorrection);
         }
 
-        // Warmup bias removed — no artificial generosity in early rounds.
-        // Crisis boost replaced by continuous pity in ComputePityBoost.
-
         var rawScale = equilibriumScale + correction + jitter;
         var smallScale = rawScale * cfg.SmallTierFactor;
         var mediumScale = rawScale * cfg.MediumTierFactor;
         var bigScale = rawScale * cfg.BigTierFactor;
+
+        // Warmup: blend each tier's opening scale down to equilibrium.
+        // At RoundCount=1, the opening scales are used exactly (progress=0).
+        // At RoundCount=WarmupRounds, the equilibrium scales are used (progress=1).
+        if (state.RoundCount > 0 && state.RoundCount <= cfg.WarmupRounds)
+        {
+            var warmupProgress = cfg.WarmupRounds <= 1
+                ? 1m
+                : (state.RoundCount - 1m) / (cfg.WarmupRounds - 1m);
+            smallScale = Lerp(cfg.WarmupOpeningSmallScale, smallScale, warmupProgress);
+            mediumScale = Lerp(cfg.WarmupOpeningMediumScale, mediumScale, warmupProgress);
+            bigScale = Lerp(cfg.WarmupOpeningBigScale, bigScale, warmupProgress);
+        }
 
         return new PayoutScaleResult(
             Math.Clamp(smallScale, cfg.MinPayoutScale, cfg.MaxPayoutScale),
