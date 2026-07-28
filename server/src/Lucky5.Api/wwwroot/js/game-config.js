@@ -61,22 +61,24 @@ const GAME_CONFIG = Object.freeze({
     // frames at runtime by CabinetClock.delayMs().
     timing: Object.freeze({
         // ── Global stagger (one value drives everything) ──
-        staggerFrames:        11,   // ~183ms — AI9 cabinet frame analysis (~180ms requirement)
+        // AI9 PARITY: 4 frames = ~66ms @ 60Hz for snappy mechanical arcade feel
+        // This matches the 50-80ms stagger observed in AI9 reference video
+        staggerFrames:         4,   // ~66ms @ 60Hz — snappy mechanical arcade feel
 
         // Main-hand deal
-        dealBaseFrames:        5,   //  83ms — pause before first card
-        dealDurationFrames:   11,   // 183ms — slide settle time
+        dealBaseFrames:        3,   //  50ms — brief pause before first card
+        dealDurationFrames:    4,   //  66ms — slide/thump settle time
 
         // Draw (replacing non-held cards) — equal timing to initial deal
-        drawStaggerFrames:   11,   // 183ms — equal to deal stagger (staggerFrames)
-        drawOutFrames:        1,   //   1 frame — old cards vanish instantly
-        drawDurationFrames:  11,   // 183ms — replacement slide settle (equal to dealDurationFrames)
-        drawRevealStartFrames: 5,  //  83ms — equal to dealBaseFrames
+        drawStaggerFrames:     4,   //  66ms — equal to deal stagger (staggerFrames)
+        drawOutFrames:         1,   //   1 frame — old cards vanish instantly
+        drawDurationFrames:    4,   //  66ms — replacement slide/thump settle
+        drawRevealStartFrames: 3,   //  50ms — equal to dealBaseFrames
 
         // Legacy ms aliases — derived from staggerFrames at 60fps
         // Kept for backward-compat with game.js helpers that still use delayMs.
         // All cabinet-stage-vnext.js paths use frames directly now.
-        get dealBaseMs()         { return this.staggerFrames <= 12 ?  80 : Math.round(this.dealBaseFrames    * 1000 / 60); },
+        get dealBaseMs()         { return Math.round(this.dealBaseFrames        * 1000 / 60); },
         get dealStaggerMs()      { return Math.round(this.staggerFrames        * 1000 / 60); },
         get dealAnimDurationMs() { return Math.round(this.dealDurationFrames   * 1000 / 60); },
         get drawOutMs()          { return Math.round(this.drawOutFrames        * 1000 / 60); },
@@ -85,8 +87,14 @@ const GAME_CONFIG = Object.freeze({
         get drawRevealStartMs()  { return Math.round(this.drawRevealStartFrames * 1000 / 60); },
 
         // Double-up: shuffle animation
+        // AI9 PARITY: Rapid reel blur ~30-50ms per frame swap for mechanical slot effect
         // The active slot cycles through card faces visibly, like a spinning reel.
-        shuffleFrameMs:       130, // Calibrated shuffle cadence (~130ms per frame swap)
+        shuffleFrameMs:        35,  // Rapid reel blur cadence (30-50ms range, using 35ms for balance)
+
+        // Bet Ramp timing
+        betRampTickMs:         50,  // 50ms per step tick
+        betRampStep:          100,  // 100 credits per step
+        betRampSettleMs:      200,  // 200ms settle after ramp completes
 
         // Double-up: reveal sequence
         duRevealDelayMs:      150,  // wait after server responds before showing challenger card
