@@ -327,7 +327,7 @@ public sealed record EngineConfig(
 	// The controller always uses this floor (since observed base RTP is scaled and thus lower),
 	// giving a constant equilibrium scale that the correction term fine-tunes.
 	decimal TargetRtp = 0.80m,
-	decimal TargetDoubleUpRtp = 0.2200m,
+	decimal TargetDoubleUpRtp = 0.3500m,
 	decimal MinimumObservedBaseRtp = 1.5000m,
 	decimal DefaultPayoutScale = 1.25m,
 		decimal MinPayoutScale = 0.25m,
@@ -354,13 +354,16 @@ public sealed record EngineConfig(
 	decimal HouseEdgeBufferCap = 0.06m,
 	decimal JackpotRtpSoftCap = 0.060m,
 	decimal JackpotLeakDamp = 0.40m,
-	decimal DoubleUpRtpHardCap = 0.280m,
+	decimal DoubleUpRtpHardCap = 0.400m,
 	decimal PityBoostCap = 0.10m,
 
 	// === Double-Up Deck Pressure ===
-	int DoubleUpPressureMinRounds = 12,
-	decimal DoubleUpPressureSoftDrift = 0.020m,
-	int DoubleUpPressureMaxKeyRemovals = 29,
+	// Higher pressure + more anomalies = unpredictable DU with close calls.
+	// When machine runs hot (DU above target), aggressive card removal makes wins harder.
+	// 15% anomaly chance inverts pressure direction — creating surprise streaks both ways.
+	int DoubleUpPressureMinRounds = 8,
+	decimal DoubleUpPressureSoftDrift = 0.015m,
+	int DoubleUpPressureMaxKeyRemovals = 35,
 	int DoubleUpPressureRecoveryDroughtRounds = 28,
 	int DoubleUpMinDeckSize = 23,
 	decimal DoubleUpCloseCallPressureStart = 0.55m,

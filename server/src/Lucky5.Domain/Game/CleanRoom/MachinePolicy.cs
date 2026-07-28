@@ -464,9 +464,11 @@ public static class MachinePolicy
 
         var rng = new SplitMix64Rng(DeterministicSeed.Derive(entropySeed, "double-up-deck-pressure"));
 
-        // Deck anomaly: 8% chance per DU session to invert pressure.
-        // Creates surprise outcomes that break pattern tracking.
-        if (rng.NextUnit() < 0.08)
+        // Deck anomaly: 15% chance per DU session to invert pressure.
+        // Creates surprise outcomes — sometimes the deck HELPS the player unexpectedly,
+        // sometimes it BURNS them when they expected it to be easy.
+        // This is the "close call" engine — the reason every DU round feels tense.
+        if (rng.NextUnit() < 0.15)
         {
             pressure = -pressure;
         }
@@ -578,43 +580,55 @@ public static class MachinePolicy
         EngineConfig cfg)
     {
         var deck = new List<CleanRoomCard>(standardDeck);
-        // Randomized removal budget: prevents deterministic pattern detection.
-        // Budget varies between 50-100% of the theoretical max, adding genuine surprise.
+
+        // Phase 1: Remove auto-win cards (aces, 5♠) based on pressure.
+        // This is the base lever — fewer auto-wins = harder DU.
         var maxBudget = Math.Clamp((int)Math.Ceiling(pressure * cfg.DoubleUpPressureMaxKeyRemovals), 1, cfg.DoubleUpPressureMaxKeyRemovals);
         var randomizedMax = Math.Max(maxBudget / 2, rng.NextInt(maxBudget + 1));
         var removalBudget = randomizedMax;
         var removals = 0;
 
+        // Remove aces first (auto-win cards)
         removals += RemoveMatching(deck, card => card.Rank == 14, removalBudget - removals, rng, cfg);
 
+        // Remove 5♠ under high pressure
         if (roundsSinceLucky5Hit < cfg.DoubleUpPressureRecoveryDroughtRounds && pressure >= 0.42m && removals < removalBudget)
         {
             removals += RemoveMatching(deck, card => card.Rank == FiveOfSpades.Rank && card.Suit == FiveOfSpades.Suit, 1, rng, cfg);
         }
 
-        if (pressure >= 0.28m && removals < removalBudget)
+        // Phase 2: ADD duplicate middle ranks to create close calls.
+        // This is the "lam3a" engine — the reason every DU round feels tense.
+        // More 7s, 8s, 9s = more coin-flip situations where BIG/SMALL is ambiguous.
+        // More duplicate ranks = more TIES (house wins) = the worst feeling.
+        if (pressure >= 0.20m)
+        {
+            // Add 2-4 duplicate middle cards to create ambiguity
+            var closeCallRanks = new[] { 7, 8, 9, 6, 10 };
+            var addCount = pressure >= 0.60m ? 4 : (pressure >= 0.40m ? 3 : 2);
+
+            for (int i = 0; i < addCount && deck.Count < 56; i++) // Cap at 56 to avoid infinite growth
+            {
+                var rank = closeCallRanks[rng.NextInt(closeCallRanks.Length)];
+                var suit = "CDHS"[rng.NextInt(4)];
+                var card = new CleanRoomCard(rank, suit);
+                // Only add if this exact card isn't already duplicated excessively
+                if (deck.Count(c => c.Rank == rank) < 6)
+                {
+                    deck.Add(card);
+                }
+            }
+        }
+
+        // Phase 3: Under extreme pressure, remove some edge cards too
+        if (pressure >= 0.58m && removals < removalBudget)
         {
             removals += RemoveMatching(deck, card => card.Rank is 2 or 13, removalBudget - removals, rng, cfg);
         }
 
-        if (pressure >= 0.58m && removals < removalBudget)
-        {
-            removals += RemoveMatching(deck, card => card.Rank is 3 or 12, removalBudget - removals, rng, cfg);
-        }
-
         if (pressure >= 0.74m && removals < removalBudget)
         {
-            removals += RemoveMatching(deck, card => card.Rank is 4 or 11, removalBudget - removals, rng, cfg);
-        }
-
-        if (pressure >= 0.86m && removals < removalBudget)
-        {
-            removals += RemoveMatching(
-                deck,
-                card => (card.Rank == 5 || card.Rank == 10) && !(card.Rank == FiveOfSpades.Rank && card.Suit == FiveOfSpades.Suit),
-                removalBudget - removals,
-                rng,
-                cfg);
+            removals += RemoveMatching(deck, card => card.Rank is 3 or 12, removalBudget - removals, rng, cfg);
         }
 
         return deck.ToArray();
@@ -685,11 +699,37 @@ public static class MachinePolicy
             return deck.ToArray();
         }
 
-        var removableMiddleRanks = recovery >= 0.65m
-            ? new HashSet<int> { 7, 8, 9, 10 }
-            : new HashSet<int> { 8, 9 };
-        var removalBudget = recovery >= 0.65m ? 2 : 1;
-        RemoveMatching(deck, card => removableMiddleRanks.Contains(card.Rank), removalBudget, rng, cfg);
+        // Recovery mode: make DU exciting with more 5♠ appearances.
+        // 5♠ is the "lam3a" card — it arms no-lose mode and multiplies.
+        // Appears ~30% of recovery sessions (not every time — keeps it surprising).
+        // Players may switch AWAY from 5♠ hoping for a better BIG/SMALL card.
+        if (rng.NextUnit() < 0.30)
+        {
+            // Add 1-2 extra 5♠ to the deck (player might see it on switch)
+            var extraSpades = recovery >= 0.65m ? 2 : 1;
+            for (int i = 0; i < extraSpades && deck.Count(c => c.Rank == 5 && c.Suit == 'S') < 4; i++)
+            {
+                deck.Add(new CleanRoomCard(5, 'S'));
+            }
+        }
+
+        // Add 1-2 high cards for decisive BIG/SMALL moments
+        if (recovery >= 0.30m)
+        {
+            var highRank = rng.NextInt(2) == 0 ? 14 : 13;
+            var highSuit = "CDHS"[rng.NextInt(4)];
+            deck.Add(new CleanRoomCard(highRank, highSuit));
+        }
+
+        // 40% chance: add a trap card even during hot streaks
+        // Keeps tension — you never know if the next card is safe
+        if (rng.NextUnit() < 0.40)
+        {
+            var trapRank = 6 + rng.NextInt(5); // 6-10
+            var trapSuit = "CDHS"[rng.NextInt(4)];
+            deck.Add(new CleanRoomCard(trapRank, trapSuit));
+        }
+
         return deck.ToArray();
     }
 
