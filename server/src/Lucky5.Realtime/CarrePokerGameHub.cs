@@ -80,7 +80,7 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
                 // Auto-cashout: return remaining machine credits to player's wallet
                 try
                 {
-                    await gameService.CashOutAsync(userId, machineId, CancellationToken.None);
+                    await gameService.CashOutAsync(userId, machineId, CancellationToken.None, bypassRules: true);
                 }
                 catch (Exception ex)
                 {
@@ -170,6 +170,18 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
         MachineOccupancy.TryRemove(machineId, out _);
 
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, GroupName(machineId));
+
+        if (TryGetUserId(out var userId))
+        {
+            try
+            {
+                await gameService.CashOutAsync(userId, machineId, Context.ConnectionAborted, bypassRules: true);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[LeaveMachine] Auto-cashout error for user {userId} on machine {machineId}: {ex.Message}");
+            }
+        }
 
         // Emit MachineStatusChanged for lobby presence
         await Clients.All.SendAsync(MachineStatusChangedEvent,

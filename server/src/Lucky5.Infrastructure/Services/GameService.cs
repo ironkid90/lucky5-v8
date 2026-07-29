@@ -140,6 +140,27 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		var profile = await RequireProfileAsync(userId);
 		await RequireMachineAsync(machineId);
 		var session = await RequireMachineSessionAsync(userId, machineId, createIfMissing: true);
+
+		if (session.MachineCredits <= 0m && profile.WalletBalance > 0m)
+		{
+			var autoDeposit = profile.WalletBalance;
+			profile.WalletBalance = 0m;
+			session.MachineCredits += autoDeposit;
+			session.TotalCashIn += autoDeposit;
+			session.LastUpdatedUtc = DateTime.UtcNow;
+			await store.UpdateMachineSessionAsync(session);
+			await store.UpdateProfileAsync(profile);
+			await store.AddWalletLedgerEntryAsync(new WalletLedgerEntry
+			{
+				UserId = userId,
+				Amount = -autoDeposit,
+				TransactionType = "AutoGlobalCreditTransferIn",
+				ReferenceId = $"machine:{machineId}:autocashin",
+				BalanceAfter = 0m,
+				CreatedUtc = DateTime.UtcNow
+			});
+		}
+
 		var dto = await ToMachineSessionDtoAsync(userId, session, profile.WalletBalance);
 		stateCache.SetMachineSession(userId, machineId, dto);
 		return dto;
@@ -195,7 +216,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		return await ToMachineSessionDtoAsync(userId, session, profile.WalletBalance);
 	}
 
-	public async Task<MachineSessionDto> CashOutAsync(Guid userId, int machineId, CancellationToken cancellationToken)
+	public async Task<MachineSessionDto> CashOutAsync(Guid userId, int machineId, CancellationToken cancellationToken, bool bypassRules = false)
 	{
 		var profile = await RequireProfileAsync(userId);
 		var session = await RequireMachineSessionAsync(userId, machineId, createIfMissing: false);
@@ -230,11 +251,14 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 			}
 		}
 
-		if (!CanCashOut(session))
-			throw new InvalidOperationException("Cash out is only available when the machine is closed or credits reach the 2x session threshold");
+		if (!bypassRules)
+		{
+			if (!CanCashOut(session))
+				throw new InvalidOperationException("Cash out is only available when the machine is closed or credits reach the 2x session threshold");
 
-		if (profile.MinimumOut > 0m && session.MachineCredits < profile.MinimumOut)
-			throw new InvalidOperationException($"Minimum cash-out threshold is {profile.MinimumOut:N0} credits");
+			if (profile.MinimumOut > 0m && session.MachineCredits < profile.MinimumOut)
+				throw new InvalidOperationException($"Minimum cash-out threshold is {profile.MinimumOut:N0} credits");
+		}
 
 		var amount = session.MachineCredits;
 		profile.WalletBalance += amount;
