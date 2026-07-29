@@ -484,20 +484,20 @@
     visibility: visible !important;
 }
 
-/* Paytable row colors (per AI9 frame analysis): */
+/* Paytable row colors (AI9 ground truth — exact color parity): */
 #paytable .pay-row.rf {
-    color: #ffaa00 !important;  /* ROYAL FLUSH: gold */
+    color: #FFB300 !important;  /* ROYAL FLUSH: gold/amber (AI9 exact) */
 }
 #paytable .pay-row.sf {
-    color: #ff3333 !important;  /* STRAIGHT FLUSH: red */
+    color: #FF0000 !important;  /* STRAIGHT FLUSH: red (AI9 exact) */
 }
 #paytable .pay-row.foak {
-    color: #33ff33 !important;  /* 4 OF A KIND: green */
+    color: #00FF00 !important;  /* 4 OF A KIND: green (AI9 exact) */
 }
 #paytable .pay-row.fh,
 #paytable .pay-row.fh .hand-name,
 #paytable .pay-row.fh .pay-amount {
-    color: #ffffff !important;  /* FULL HOUSE: white text */
+    color: #FFFFFF !important;  /* FULL HOUSE: white text (AI9 exact) */
     /* Permanent white rectangular outline box — always visible, not just when active */
     border: 1px solid #ffffff !important;
     border-radius: 2px !important;
@@ -518,10 +518,10 @@
     text-shadow: none !important;
 }
 #paytable .pay-row.fl {
-    color: #00ffff !important;  /* FLUSH: cyan */
+    color: #00FFFF !important;  /* FLUSH: cyan (AI9 exact) */
 }
 #paytable .pay-row.st {
-    color: #00ffff !important;  /* STRAIGHT: cyan */
+    color: #FFFF00 !important;  /* STRAIGHT: yellow (AI9 exact) */
 }
 #paytable .pay-row.tok {
     color: #ffa500 !important;  /* 3 OF A KIND: orange */

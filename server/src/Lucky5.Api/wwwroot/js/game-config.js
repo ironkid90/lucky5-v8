@@ -61,15 +61,15 @@ const GAME_CONFIG = Object.freeze({
     // frames at runtime by CabinetClock.delayMs().
     timing: Object.freeze({
         // ── Global stagger (one value drives everything) ──
-        // VSYNC-locked @ 60Hz: 12 frames = ~200ms per card — authentic arcade pace
-        staggerFrames:        12,   // ~200ms @ 60Hz — authentic arcade feel per mem.md
+        // VSYNC-locked @ 60Hz: 5 frames = ~83ms per card — fast arcade feel for AI9 parity
+        staggerFrames:         5,   // ~83ms @ 60Hz — AI9 parity: 50-80ms target
 
         // Main-hand deal
         dealBaseFrames:        4,   // ~66ms — brief pause before first card
         dealDurationFrames:   11,   // ~183ms — slide/thump settle time
 
         // Draw (replacing non-held cards) — equal timing to initial deal
-        drawStaggerFrames:    12,   // ~200ms — equal to deal stagger (staggerFrames)
+        drawStaggerFrames:     5,   // ~83ms — equal to deal stagger (staggerFrames)
         drawOutFrames:         1,   //   1 frame — old cards vanish instantly
         drawDurationFrames:   11,   // ~183ms — replacement slide/thump settle
         drawRevealStartFrames: 4,   // ~66ms — equal to dealBaseFrames
@@ -86,8 +86,8 @@ const GAME_CONFIG = Object.freeze({
         get drawRevealStartMs()  { return Math.round(this.drawRevealStartFrames * 1000 / 60); },
 
         // Double-up: shuffle animation
-        // Authentic reel shuffle cadence (100ms per frame swap for clear readable card cycling)
-        shuffleFrameMs:        100, // 100ms per frame swap for readable card cycling
+        // Faster reel shuffle cadence for AI9 parity (15ms per frame swap for rapid blur effect)
+        shuffleFrameMs:         15, // 15ms per frame swap for faster DU shuffle blur
 
         // Bet Ramp timing
         betRampTickMs:         50,  // 50ms per step tick
