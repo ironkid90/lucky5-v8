@@ -107,17 +107,14 @@ const path = require('path');
         console.error(`\n❌ API Verification Error: ${err.message}`);
     }
 
-    // --- PART 2: PLAYWRIGHT BROWSER E2E VERIFICATION (IF INSTALLED) ---
+    // --- PART 2: PLAYWRIGHT BROWSER E2E VERIFICATION (IF INSTALLED & BINARIES PRESENT) ---
     console.log('\n--- PART 2: Playwright Headless Browser Test ---');
     let playwright;
     try {
         playwright = require('playwright');
     } catch (_) {
-        console.log('  ℹ Playwright module not installed locally. Skipping browser GUI screenshots.');
-        console.log('  To enable browser screenshots, run: npx -y playwright test');
-        console.log('\n====================================================');
-        console.log('  VERIFICATION SUMMARY: ALL BACKEND APIS FULLY HEALTHY');
-        console.log('====================================================\n');
+        console.log('  ℹ Playwright module not installed. Skipping browser GUI screenshots.');
+        finishSummary();
         return;
     }
 
@@ -130,10 +127,18 @@ const path = require('path');
     const consoleLogs = [];
     const pageErrors = [];
 
-    const browser = await chromium.launch({
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
+    let browser;
+    try {
+        browser = await chromium.launch({
+            headless: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
+        });
+    } catch (err) {
+        console.log(`  ℹ Browser binaries not installed or launch failed: ${err.message.split('\n')[0]}`);
+        console.log('  To install browser binaries, run: npx playwright install chromium');
+        finishSummary();
+        return;
+    }
 
     const context = await browser.newContext({
         viewport: { width: 450, height: 800 },
@@ -205,6 +210,12 @@ const path = require('path');
         console.log(`  Console Errors: ${consoleLogs.filter(l => l.includes('ERROR')).length}`);
         console.log(`  Page Exceptions: ${pageErrors.length}`);
         console.log(`  Screenshots saved to: ${screenshotsDir}`);
+        console.log('====================================================\n');
+    }
+
+    function finishSummary() {
+        console.log('\n====================================================');
+        console.log('  VERIFICATION SUMMARY: ALL BACKEND APIS FULLY HEALTHY');
         console.log('====================================================\n');
     }
 })();

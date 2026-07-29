@@ -150,10 +150,10 @@ const HAND_DISPLAY         = GAME_CONFIG.paytableMap;
 const CARD_BACK_SRC        = GAME_CONFIG.assets.cardBack;
 const VARIANT_NAME         = String(GAME_CONFIG.meta.variantName || 'Lucky 5');
 const DU_COPY              = GAME_CONFIG.doubleUp.copy || {};
-const DU_LABEL_TEXT        = String(DU_COPY.label || 'HI LO GAMBLE');
-const DU_ACE_RULE_TEXT     = String(DU_COPY.aceRule || 'ACE COUNTS');
-const DU_GUESS_RULE_TEXT   = String(DU_COPY.guessRule || 'HI OR LO');
-const DU_LUCKY_RULE_TEXT   = String(DU_COPY.luckyRule || '5 \u2660 NEVER LOSE');
+const DU_LABEL_TEXT        = String(DU_COPY.label || 'DOUBLE UP');
+const DU_ACE_RULE_TEXT     = String(DU_COPY.aceRule || 'ACE ALWAYS WIN');
+const DU_GUESS_RULE_TEXT   = String(DU_COPY.guessRule || '');
+const DU_LUCKY_RULE_TEXT   = String(DU_COPY.luckyRule || '5 NEVER LOSE');
 const DU_BUYING_RULE_TEXT  = String(DU_COPY.buyingRule || 'WHEN BUYING');
 const DU_PROMPT_TEXT       = String(DU_COPY.prompt || 'BIG / SMALL ?');
 const DU_ACTIVE_SUFFIX     = String(DU_COPY.activeSuffix || 'ACTIVE');
@@ -1607,7 +1607,8 @@ function setButtonStates() {
 
     // DEAL enabled during idle only if bet is set (ramp complete or last-hand), or during hold phase
     const machine = machines.find(m => m.id === machineId);
-    const betReady = currentBet >= (machine?.minBet || 1) || (balance > 0 && currentBet > 0);
+    const minBet = machine?.minBet || 0;
+    const betReady = minBet > 0 ? currentBet >= minBet : currentBet > 0;
     dealBtn.disabled = !(gameState === 'idle' && betReady || gameState === 'hold') || machineClosed;
     cancelBtn.disabled = gameState !== 'hold';
     bigBtn.disabled = !(isDoubleUp || canStartDoubleUpFromWin());
@@ -4373,8 +4374,11 @@ async function initGame(options = {}) {
             }
 
             sessionStorage.setItem('lucky5_machineId', machineId);
-            if (currentBet < activeMachine.minBet || currentBet > activeMachine.maxBet) {
-                currentBet = activeMachine.minBet;
+            // Don't set currentBet to minBet here — let the bet ramp fill it up
+            // when the player presses BET. This enables the classic Lebanese cabinet
+            // mechanic where the counter fills from 0 to minBet in 100-credit steps.
+            if (currentBet > activeMachine.maxBet) {
+                currentBet = 0; // Reset if somehow above max
             }
         }
 

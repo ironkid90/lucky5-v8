@@ -210,9 +210,9 @@ const GAME_CONFIG = Object.freeze({
     doubleUp: Object.freeze({
         maxTrailPerPage: 4,    // trail cards visible per page (+ 1 active slot = 5 total)
         copy: Object.freeze({
-            label:        'HI LO GAMBLE',
-            aceRule:      'ACE COUNTS',
-            guessRule:    'HI OR LO',
+            label:        'DOUBLE UP',
+            aceRule:      'ACE ALWAYS WIN',
+            guessRule:    '',
             luckyRule:    '5 ♠ NEVER LOSE',
             buyingRule:   'WHEN BUYING',
             prompt:       'BIG / SMALL ?',

@@ -70,14 +70,29 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
             // Don't immediately release the machine lock. Instead, start a grace-period
             // timer. If the same player reconnects within the window, they resume their
             // session (DU, win settlement, etc.). If the timer expires, the machine
-            // is released for other players.
-            var timer = new Timer(_ =>
+            // is released and the player's credits are auto-cashed out to their wallet.
+            var timer = new Timer(async _ =>
             {
-                // Grace period expired — release the machine lock.
+                // Grace period expired — auto-cashout and release the machine lock.
                 PendingDisconnects.TryRemove(machineId, out var _);
                 MachineOccupancy.TryRemove(machineId, out var _);
+
+                // Auto-cashout: return remaining machine credits to player's wallet
+                try
+                {
+                    await gameService.CashOutAsync(userId, machineId, CancellationToken.None);
+                }
+                catch (Exception ex)
+                {
+                    // Log but don't throw — we still need to release the machine
+                    Console.WriteLine($"[AutoCashout] Failed for user {userId} on machine {machineId}: {ex.Message}");
+                }
+
                 _ = Clients.All.SendAsync(MachineStatusChangedEvent,
                     new { machineId, isOccupied = false, playerId = (int?)null, gameId = 0 },
+                    CancellationToken.None);
+                _ = Clients.All.SendAsync(UserStatusChangedEvent,
+                    new { userId = GetMemberId(userId), state = "Idle" },
                     CancellationToken.None);
             }, null, SessionPauseGracePeriod, Timeout.InfiniteTimeSpan);
 

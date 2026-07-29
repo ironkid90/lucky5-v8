@@ -300,7 +300,7 @@
 }
 
 #du-title {
-    color: #ffcc00;
+    color: #00ffff;  /* DU label: cyan per AI9 reference */
     font-size: 1.3cqh;
     text-align: center;
     letter-spacing: 0.2cqh;

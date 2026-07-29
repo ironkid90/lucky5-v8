@@ -462,7 +462,7 @@
 /* CRT background: very dark navy-gray (powered-on CRT idle glow), NOT pure black.
    Matching ai9 reference — the CRT tube has a slight ambient illumination even when "black". */
 #game-screen {
-    background-color: #0a0d14 !important;
+    background-color: #0a0a0a !important;  /* Very dark navy-gray CRT black level */
 }
 
 /* Paytable text: ARCADE dot-matrix font (or fallback monospace).
@@ -521,7 +521,7 @@
     color: #00ffff !important;  /* FLUSH: cyan */
 }
 #paytable .pay-row.st {
-    color: #ffff00 !important;  /* STRAIGHT: yellow */
+    color: #00ffff !important;  /* STRAIGHT: cyan */
 }
 #paytable .pay-row.tok {
     color: #ffa500 !important;  /* 3 OF A KIND: orange */
