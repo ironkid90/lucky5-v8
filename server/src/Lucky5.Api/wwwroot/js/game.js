@@ -3198,7 +3198,18 @@ async function setupSignalR() {
                     }
                 } catch (err) {
                     console.error('ReconnectSync failed, falling back to JoinMachine:', err);
-                    try { await invokeHub('JoinMachine', machineId); } catch (_) {}
+                    try {
+                        await invokeHub('JoinMachine', machineId);
+                        // After fallback JoinMachine, fetch active round to restore DU state
+                        const activeRound = await fetchActiveRoundState();
+                        if (activeRound) {
+                            restoreRoundFromSnapshot(activeRound);
+                        } else if (gameState === 'doubleup' || gameState === 'du-waiting') {
+                            // DU state was lost — reset to idle
+                            exitDoubleUp();
+                            refreshIdleMachineState('SESSION RECOVERED', 'win');
+                        }
+                    } catch (_) {}
                 }
             }
             startHeartbeat();
