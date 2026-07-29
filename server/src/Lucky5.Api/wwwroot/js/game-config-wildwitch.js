@@ -213,7 +213,7 @@ const GAME_CONFIG = Object.freeze({
             label:        'DOUBLE UP',
             aceRule:      'ACE ALWAYS WIN',
             guessRule:    '',
-            luckyRule:    '5 ♠ NEVER LOSE',
+            luckyRule:    '5 NEVER LOSE',
             buyingRule:   'WHEN BUYING',
             prompt:       'BIG / SMALL ?',
             activeSuffix: 'ACTIVE',
