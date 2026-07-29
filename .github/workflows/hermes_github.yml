@@ -71,7 +71,7 @@ jobs:
 
           # Explicitly add to-be-curated metadata (which is ignored via .gitignore!)
           git add -f .hermes/curate
-      - uses: peter-evans/create-pull-request@v5
+      - uses: peter-evans/create-pull-request@v8
         with:
           base: hermes/curate-${{ env.SHORT_SHA }}
           branch: hermes/curate-result-${{ env.SHORT_SHA }}
@@ -129,7 +129,7 @@ jobs:
       # Note 2: The create-pull-request action will NOT inherit the commits we did in the previous job. It will only look at the
       #         changes within this local workspace we did *now*.
       - run: echo "TARGET_BRANCH=$(cat .hermes/curate/target_branch)" >> "$GITHUB_ENV"
-      - uses: peter-evans/create-pull-request@v5
+      - uses: peter-evans/create-pull-request@v8
         with:
           branch: hermes/post-${{ github.run_id }}
           base: ${{ env.TARGET_BRANCH }}
