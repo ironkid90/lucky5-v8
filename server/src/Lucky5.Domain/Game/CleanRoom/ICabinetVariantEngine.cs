@@ -21,7 +21,7 @@ public interface ICabinetVariantEngine
     /// <summary>
     /// Starts a double-up session conforming to the specific variant's logic rules (e.g., Safe Fails, Joker replacements).
     /// </summary>
-    IDoubleUpSession StartDoubleUp(int openingAmount, ulong seedRoot, int machineCreditBaseline, int boardBetAmount);
+    IDoubleUpSession StartDoubleUp(int openingAmount, ulong seedRoot, int machineCreditBaseline, int boardBetAmount, int? closeThreshold = null);
 
     /// <summary>
     /// Evaluates the hand array based strictly on this specific game engine's variance logic.

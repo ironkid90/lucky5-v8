@@ -643,6 +643,13 @@ body {
     overflow: hidden;
 }
 
+/* Freeze overlay during jackpot drain — visually locks the card area */
+#card-area.frozen {
+    pointer-events: none;
+    filter: brightness(0.5) saturate(0.4);
+    transition: filter 0.3s ease;
+}
+
 .card-slot {
     position: relative;
     width: 18.5%;
