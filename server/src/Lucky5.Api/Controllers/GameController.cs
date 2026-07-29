@@ -143,7 +143,7 @@ public class GameController(IGameService gameService) : ControllerBase
     {
         try
         {
-            var result = await gameService.StartDoubleUpAsync(UserId, request, cancellationToken);
+            var result = await gameService.StartDoubleUpAsync(UserId, request.RoundId, cancellationToken);
             return Ok(ApiResponse<DoubleUpResultDto>.Ok(result, traceId: HttpContext.TraceIdentifier));
         }
         catch (InvalidOperationException ex)
@@ -157,7 +157,7 @@ public class GameController(IGameService gameService) : ControllerBase
     {
         try
         {
-            var result = await gameService.GuessDoubleUpAsync(UserId, request, cancellationToken);
+            var result = await gameService.GuessDoubleUpAsync(UserId, request.RoundId, request.Guess, cancellationToken);
             return Ok(ApiResponse<DoubleUpResultDto>.Ok(result, traceId: HttpContext.TraceIdentifier));
         }
         catch (InvalidOperationException ex)
@@ -167,11 +167,11 @@ public class GameController(IGameService gameService) : ControllerBase
     }
 
     [HttpPost("double-up/half")]
-    public async Task<ActionResult<ApiResponse<DoubleUpResultDto>>> TakeHalfDoubleUp([FromBody] DoubleUpActionRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<DoubleUpResultDto>>> TakeHalfDoubleUp([FromBody] CashoutDoubleUpRequest request, CancellationToken cancellationToken)
     {
         try
         {
-            var result = await gameService.TakeHalfDoubleUpAsync(UserId, request, cancellationToken);
+            var result = await gameService.TakeHalfAsync(UserId, request.RoundId, cancellationToken);
             return Ok(ApiResponse<DoubleUpResultDto>.Ok(result, traceId: HttpContext.TraceIdentifier));
         }
         catch (InvalidOperationException ex)
@@ -181,11 +181,11 @@ public class GameController(IGameService gameService) : ControllerBase
     }
 
     [HttpPost("double-up/swap")]
-    public async Task<ActionResult<ApiResponse<DoubleUpResultDto>>> SwapDoubleUpCard([FromBody] DoubleUpActionRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<DoubleUpResultDto>>> SwapDoubleUpCard([FromBody] CashoutDoubleUpRequest request, CancellationToken cancellationToken)
     {
         try
         {
-            var result = await gameService.SwapDoubleUpCardAsync(UserId, request, cancellationToken);
+            var result = await gameService.SwapDoubleUpCardAsync(UserId, request.RoundId, 0, cancellationToken);
             return Ok(ApiResponse<DoubleUpResultDto>.Ok(result, traceId: HttpContext.TraceIdentifier));
         }
         catch (InvalidOperationException ex)
@@ -195,11 +195,11 @@ public class GameController(IGameService gameService) : ControllerBase
     }
 
     [HttpPost("double-up/take")]
-    public async Task<ActionResult<ApiResponse<DoubleUpResultDto>>> TakeScoreDoubleUp([FromBody] DoubleUpActionRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<DoubleUpResultDto>>> TakeScoreDoubleUp([FromBody] CashoutDoubleUpRequest request, CancellationToken cancellationToken)
     {
         try
         {
-            var result = await gameService.TakeScoreDoubleUpAsync(UserId, request, cancellationToken);
+            var result = await gameService.CashoutDoubleUpAsync(UserId, request.RoundId, cancellationToken);
             return Ok(ApiResponse<DoubleUpResultDto>.Ok(result, traceId: HttpContext.TraceIdentifier));
         }
         catch (InvalidOperationException ex)
@@ -209,11 +209,11 @@ public class GameController(IGameService gameService) : ControllerBase
     }
 
     [HttpPost("double-up/collect")]
-    public async Task<ActionResult<ApiResponse<DoubleUpResultDto>>> CollectDoubleUp([FromBody] DoubleUpActionRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<DoubleUpResultDto>>> CollectDoubleUp([FromBody] CashoutDoubleUpRequest request, CancellationToken cancellationToken)
     {
         try
         {
-            var result = await gameService.CollectDoubleUpAsync(UserId, request, cancellationToken);
+            var result = await gameService.CashoutDoubleUpAsync(UserId, request.RoundId, cancellationToken);
             return Ok(ApiResponse<DoubleUpResultDto>.Ok(result, traceId: HttpContext.TraceIdentifier));
         }
         catch (InvalidOperationException ex)

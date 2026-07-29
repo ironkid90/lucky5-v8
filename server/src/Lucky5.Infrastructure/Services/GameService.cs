@@ -141,26 +141,6 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		await RequireMachineAsync(machineId);
 		var session = await RequireMachineSessionAsync(userId, machineId, createIfMissing: true);
 
-		if (session.MachineCredits <= 0m && profile.WalletBalance > 0m)
-		{
-			var autoDeposit = profile.WalletBalance;
-			profile.WalletBalance = 0m;
-			session.MachineCredits += autoDeposit;
-			session.TotalCashIn += autoDeposit;
-			session.LastUpdatedUtc = DateTime.UtcNow;
-			await store.UpdateMachineSessionAsync(session);
-			await store.UpdateProfileAsync(profile);
-			await store.AddWalletLedgerEntryAsync(new WalletLedgerEntry
-			{
-				UserId = userId,
-				Amount = -autoDeposit,
-				TransactionType = "AutoGlobalCreditTransferIn",
-				ReferenceId = $"machine:{machineId}:autocashin",
-				BalanceAfter = 0m,
-				CreatedUtc = DateTime.UtcNow
-			});
-		}
-
 		var dto = await ToMachineSessionDtoAsync(userId, session, profile.WalletBalance);
 		stateCache.SetMachineSession(userId, machineId, dto);
 		return dto;
