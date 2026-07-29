@@ -70,7 +70,7 @@ public sealed class AdminController(
         if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
             return BadRequest(ApiResponse<AdminUserDto>.Fail("Username and Password are required", traceId: HttpContext.TraceIdentifier));
 
-        var user = await adminService.CreateUserAsync(request, cancellationToken);
+        var user = await adminService.CreateUserAsync(adminId, request, cancellationToken);
         await auditService.AppendAsync(new AdminAuditWriteDto(
             adminId,
             "admin",
@@ -79,7 +79,7 @@ public sealed class AdminController(
             user.UserId.ToString("N"),
             Outcome: "succeeded",
             Reason: $"Created user {user.Username} with role {user.Role}",
-            Metadata: new Dictionary<string, string> { { "username", user.Username }, { "role", user.Role } }));
+            Metadata: new Dictionary<string, string> { { "username", user.Username }, { "role", user.Role } }), cancellationToken);
 
         return Ok(ApiResponse<AdminUserDto>.Ok(user, traceId: HttpContext.TraceIdentifier));
     }
@@ -93,7 +93,7 @@ public sealed class AdminController(
         if (string.IsNullOrWhiteSpace(request.Role))
             return BadRequest(ApiResponse<AdminUserDto>.Fail("Role is required", traceId: HttpContext.TraceIdentifier));
 
-        var user = await adminService.SetUserRoleAsync(userId, request.Role, cancellationToken);
+        var user = await adminService.SetUserRoleAsync(adminId, userId, request.Role, cancellationToken);
         await auditService.AppendAsync(new AdminAuditWriteDto(
             adminId,
             "admin",
@@ -102,7 +102,7 @@ public sealed class AdminController(
             userId.ToString("N"),
             Outcome: "succeeded",
             Reason: $"Set user role to {request.Role}",
-            Metadata: new Dictionary<string, string> { { "role", request.Role } }));
+            Metadata: new Dictionary<string, string> { { "role", request.Role } }), cancellationToken);
 
         return Ok(ApiResponse<AdminUserDto>.Ok(user, traceId: HttpContext.TraceIdentifier));
     }
@@ -116,7 +116,8 @@ public sealed class AdminController(
         if (request.UserIds == null || request.UserIds.Count == 0)
             return BadRequest(ApiResponse<int>.Fail("UserIds array cannot be empty", traceId: HttpContext.TraceIdentifier));
 
-        var count = await adminService.BulkAssignAgentAsync(request.UserIds, request.AgentId, cancellationToken);
+        var userDto = await adminService.BulkAssignAgentAsync(adminId, new Application.Requests.BulkAssignAgentRequest(request.UserIds, request.AgentId ?? 0), cancellationToken);
+        var count = request.UserIds.Count;
         await auditService.AppendAsync(new AdminAuditWriteDto(
             adminId,
             "admin",
@@ -125,7 +126,7 @@ public sealed class AdminController(
             request.AgentId?.ToString() ?? "unassigned",
             Outcome: "succeeded",
             Reason: $"Assigned agent {request.AgentId} to {count} users",
-            Metadata: new Dictionary<string, string> { { "count", count.ToString() } }));
+            Metadata: new Dictionary<string, string> { { "count", count.ToString() } }), cancellationToken);
 
         return Ok(ApiResponse<int>.Ok(count, traceId: HttpContext.TraceIdentifier));
     }

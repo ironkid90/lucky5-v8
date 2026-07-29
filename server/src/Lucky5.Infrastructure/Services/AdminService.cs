@@ -42,53 +42,124 @@ public sealed class AdminService(InMemoryDataStore store, PersistenceStore persi
         return Task.FromResult(dashboard);
     }
 
-    public async Task<AdminUserDto> CreateUserAsync(AdminCreateUserRequest req, CancellationToken cancellationToken)
+    public Task<AdminUserDto> CreateUserAsync(Guid adminId, AdminCreateUserRequest req, CancellationToken cancellationToken)
     {
         var role = string.IsNullOrWhiteSpace(req.Role) ? "Player" : req.Role.Trim();
-        var (user, profile) = await store.CreateUserWithProfileAsync(
-            req.Username,
-            req.Password,
-            req.FullName,
-            req.Email,
-            req.PhoneNumber,
-            role,
-            req.AgentId,
-            cancellationToken);
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            Username = req.Username.Trim(),
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.Password),
+            PhoneNumber = req.PhoneNumber.Trim(),
+            FullName = req.FullName?.Trim(),
+            Email = req.Email?.Trim(),
+            Role = role,
+            AgentId = req.AgentId,
+            IsOtpVerified = true,
+            CreatedUtc = DateTime.UtcNow
+        };
+        store.Profiles[user.Id] = user;
+        store.Users[user.Id] = user;
+
+        var profile = new MemberProfile
+        {
+            UserId = user.Id,
+            Username = user.Username,
+            DisplayName = user.Username,
+            Email = user.Email ?? string.Empty,
+            PhoneNumber = user.PhoneNumber,
+            FullName = user.FullName,
+            AgentId = user.AgentId,
+            WalletBalance = 0m
+        };
+        store.MemberProfiles[user.Id] = profile;
 
         PersistStateSafe(cancellationToken);
-        return ToAdminUserDto(user);
+        return Task.FromResult(ToAdminUserDto(user));
     }
 
-    public async Task<AdminUserDto> SetUserRoleAsync(Guid userId, string role, CancellationToken cancellationToken)
+    public Task<AdminUserDto> UpdateUserAsync(Guid adminId, AdminUpdateUserRequest req, CancellationToken cancellationToken)
+    {
+        if (!store.Users.TryGetValue(req.UserId, out var user))
+            throw new KeyNotFoundException("User not found");
+
+        if (!string.IsNullOrWhiteSpace(req.Password))
+        {
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.Password.Trim());
+        }
+        if (!string.IsNullOrWhiteSpace(req.PhoneNumber))
+        {
+            user.PhoneNumber = req.PhoneNumber.Trim();
+        }
+        if (req.FullName is not null)
+        {
+            user.FullName = req.FullName.Trim();
+        }
+        if (req.Email is not null)
+        {
+            user.Email = req.Email.Trim();
+        }
+        if (!string.IsNullOrWhiteSpace(req.Role))
+        {
+            user.Role = req.Role.Trim();
+        }
+        if (req.AgentId.HasValue)
+        {
+            user.AgentId = req.AgentId.Value;
+        }
+
+        store.Users[user.Id] = user;
+        store.Profiles[user.Id] = user;
+
+        if (store.MemberProfiles.TryGetValue(req.UserId, out var profile))
+        {
+            if (req.PhoneNumber is not null) profile.PhoneNumber = req.PhoneNumber.Trim();
+            if (req.FullName is not null) profile.FullName = req.FullName.Trim();
+            if (req.Email is not null) profile.Email = req.Email.Trim();
+            if (req.AgentId.HasValue) profile.AgentId = req.AgentId.Value;
+            store.MemberProfiles[user.Id] = profile;
+        }
+
+        PersistStateSafe(cancellationToken);
+        return Task.FromResult(ToAdminUserDto(user));
+    }
+
+    public Task<AdminUserDto> SetUserRoleAsync(Guid adminId, Guid userId, string role, CancellationToken cancellationToken)
     {
         if (!store.Users.TryGetValue(userId, out var user))
             throw new KeyNotFoundException("User not found");
 
         user.Role = role;
-        await store.UpdateUserAsync(user);
+        store.Users[user.Id] = user;
+        store.Profiles[user.Id] = user;
         PersistStateSafe(cancellationToken);
-        return ToAdminUserDto(user);
+        return Task.FromResult(ToAdminUserDto(user));
     }
 
-    public async Task<int> BulkAssignAgentAsync(IReadOnlyList<Guid> userIds, int? agentId, CancellationToken cancellationToken)
+    public Task<AdminUserDto> BulkAssignAgentAsync(Guid adminId, BulkAssignAgentRequest req, CancellationToken cancellationToken)
     {
         int count = 0;
-        foreach (var userId in userIds)
+        User? lastUser = null;
+        foreach (var userId in req.UserIds)
         {
             if (store.Users.TryGetValue(userId, out var user))
             {
-                user.AgentId = agentId;
-                await store.UpdateUserAsync(user);
+                user.AgentId = req.AgentId;
+                store.Users[user.Id] = user;
+                store.Profiles[user.Id] = user;
                 if (store.MemberProfiles.TryGetValue(userId, out var profile))
                 {
-                    profile.AgentId = agentId;
-                    await store.UpdateProfileAsync(profile);
+                    profile.AgentId = req.AgentId;
+                    store.MemberProfiles[userId] = profile;
                 }
+                lastUser = user;
                 count++;
             }
         }
         PersistStateSafe(cancellationToken);
-        return count;
+        if (lastUser is null)
+            throw new KeyNotFoundException("No users found for bulk assignment");
+        return Task.FromResult(ToAdminUserDto(lastUser));
     }
 
     public Task<IReadOnlyList<AgentSummaryDto>> GetAgentsSummaryAsync(CancellationToken cancellationToken)

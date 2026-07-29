@@ -6,7 +6,7 @@ using Lucky5.Application.Interfaces;
 using Lucky5.Domain.Entities;
 using System.Collections.Concurrent;
 
-public sealed class AgentService(IDataStore store) : IAgentService
+public sealed class AgentService(IDataStore store, InMemoryDataStore inMemoryStore) : IAgentService
 {
     private static int _nextId = 1;
     private static readonly ConcurrentDictionary<int, Agent> _agents = new();
@@ -62,7 +62,7 @@ public sealed class AgentService(IDataStore store) : IAgentService
 
         // Automatically create a linked User entity with role="agent" so agent can log in
         var username = request.Code.ToLowerInvariant();
-        if (!store.Users.Values.Any(u => u.Username.Equals(username, StringComparison.OrdinalIgnoreCase)))
+        if (!inMemoryStore.Users.Values.Any(u => u.Username.Equals(username, StringComparison.OrdinalIgnoreCase)))
         {
             var user = new User
             {
@@ -75,9 +75,9 @@ public sealed class AgentService(IDataStore store) : IAgentService
                 AgentId = agent.Id,
                 IsOtpVerified = true
             };
-            store.Users[user.Id] = user;
-            store.Profiles[user.Id] = user;
-            store.MemberProfiles[user.Id] = new MemberProfile
+            inMemoryStore.Users[user.Id] = user;
+            inMemoryStore.Profiles[user.Id] = user;
+            inMemoryStore.MemberProfiles[user.Id] = new MemberProfile
             {
                 UserId = user.Id,
                 Username = user.Username,
@@ -128,11 +128,11 @@ public sealed class AgentService(IDataStore store) : IAgentService
 
     public Task<IReadOnlyList<AdminUserDto>> GetUsersByAgentAsync(int agentId, CancellationToken cancellationToken)
     {
-        var users = store.Users.Values
+        var users = inMemoryStore.Users.Values
             .Where(u => u.AgentId == agentId)
             .Select(u =>
             {
-                var profile = store.MemberProfiles.TryGetValue(u.Id, out var p) ? p : null;
+                var profile = inMemoryStore.MemberProfiles.TryGetValue(u.Id, out var p) ? p : null;
                 var agent = u.AgentId.HasValue ? _agents.GetValueOrDefault(u.AgentId.Value) : null;
                 return new AdminUserDto(
                     u.Id,
