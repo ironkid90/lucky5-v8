@@ -44,7 +44,7 @@ jobs:
       pull-requests: write # Postprocessing should be able to create a pull request with changes
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
           python-version: '3.10'
@@ -92,7 +92,7 @@ jobs:
       pull-requests: write # Postprocessing should be able to create a pull request with changes
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
           python-version: '3.10'
@@ -157,7 +157,7 @@ jobs:
       pull-requests: write # Postprocessing should be able to create a pull request with changes
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
       # Delete all the curation branches
       - run: |
           for BRANCH in $(git ls-remote origin 'refs/heads/hermes/curate-*' | cut -f2 | cut -d'/' -f'3-'); do
