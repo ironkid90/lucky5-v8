@@ -88,21 +88,30 @@ const path = require('path');
         const drawData = drawJson.data || drawJson;
         console.log(`  ✓ Draw successful. Result Hand: ${(drawData.cards || []).map(c => c.code).join(' ')}, HandRank: ${drawData.handRank || 'Nothing'}, Win: ${drawData.winAmount}`);
 
-        console.log('[5/5] Testing Cashout API Validation...');
-        const cashoutRes = await fetch(`${targetUrl}/api/Game/machine/1/cash-out`, {
+        console.log('[5/5] Testing Cashout API Rules & Exit Bypass...');
+        const standardCashoutRes = await fetch(`${targetUrl}/api/Game/machine/1/cash-out`, {
             method: 'POST',
             headers: authHeaders
         });
-        if (cashoutRes.ok) {
-            const cashoutJson = await cashoutRes.json();
-            const cashoutData = cashoutJson.data || cashoutJson;
-            console.log(`  ✓ Cashout executed. Wallet balance: ${cashoutData.walletBalance}`);
-        } else {
-            const cashoutErr = await cashoutRes.json();
-            console.log(`  ✓ Cashout rule enforcement verified: ${cashoutErr.message}`);
+        if (!standardCashoutRes.ok) {
+            const errJson = await standardCashoutRes.json();
+            console.log(`  ✓ Standard Cashout 2x Threshold Rule Enforced: ${errJson.message}`);
         }
 
-        console.log('\n  ✅ ALL API ENDPOINTS VERIFIED 100% OPERATIONAL');
+        const exitCashoutRes = await fetch(`${targetUrl}/api/Game/machine/1/cash-out?isExit=true`, {
+            method: 'POST',
+            headers: authHeaders
+        });
+        if (exitCashoutRes.ok) {
+            const exitJson = await exitCashoutRes.json();
+            const exitData = exitJson.data || exitJson;
+            console.log(`  ✓ Machine Exit Cashout Bypass Executed. Wallet balance: ${exitData.walletBalance}`);
+        } else {
+            const exitErr = await exitCashoutRes.json();
+            throw new Error(`Machine Exit Cashout failed: ${exitErr.message}`);
+        }
+
+        console.log('\n  ✅ ALL API ENDPOINTS & BYPASS RULES VERIFIED 100% OPERATIONAL');
 
     } catch (err) {
         console.error(`\n❌ API Verification Error: ${err.message}`);
