@@ -210,10 +210,19 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		{
 			if (!latestRound.IsCompleted)
 			{
-				throw new InvalidOperationException("Finish the current round before cashing out");
+				try
+				{
+					_ = await DrawAsync(userId, new DrawRequest(latestRound.RoundId, []), CancellationToken.None);
+					latestRound = await store.GetRoundAsync(latestRound.RoundId);
+				}
+				catch
+				{
+					latestRound.IsCompleted = true;
+					await store.SaveRoundAsync(latestRound);
+				}
 			}
 
-			if (!latestRound.IsPayoutSettled && latestRound.WinAmount > 0m)
+			if (latestRound is not null && !latestRound.IsPayoutSettled && latestRound.WinAmount > 0m)
 			{
 				var settleCredits = latestRound.DoubleUpSession?.CurrentAmount ?? (int)latestRound.WinAmount;
 				await FinalizeDoubleUpAsync(latestRound, session, settleCredits);

@@ -1648,7 +1648,9 @@ async function doBet() {
 
     const step = machine.betIncrement || GAME_RULES.betStep; // 100-credit steps
 
-    if (currentBet < machine.minBet) {
+    if (currentBet < machine.minBet || betResetPending) {
+        betResetPending = false;
+        currentBet = 0;
         // Auto-ramp: rapidly fill from current to minBet in 100-credit steps
         betRampRunning = true;
         const rampInterval = setInterval(() => {
@@ -1670,10 +1672,7 @@ async function doBet() {
 
     playPress();
 
-    if (betResetPending) {
-        currentBet = machine.minBet;
-        betResetPending = false;
-    } else if (currentBet >= machine.maxBet) {
+    if (currentBet >= machine.maxBet) {
         currentBet = machine.minBet; // Cycle back to min
     } else {
         currentBet = Math.min(currentBet + step, machine.maxBet);
@@ -3254,8 +3253,10 @@ function invokeHub(method, ...args) {
 async function joinMachine(id) {
     if (!isHubConnected()) return;
     try {
-        currentBet = 0; // Reset stake to 0 when joining; bet ramp fills to minBet
-        betResetPending = false;
+        if (gameState === 'idle') {
+            currentBet = 0; // Reset stake to 0 when joining idle machine; bet ramp fills to minBet
+            betResetPending = false;
+        }
         await invokeHub('JoinMachine', id);
         machineJoined = true;
         updateStakeDisplay();

@@ -94,18 +94,32 @@ public static class LangfuseObservabilityExtensions
     {
         return app.Use(async (context, next) =>
         {
-            var activity = Activity.Current;
-            if (activity is not null && ShouldTraceRequest(context))
+            try
             {
-                AnnotateRequestSpan(context, activity);
+                var activity = Activity.Current;
+                if (activity is not null && ShouldTraceRequest(context))
+                {
+                    AnnotateRequestSpan(context, activity);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[LangfuseTrace] Pre-next exception: {ex.Message}");
             }
 
             await next();
 
-            activity = Activity.Current;
-            if (activity is not null && ShouldTraceRequest(context))
+            try
             {
-                activity.SetTag("langfuse.observation.metadata.http_status_code", context.Response.StatusCode);
+                var activity = Activity.Current;
+                if (activity is not null && ShouldTraceRequest(context))
+                {
+                    activity.SetTag("langfuse.observation.metadata.http_status_code", context.Response.StatusCode);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[LangfuseTrace] Post-next exception: {ex.Message}");
             }
         });
     }
@@ -160,7 +174,7 @@ public static class LangfuseObservabilityExtensions
         var release = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "unknown";
 
         activity.SetTag("langfuse.trace.name", traceName);
-        activity.SetTag("langfuse.trace.tags", new[] { "lucky5", "api", feature });
+        activity.SetTag("langfuse.trace.tags", string.Join(",", "lucky5", "api", feature));
         activity.SetTag("langfuse.release", release);
         activity.SetTag("langfuse.trace.metadata.feature", feature);
         activity.SetTag("langfuse.display-name", traceName);

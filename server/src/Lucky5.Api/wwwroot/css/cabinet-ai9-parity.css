@@ -546,7 +546,7 @@
 }
 
 #credits {
-    color: #33ff33 !important;  /* CREDIT: green */
+    color: #00ffff !important;  /* CREDIT label: cyan */
     font-size: 1.0cqh !important;
     font-family: 'ARCADE', 'Arcade', 'Press Start 2P', 'Courier New', monospace !important;
 }
@@ -555,10 +555,11 @@
     font-size: 1.4cqh !important;
     display: block !important;
     font-family: inherit !important;
+    color: #33ff33 !important;  /* CREDIT value: green */
 }
 
 #stake-display {
-    color: #ffaa00 !important;  /* STAKE: gold */
+    color: #00ffff !important;  /* STAKE label: cyan */
     font-size: 1.0cqh !important;
     margin-top: 0.5cqh !important;
     font-family: 'ARCADE', 'Arcade', 'Press Start 2P', 'Courier New', monospace !important;
@@ -568,6 +569,7 @@
     font-size: 1.4cqh !important;
     display: block !important;
     font-family: inherit !important;
+    color: #FFB800 !important;  /* STAKE value: yellow/orange */
 }
 
 /* Machine info block (SERIE/KENT/S/N + jackpot counters): */
@@ -1407,6 +1409,36 @@ html, body {
         opacity: 1 !important;
         background: rgba(0, 0, 0, 0.85) !important;
     }
+}
+
+/* ═════════════════════════════════════════════════════════════════════════════
+   9. WATERMARK — "LUCKY 5 POKER" cyan glow behind cards (always visible)
+   ═════════════════════════════════════════════════════════════════════════════ */
+
+#watermark {
+    position: absolute !important;
+    top: 18% !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 22% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 5 !important;           /* Behind card-area (z-index 12) */
+    pointer-events: none !important;
+    opacity: 0.18 !important;        /* Low opacity — ghost text */
+    font-family: 'ARCADE', 'Arcade', 'Press Start 2P', 'Courier New', monospace !important;
+    font-weight: bold !important;
+    font-size: 4.5cqh !important;
+    letter-spacing: 0.4cqh !important;
+    color: #00FFFF !important;       /* Cyan */
+    text-shadow:
+        2px 2px 0 rgba(0, 180, 180, 0.9),     /* 3D extrusion shadow — dark cyan */
+        3px 3px 0 rgba(0, 120, 120, 0.7),     /* Deeper extrusion */
+        4px 4px 0 rgba(0, 60, 60, 0.5),       /* Furthest shadow layer */
+        0 0 2cqh rgba(0, 255, 255, 0.6),      /* Cyan glow bloom */
+        0 0 4cqh rgba(0, 200, 200, 0.3) !important;
+    white-space: nowrap !important;
 }
 
 /* ═════════════════════════════════════════════════════════════════════════════

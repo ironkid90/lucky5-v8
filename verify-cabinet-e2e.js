@@ -15,7 +15,7 @@ const path = require('path');
         console.log('[1/5] Testing Auth Login API...');
         const loginRes = await fetch(`${targetUrl}/api/Auth/login`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Connection': 'close' },
             body: JSON.stringify({ username: 'tester', password: 'password' })
         });
 
@@ -32,7 +32,8 @@ const path = require('path');
 
         const authHeaders = {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${token}`,
+            'Connection': 'close'
         };
 
         console.log('[2/5] Testing Machine 1 Session & CashIn API...');

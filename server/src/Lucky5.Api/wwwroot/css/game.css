@@ -37,34 +37,42 @@ body {
 
 /* CRT overlay — three-layer simulation matching ai9 reference:
    Layer 1: Coarse pixel grid (dominant effect — visible square subpixels)
-   Layer 2: Subtle horizontal scanlines (secondary)
-   Layer 3: Vignette/phosphor bloom at edges
-   Combined via mix-blend-mode: multiply + overlay for realistic CRT composite */
+   Layer 2: Phosphor bloom / vignette (radial darkening at CRT tube edges)
+   Layer 3: Subtle horizontal scanlines (secondary — 1px dark lines at 3px pitch)
+   Combined via mix-blend-mode: multiply for realistic CRT composite */
 .crt-overlay {
     position: absolute;
     inset: 0;
     pointer-events: none;
     z-index: 90;
-    /* Layer 1: Pixel grid — coarse checkerboard simulating visible RGB subpixels */
+    /* Layer 1 + 3 combined: Pixel grid (2px squares) + scanlines (1px @ 3px pitch) */
     background:
         repeating-linear-gradient(
             0deg,
             transparent 0px,
             transparent 2px,
-            rgba(0, 0, 0, 0.12) 2px,
-            rgba(0, 0, 0, 0.12) 3px
+            rgba(0, 0, 0, 0.14) 2px,
+            rgba(0, 0, 0, 0.14) 3px
         ),
         repeating-linear-gradient(
             90deg,
             transparent 0px,
             transparent 2px,
-            rgba(0, 0, 0, 0.08) 2px,
-            rgba(0, 0, 0, 0.08) 3px
+            rgba(0, 0, 0, 0.10) 2px,
+            rgba(0, 0, 0, 0.10) 3px
+        ),
+        /* Layer 3: Subtle horizontal scanlines — 1px dark lines at 3px pitch */
+        repeating-linear-gradient(
+            0deg,
+            rgba(0, 0, 0, 0.06) 0px,
+            rgba(0, 0, 0, 0.06) 1px,
+            transparent 1px,
+            transparent 3px
         );
     mix-blend-mode: multiply;
 }
 
-/* Phosphor bloom vignette — radial darkening at edges simulating CRT tube curvature */
+/* Layer 2: Phosphor bloom vignette — radial darkening at edges simulating CRT tube curvature */
 .crt-overlay::after {
     content: '';
     position: absolute;
