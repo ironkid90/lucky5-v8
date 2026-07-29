@@ -4,28 +4,28 @@ using Lucky5.Application.Contracts;
 using Lucky5.Application.Dtos;
 using Lucky5.Application.Interfaces;
 using Lucky5.Domain.Entities;
-using Lucky5.Infrastructure.Data.Repositories;
 using System.Collections.Concurrent;
 
-public sealed class AgentService(InMemoryDataStore store) : IAgentService
+public sealed class AgentService(IDataStore store, InMemoryDataStore inMemoryStore) : IAgentService
 {
     private static int _nextId = 1;
     private static readonly ConcurrentDictionary<int, Agent> _agents = new();
 
     public async Task<IReadOnlyList<AgentDto>> GetAgentsAsync(CancellationToken cancellationToken)
+    {
+        // Load from persistent store; fall back to in-memory cache
+        var persistentAgents = await store.GetAgentsAsync();
+        foreach (var agent in persistentAgents)
         {
-            // Load agents from the in-memory store directly
-            foreach (var agent in store.Agents.Values)
-            {
-                _agents[agent.Id] = agent;
-            }
-
-            IReadOnlyList<AgentDto> list = _agents.Values
-                .OrderBy(a => a.Id)
-                .Select(ToDto)
-                .ToArray();
-            return list;
+            _agents[agent.Id] = agent;
         }
+
+        IReadOnlyList<AgentDto> list = _agents.Values
+            .OrderBy(a => a.Id)
+            .Select(ToDto)
+            .ToArray();
+        return list;
+    }
 
     public async Task<AgentDto> CreateAgentAsync(CreateAgentRequest request, CancellationToken cancellationToken)
     {
@@ -39,9 +39,9 @@ public sealed class AgentService(InMemoryDataStore store) : IAgentService
             throw new ArgumentException("Phone Number has an invalid format (must be 5 to 20 digits with optional +/spaces/dashes/parens).");
 
         // Check for duplicate code in persistent store
-                var existingAgent = store.Agents.Values.FirstOrDefault(a => a.Code.Equals(request.Code, StringComparison.OrdinalIgnoreCase));
-                if (existingAgent is not null)
-                    throw new InvalidOperationException($"Agent code '{request.Code}' already exists");
+        var existingAgent = await store.GetAgentByCodeAsync(request.Code);
+        if (existingAgent is not null)
+            throw new InvalidOperationException($"Agent code '{request.Code}' already exists");
 
         if (_agents.Values.Any(a => a.Code.Equals(request.Code, StringComparison.OrdinalIgnoreCase)))
             throw new InvalidOperationException($"Agent code '{request.Code}' already exists");
@@ -57,12 +57,12 @@ public sealed class AgentService(InMemoryDataStore store) : IAgentService
             IsActive = true
         };
 
-        store.Agents[agent.Id] = agent;
-                _agents[id] = agent;
+        await store.CreateAgentAsync(agent);
+        _agents[id] = agent;
 
         // Automatically create a linked User entity with role="agent" so agent can log in
         var username = request.Code.ToLowerInvariant();
-        if (!store.Users.Values.Any(u => u.Username.Equals(username, StringComparison.OrdinalIgnoreCase)))
+        if (!inMemoryStore.Users.Values.Any(u => u.Username.Equals(username, StringComparison.OrdinalIgnoreCase)))
         {
             var user = new User
             {
@@ -75,9 +75,9 @@ public sealed class AgentService(InMemoryDataStore store) : IAgentService
                 AgentId = agent.Id,
                 IsOtpVerified = true
             };
-            store.Users[user.Id] = user;
-            store.Profiles[user.Id] = user;
-            store.MemberProfiles[user.Id] = new MemberProfile
+            inMemoryStore.Users[user.Id] = user;
+            inMemoryStore.Profiles[user.Id] = user;
+            inMemoryStore.MemberProfiles[user.Id] = new MemberProfile
             {
                 UserId = user.Id,
                 Username = user.Username,
@@ -99,15 +99,16 @@ public sealed class AgentService(InMemoryDataStore store) : IAgentService
 
     public async Task<AgentDto> LoadCreditAsync(int agentId, decimal amount, CancellationToken cancellationToken)
     {
-        store.Agents.TryGetValue(agentId, out var agent);
-                if (agent is null) throw new KeyNotFoundException($"Agent {agentId} not found");
+        var agent = await store.GetAgentByIdAsync(agentId)
+            ?? throw new KeyNotFoundException($"Agent {agentId} not found");
 
-                if (amount <= 0 || amount > 10000000m)
-                    throw new ArgumentException("Load credit amount must be between 0.01 and 10,000,000.");
+        if (amount <= 0 || amount > 10000000m)
+            throw new ArgumentException("Load credit amount must be between 0.01 and 10,000,000.");
 
-                agent.CreditPool += amount;
-                _agents[agentId] = agent;
-                return ToDto(agent);
+        agent.CreditPool += amount;
+        await store.UpdateAgentAsync(agent);
+        _agents[agentId] = agent;
+        return ToDto(agent);
     }
 
     public async Task AssignUserToAgentAsync(Guid userId, int agentId, CancellationToken cancellationToken)
@@ -115,33 +116,43 @@ public sealed class AgentService(InMemoryDataStore store) : IAgentService
         if (userId == Guid.Empty)
             throw new ArgumentException("User ID cannot be an empty GUID.");
 
-        store.MemberProfiles.TryGetValue(userId, out var profile);
-                if (profile is null) throw new KeyNotFoundException("User profile not found");
+        var profile = await store.GetProfileAsync(userId)
+            ?? throw new KeyNotFoundException("User profile not found");
 
-                if (!store.Agents.TryGetValue(agentId, out _))
-                    throw new KeyNotFoundException($"Agent {agentId} not found");
+        var agent = await store.GetAgentByIdAsync(agentId)
+            ?? throw new KeyNotFoundException($"Agent {agentId} not found");
 
-                profile.AgentId = agentId;
+        profile.AgentId = agentId;
+        await store.UpdateProfileAsync(profile);
     }
 
     public Task<IReadOnlyList<AdminUserDto>> GetUsersByAgentAsync(int agentId, CancellationToken cancellationToken)
-        {
-            var users = store.Users.Values
-                .Where(u => u.AgentId == agentId)
-                .Select(u =>
-                {
-                    var profile = store.MemberProfiles.TryGetValue(u.Id, out var p) ? p : null;
-                    var agent = u.AgentId.HasValue ? _agents.GetValueOrDefault(u.AgentId.Value) : null;
-                    return new AdminUserDto(
-                        u.Id, u.Username, profile?.DisplayName ?? u.Username,
-                        u.PhoneNumber, profile?.WalletBalance ?? 0m, u.Role,
-                        u.CreatedUtc, profile?.LastSeenUtc ?? u.CreatedUtc,
-                        u.Email, u.FullName, u.AgentId, agent?.Name);
-                })
-                .ToList();
+    {
+        var users = inMemoryStore.Users.Values
+            .Where(u => u.AgentId == agentId)
+            .Select(u =>
+            {
+                var profile = inMemoryStore.MemberProfiles.TryGetValue(u.Id, out var p) ? p : null;
+                var agent = u.AgentId.HasValue ? _agents.GetValueOrDefault(u.AgentId.Value) : null;
+                return new AdminUserDto(
+                    u.Id,
+                    u.Username,
+                    profile?.DisplayName ?? u.Username,
+                    u.PhoneNumber,
+                    profile?.WalletBalance ?? 0m,
+                    u.Role,
+                    u.CreatedUtc,
+                    profile?.LastSeenUtc ?? u.CreatedUtc,
+                    u.Email,
+                    u.FullName,
+                    u.AgentId,
+                    agent?.Name
+                );
+            })
+            .ToList();
 
-            return Task.FromResult<IReadOnlyList<AdminUserDto>>(users);
-        }
+        return Task.FromResult<IReadOnlyList<AdminUserDto>>(users);
+    }
 
     private static AgentDto ToDto(Agent a) =>
         new(a.Id, a.Name, a.Code, a.PhoneNumber, a.IsActive, a.CreditPool, a.CreatedUtc);
