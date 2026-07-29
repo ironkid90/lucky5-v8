@@ -205,9 +205,9 @@ public class Lucky5DbContext : DbContext
 
         // Seed Data for Machines
         modelBuilder.Entity<Machine>().HasData(
-            new Machine { Id = 1, GameId = 1, Name = "Lucky 5 - Beirut", MinBet = 5000, MaxBet = 10000, IsOpen = true },
-            new Machine { Id = 2, GameId = 1, Name = "Lucky 5 - Hamra", MinBet = 5000, MaxBet = 10000, IsOpen = true },
-            new Machine { Id = 3, GameId = 1, Name = "Lucky 5 - VIP", MinBet = 5000, MaxBet = 10000, IsOpen = true }
+            new Machine { Id = 1, GameId = 1, Name = "Hamra 2.5K", MinBet = 2500, MaxBet = 5000, IsOpen = true },
+            new Machine { Id = 2, GameId = 1, Name = "Beirut 5K", MinBet = 5000, MaxBet = 10000, IsOpen = true },
+            new Machine { Id = 3, GameId = 1, Name = "VIP 10K", MinBet = 10000, MaxBet = 20000, IsOpen = true }
         );
 
         // AppSetting Configuration

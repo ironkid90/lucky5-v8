@@ -34,6 +34,9 @@ This machine has a single canonical MCP store at `C:\Users\Gabi.WIN-CD45QMUUPFF\
 - The backend is responsible for managing balance, machine state, session state, jackpots, and all realtime interactions.
 - The retro cabinet aesthetic is a core product feature. Do not modernize the UI into a generic casino interface.
 - By default, persistence is in-memory. File-based snapshots are used only if `Persistence:FileStore:RootPath` is configured.
+- **DO NOT modify `EngineConfig` default values** without reading `mem.md` "RTP Engine — Current State" section first. These values are tuned for 80% RTP and changing one affects all others.
+- **DO NOT change `Lucky5DoubleUpOptions`** (MaxSwitchesPerRound, AceCountsHiOrLo, LuckyFiveArmsNoLose). These are the core DU game rules. The deck pressure system handles difficulty, not rule changes.
+- **DO NOT use `--no-dependencies`** for builds after changing Domain project files. Always do a full `dotnet build server/Lucky5.sln` to ensure all projects pick up changes.
 
 ### Commands
 
@@ -44,7 +47,8 @@ This machine has a single canonical MCP store at `C:\Users\Gabi.WIN-CD45QMUUPFF\
 
 ### Grounding Documentation
 
-- **Current Truth (always up to date)**: [mem.md](mem.md) — VSYNC timing, card design, button system, file versions, pitfalls
+- **Current Truth (always up to date)**: [mem.md](mem.md) — VSYNC timing, card design, button system, file versions, pitfalls, **RTP Engine state**
+- **RTP Simulation**: `server/tests/Lucky5.Tests/RtpSimulationTests.cs` — Monte Carlo 100K rounds
 - **Project Overview**: [README.md](README.md) (setup, commands, and repo structure)
 - **Development History**: [docs/DEVELOPMENT_HISTORY_AND_CURRENT_STATE.md](docs/DEVELOPMENT_HISTORY_AND_CURRENT_STATE.md)
 - **Gameplay & Cabinet Reference**: [docs/README.md](docs/README.md), [docs/LUCKY5_AUTHORITATIVE_GAMEPLAY_REFERENCE.md](docs/LUCKY5_AUTHORITATIVE_GAMEPLAY_REFERENCE.md), [docs/MACHINE_BEHAVIOR_REFERENCE.md](docs/MACHINE_BEHAVIOR_REFERENCE.md)
@@ -52,6 +56,13 @@ This machine has a single canonical MCP store at `C:\Users\Gabi.WIN-CD45QMUUPFF\
 - **Variant Architecture**: [docs/CABINET_VARIANT_ARCHITECTURE.md](docs/CABINET_VARIANT_ARCHITECTURE.md) — includes Bonanza / Bonus Poker / Wild Witch (Video Klein, **WILD not WILO**) / Super 98 / Robert's Ultimate lineage table
 - **ROM lineage profiles**: [server/src/Lucky5.Domain/Game/CleanRoom/LineageProfiles.cs](server/src/Lucky5.Domain/Game/CleanRoom/LineageProfiles.cs); acquired sets under [goldenpoker/roms/](goldenpoker/roms/)
 - **AI9 Parity (historical worklogs)**: [docs/AI9_PARITY_GROUND_TRUTH_AND_WORKLOG.md](docs/AI9_PARITY_GROUND_TRUTH_AND_WORKLOG.md), [docs/AI9_PARITY_IMPLEMENTATION_SUMMARY.md](docs/AI9_PARITY_IMPLEMENTATION_SUMMARY.md) — these are historical; current timing is VSYNC-locked at 60Hz with staggerFrames=12 per [mem.md](mem.md)
+
+## Lucky5 specific UI & Architecture Rules
+
+- **Mobile Viewport Clamping**: To preserve the strict 9:16 arcade ratio, never use generic `100%` sizing. Use `height: 100dvh;`, `max-width: calc(100dvh * 9 / 16);`, and `aspect-ratio: 9 / 16;` on `#cabinet-viewport` to prevent dynamic address bar cropping on mobile.
+- **Modal Layering**: Modal overlays (Admin, Cash-in) must be direct children of the `<body>` to escape stacking contexts. They require a z-index higher than the menu panel (e.g. `.admin-modal-overlay { z-index: 100000 !important; }`).
+- **Menu State**: Always trigger `setMenuPanelOpen(false);` *before* opening a `customPrompt` or modal overlay from the menu.
+- **Audio Events**: Any new sound mapped via `CabinetAudio.queue('eventName')` must be explicitly added to `DEFAULT_EVENTS` in `cabinet-audio-vnext.js`.
 
 ## Tooling: ContextStream
 
@@ -79,7 +90,7 @@ Use ContextStream grounding and search before local code discovery whenever its 
 
 #
 
-## vexp <!-- vexp v2.3.0 -->
+## vexp <!-- vexp v2.3.1 -->
 
 **Call `run_pipeline` ONCE at task start for orientation - then use your normal tools.**
 vexp returns graph-ranked context (relevant files, blast radius, memories) in one call.

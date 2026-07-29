@@ -7,11 +7,13 @@ public static class Lucky5DoubleUpEngine
 		ulong seedRoot,
 		int machineCreditBaseline = 0,
 		Lucky5DoubleUpOptions? options = null,
-		int boardBetAmount = 0)
+		int boardBetAmount = 0,
+		int? closeThreshold = null)
 	{
-		var resolvedOptions = options ?? new Lucky5DoubleUpOptions(MaxCreditLimit: Decimal.ToInt32(EngineConfig.Default.CloseThreshold));
+		var defaultThreshold = closeThreshold ?? Decimal.ToInt32(EngineConfig.Default.CloseThreshold);
+		var resolvedOptions = options ?? new Lucky5DoubleUpOptions(MaxCreditLimit: defaultThreshold);
 		var deck = FiveCardDrawEngine.ShuffleDeck(seedRoot, "double-up");
-		return CreateSessionFromDeck(seedRoot, deck, openingAmount, machineCreditBaseline, resolvedOptions, boardBetAmount);
+		return CreateSessionFromDeck(seedRoot, deck, openingAmount, machineCreditBaseline, resolvedOptions, boardBetAmount, closeThreshold);
 	}
 
 	public static Lucky5DoubleUpSession CreateSessionFromDeck(
@@ -20,14 +22,16 @@ public static class Lucky5DoubleUpEngine
 		int openingAmount,
 		int machineCreditBaseline = 0,
 		Lucky5DoubleUpOptions? options = null,
-		int boardBetAmount = 0)
+		int boardBetAmount = 0,
+		int? closeThreshold = null)
 	{
 		if (openingAmount <= 0)
 		{
 			throw new ArgumentOutOfRangeException(nameof(openingAmount), openingAmount, "Opening amount must be positive.");
 		}
 
-		var resolvedOptions = options ?? new Lucky5DoubleUpOptions(MaxCreditLimit: Decimal.ToInt32(EngineConfig.Default.CloseThreshold));
+		var defaultThreshold = closeThreshold ?? Decimal.ToInt32(EngineConfig.Default.CloseThreshold);
+		var resolvedOptions = options ?? new Lucky5DoubleUpOptions(MaxCreditLimit: defaultThreshold);
 		var deckArray = deck.ToArray();
 		if (deckArray.Length < 2)
 		{

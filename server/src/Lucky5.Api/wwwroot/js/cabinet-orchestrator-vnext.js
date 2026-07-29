@@ -44,31 +44,13 @@ window.CabinetOrchestrator = (function () {
     }
 
     function _applyButtonStatesFromSelectors(snapshot) {
-        // Accept a pre-computed snapshot to avoid re-entrancy from syncFromRuntime
-        // triggering another updateMachine -> _emit -> subscriber -> here cycle.
-        const state = snapshot || CabinetState.get();
-        const rules = CabinetState.selectors(state);
-        const holdBtns = document.querySelectorAll('.cab-hold');
-        const betBtn = document.getElementById('btn-bet');
-        const dealBtn = document.getElementById('btn-deal');
-        const cancelBtn = document.getElementById('btn-cancel');
-        const bigBtn = document.getElementById('btn-big');
-        const smallBtn = document.getElementById('btn-small');
-        const takeScoreBtn = document.getElementById('btn-take-score');
-        const takeHalfBtn = document.getElementById('btn-take-half');
-
-        if (betBtn) betBtn.disabled = !rules.canBet;
-        if (dealBtn) dealBtn.disabled = !rules.canDeal;
-        if (cancelBtn) cancelBtn.disabled = !(state.machine.gameState === 'hold') || state.presentation.locked;
-        if (bigBtn) bigBtn.disabled = !rules.canGuess;
-        if (smallBtn) smallBtn.disabled = !rules.canGuess;
-        if (takeScoreBtn) takeScoreBtn.disabled = !rules.canTakeScore;
-        if (takeHalfBtn) takeHalfBtn.disabled = !rules.canTakeHalf;
-        // Use data-index attribute so DOM order doesn't have to match slot index
-        holdBtns.forEach((btn) => {
-            const idx = parseInt(btn.dataset.index, 10);
-            btn.disabled = !rules.canHold(Number.isFinite(idx) ? idx : 0);
-        });
+        // Button state management delegated to game.js setButtonStates() as single source of truth.
+        // The orchestrator only manages presentation state (locked, snapshot sync).
+        // This prevents dual-system conflicts where both setButtonStates() and the orchestrator
+        // fight over button disabled/enabled states.
+        if (typeof setButtonStates === 'function') {
+            setButtonStates();
+        }
     }
 
     function _patch(name, replacement) {

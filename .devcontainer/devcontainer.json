@@ -1,0 +1,19 @@
+{
+  "name": "Lucky5 v8 Dev Container",
+  "image": "mcr.microsoft.com/dotnet/sdk:10.0",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": { "version": "lts" },
+    "ghcr.io/devcontainers/features/git:1": {}
+  },
+  "forwardPorts": [5051, 8080],
+  "postCreateCommand": "cd server && dotnet restore && cd .. && npm install",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-dotnettools.csharp",
+        "dbaeumer.vscode-eslint",
+        "editorconfig.editorconfig"
+      ]
+    }
+  }
+}

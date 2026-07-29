@@ -188,6 +188,7 @@ app.UseRouting();
 app.UseCors();
 app.UseLangfuseTraceContext();
 app.UseMiddleware<SlidingWindowRateLimiterMiddleware>();
+app.UseMiddleware<AuditLoggingMiddleware>();
 // NOTE: Rate limiting disabled for .NET 10 compatibility - re-enable when stable
 // app.UseRateLimiter();
 app.MapControllers();
