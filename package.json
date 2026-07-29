@@ -6,6 +6,7 @@
     "grep": "^0.1.0",
     "hermes-cli": "^1.0.0",
     "newrelic": "^14.1.2",
+    "playwright": "^1.62.0",
     "web": "^0.0.2"
   },
   "name": "lucky5-v8",
