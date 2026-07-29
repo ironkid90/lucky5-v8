@@ -21,6 +21,8 @@ public interface IAdminService
     Task<AdminMachineDto> GetMachineAsync(int machineId, CancellationToken cancellationToken);
     Task<AdminMachineDetailDto> GetMachineDetailAsync(int machineId, CancellationToken cancellationToken);
     Task<AdminMachineDto> ResetMachineAsync(Guid adminId, int machineId, CancellationToken cancellationToken);
+    Task<AdminMachineDto> ForceResetMachineAsync(Guid adminId, int machineId, CancellationToken cancellationToken);
+    Task<AdminUserDto> ForceEndSessionAsync(Guid adminId, Guid userId, int machineId, CancellationToken cancellationToken);
     Task<WalletLedgerEntryDto> RechargeBonusAsync(Guid userId, decimal rechargeAmount, CancellationToken cancellationToken);
     Task<DoorState> SetDoorStateAsync(int machineId, DoorState doorState, CancellationToken cancellationToken);
 }

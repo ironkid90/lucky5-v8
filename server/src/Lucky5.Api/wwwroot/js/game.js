@@ -3253,10 +3253,16 @@ function invokeHub(method, ...args) {
 async function joinMachine(id) {
     if (!isHubConnected()) return;
     try {
-        if (gameState === 'idle') {
-            currentBet = 0; // Reset stake to 0 when joining idle machine; bet ramp fills to minBet
-            betResetPending = false;
+        // Always reset to idle when joining — the server will send a snapshot
+        // if there's an active round/DU to restore. This prevents getting stuck
+        // in a stale DU state from a previous session.
+        if (gameState !== 'idle') {
+            exitDoubleUp();
+            refreshIdleMachineState();
         }
+        currentBet = 0;
+        betResetPending = false;
+        betRampRunning = false;
         await invokeHub('JoinMachine', id);
         machineJoined = true;
         updateStakeDisplay();

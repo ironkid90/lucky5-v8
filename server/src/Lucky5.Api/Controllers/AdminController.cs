@@ -108,6 +108,7 @@ public sealed class AdminController(
     }
 
     public sealed record BulkAssignAgentRequest(IReadOnlyList<Guid> UserIds, int? AgentId);
+    public sealed record ForceEndSessionRequest(int MachineId);
 
     [HttpPost("users/assign-agent")]
     public async Task<ActionResult<ApiResponse<int>>> BulkAssignAgent([FromBody] BulkAssignAgentRequest request, CancellationToken cancellationToken)
@@ -229,6 +230,36 @@ public sealed class AdminController(
             machineId.ToString(),
             MachineId: machineId), cancellationToken);
         return Ok(ApiResponse<AdminMachineDto>.Ok(machine, traceId: HttpContext.TraceIdentifier));
+    }
+
+    [HttpPost("machines/{machineId:int}/force-reset")]
+    public async Task<ActionResult<ApiResponse<AdminMachineDto>>> ForceResetMachine(int machineId, CancellationToken cancellationToken)
+    {
+        var adminId = HttpContext.RequireAdminRole();
+        var machine = await adminService.ForceResetMachineAsync(adminId, machineId, cancellationToken);
+        await auditService.AppendAsync(new AdminAuditWriteDto(
+            adminId,
+            "admin",
+            "machine.force_reset",
+            "machine",
+            machineId.ToString(),
+            MachineId: machineId), cancellationToken);
+        return Ok(ApiResponse<AdminMachineDto>.Ok(machine, traceId: HttpContext.TraceIdentifier));
+    }
+
+    [HttpPost("users/{userId:guid}/force-end-session")]
+    public async Task<ActionResult<ApiResponse<AdminUserDto>>> ForceEndSession(Guid userId, [FromBody] ForceEndSessionRequest request, CancellationToken cancellationToken)
+    {
+        var adminId = HttpContext.RequireAdminRole();
+        var user = await adminService.ForceEndSessionAsync(adminId, userId, request.MachineId, cancellationToken);
+        await auditService.AppendAsync(new AdminAuditWriteDto(
+            adminId,
+            "admin",
+            "user.force_end_session",
+            "user",
+            userId.ToString("N"),
+            MachineId: request.MachineId), cancellationToken);
+        return Ok(ApiResponse<AdminUserDto>.Ok(user, traceId: HttpContext.TraceIdentifier));
     }
 
     [HttpPost("machines/{machineId:int}/door-state")]
