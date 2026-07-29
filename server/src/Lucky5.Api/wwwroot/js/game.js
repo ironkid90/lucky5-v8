@@ -131,6 +131,13 @@ let heartbeatInterval = null;
 let lastNetworkError = null;
 let isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
 
+// ── INPUT LOCKS ────────────────────────────────────────────────────────────
+// Prevents double-click / rapid-fire during animations and transitions.
+// _actionLock blocks deal/draw/DU-entry; jackpotDrainActive blocks all input
+// during the jackpot drain animation.
+let _actionLock = false;
+let jackpotDrainActive = false;
+
 // ── 1. ENGINE BOOTSTRAP ───────────────────────────────────────────────────
 // Local aliases so engine logic never hard-codes variant-specific values.
 // All values come from GAME_CONFIG (game-config.js, loaded first).
@@ -1446,29 +1453,30 @@ function showIdleTitle(animateSelector = false) {
     selector.className = 'idle-selector';
     const card = document.createElement('div');
     card.className = 'idle-selector-card';
-    if (animateSelector) card.classList.add('is-flipping');
-    card.innerHTML = CabinetStage.renderDomCard(fullHouseSelectorCode());
-    selector.appendChild(card);
-    area.appendChild(selector);
-
-    if (animateSelector) {
+    
+    if (!animateSelector) {
+        card.innerHTML = CabinetStage.renderDomCard('AD');
+        selector.appendChild(card);
+        area.appendChild(selector);
+        selector.style.visibility = 'visible';
+        showIdleOverlay();
+        scheduleIdleSelectorReveal(() => {
+            if (!area.contains(selector)) {
+                return;
+            }
+            card.innerHTML = CabinetStage.renderDomCard(fullHouseSelectorCode());
+            card.classList.remove('is-flipping');
+            void card.offsetWidth;
+            card.classList.add('is-flipping');
+        });
+    } else {
+        card.innerHTML = CabinetStage.renderDomCard(fullHouseSelectorCode());
+        card.classList.add('is-flipping');
+        selector.appendChild(card);
+        area.appendChild(selector);
         hideIdleOverlay();
         clearIdleOverlayTimer();
-        return;
     }
-
-    selector.style.visibility = 'hidden';
-    showIdleOverlay();
-    scheduleIdleSelectorReveal(() => {
-        if (!area.contains(selector)) {
-            return;
-        }
-
-        selector.style.visibility = 'visible';
-        card.classList.remove('is-flipping');
-        void card.offsetWidth;
-        card.classList.add('is-flipping');
-    });
 }
 
 function hideIdleTitle() {
@@ -2015,6 +2023,7 @@ function restoreRoundFromSnapshot(snapshot) {
 
 // ── 9. ACTIONS ───────────────────────────────────────────────────────────
 async function doDeal() {
+    if (_actionLock || jackpotDrainActive) return;
     if (gameState === 'idle') {
         if (!machineJoined) {
             if (!isHubConnected()) {
@@ -2132,6 +2141,11 @@ async function doDeal() {
 
                     const proceedToDoubleUp = async () => {
                         if (jackpotWon > 0) {
+                            jackpotDrainActive = true;
+                            _actionLock = true;
+                            if (window.CabinetState) CabinetState.setPresentationLocked(true);
+                            // Disable all buttons during jackpot drain
+                            document.querySelectorAll('.cab-btn').forEach(b => b.style.pointerEvents = 'none');
                             await animateJackpotFill(jackpotWon, balance, handName);
                             if (result.jackpots) updateJackpotDisplay(result.jackpots);
                             // After the jackpot fills and the drain runs, clear the
@@ -2147,6 +2161,14 @@ async function doDeal() {
                                     updateBonusBar(null);
                                 });
                             }
+                            // Show "JACKPOT COLLECTED!" for 1.5s before entering DU
+                            showMessage('JACKPOT COLLECTED!', 'win');
+                            await new Promise(r => CabinetClock.delayMs(1500, r));
+                            jackpotDrainActive = false;
+                            _actionLock = false;
+                            if (window.CabinetState) CabinetState.setPresentationLocked(false);
+                            // Re-enable buttons after jackpot collection
+                            document.querySelectorAll('.cab-btn').forEach(b => b.style.pointerEvents = '');
                         }
                         machineSessionClosed = Number(finalMachineCredits) >= MACHINE_CREDIT_LIMIT;
                         if (gameState === 'win') {
@@ -2177,6 +2199,7 @@ async function doDeal() {
                             }
                             if (roundDoubleUpAvailable) {
                                 CabinetClock.delayMs(T.winToDoubleUpDelayMs || 800, () => {
+                                    _actionLock = true;
                                     startDoubleUpFlow();
                                 });
                             } else {
@@ -2408,6 +2431,7 @@ function stopShuffle(freezeCard) {
 }
 
 async function startDoubleUpFlow() {
+    if (_actionLock || jackpotDrainActive) return;
     if (gameState !== 'win') return;
     if (!roundDoubleUpAvailable || winAmount <= 0) {
         showWinActionMessage();
@@ -2452,7 +2476,10 @@ async function startDoubleUpFlow() {
 }
 
 async function doDoubleUp(guess) {
+    if (_actionLock || jackpotDrainActive) return;
     if (gameState !== 'doubleup') return;
+    _actionLock = true;
+    if (window.CabinetState) CabinetState.setPresentationLocked(true);
     playPress();
     gameState = 'du-waiting';
     setButtonStates();
@@ -2512,6 +2539,8 @@ async function doDoubleUp(guess) {
                         syncDoubleUpPanelState(result, { preserveMultiplier: true });
                         updatePaytable(currentHandRank);
                         setButtonStates();
+                        _actionLock = false;
+                        if (window.CabinetState) CabinetState.setPresentationLocked(false);
                     }
                 });
             } else if (result.status === 'SafeFail') {
@@ -2543,6 +2572,8 @@ async function doDoubleUp(guess) {
                     syncMachineCreditsFromResponse(result);
                     await fetchMachineSession();
                     refreshIdleMachineState();
+                    _actionLock = false;
+                    if (window.CabinetState) CabinetState.setPresentationLocked(false);
                 });
             } else if (result.status === 'MachineClosed') {
                 roundDoubleUpAvailable = false;
@@ -2575,6 +2606,8 @@ async function doDoubleUp(guess) {
                     } catch (_) {
                         showMessage(getMachineCloseMessage(), 'win');
                     }
+                    _actionLock = false;
+                    if (window.CabinetState) CabinetState.setPresentationLocked(false);
                 })();
             } else {
                 roundDoubleUpAvailable = false;
@@ -2606,6 +2639,8 @@ async function doDoubleUp(guess) {
                     CabinetClock.delayMs(T.exitDuLoseMs, () => {
                         if (duCallToken !== myToken) return;
                         exitDoubleUp();
+                        _actionLock = false;
+                        if (window.CabinetState) CabinetState.setPresentationLocked(false);
                     });
                 } else {
                     updateWinIndicator(0);
@@ -2614,6 +2649,8 @@ async function doDoubleUp(guess) {
                     CabinetClock.delayMs(T.exitDuLoseMs, () => {
                         if (duCallToken !== myToken) return;
                         exitDoubleUp();
+                        _actionLock = false;
+                        if (window.CabinetState) CabinetState.setPresentationLocked(false);
                     });
                 }
             }
@@ -2624,6 +2661,8 @@ async function doDoubleUp(guess) {
         CabinetClock.delayMs(T.exitDuCatchMs, () => {
             if (duCallToken !== myToken) return;
             exitDoubleUp();
+            _actionLock = false;
+            if (window.CabinetState) CabinetState.setPresentationLocked(false);
         });
     }
 }
@@ -2692,6 +2731,11 @@ function showBoardBonusPopup(handRank, bonusAmount, duWinAmount) {
 
 function exitDoubleUp() {
     duCallToken = null;
+    _actionLock = false;
+    jackpotDrainActive = false;
+    if (window.CabinetState) CabinetState.setPresentationLocked(false);
+    // Re-enable all buttons after DU exit
+    document.querySelectorAll('.cab-btn').forEach(b => b.style.pointerEvents = '');
     stopShuffle();
     hideDuInfo();
     if (hasCabinetStage()) CabinetStage.exitDoubleUp();
@@ -2734,17 +2778,29 @@ function animateJackpotFill(amount, startBalance, handName) {
         let counterEl = null;
         let resetValue = 0;
 
+        // Log which counter element is targeted for debugging
+        console.log(`[JackpotFill] handName=${handName}, active4kSlot=${active4kSlot}, amount=${amount}`);
+
         if (handName === 'FullHouse') {
             counterEl = document.querySelector('#jp-counter-fh .jp-cval');
+            console.log(`[JackpotFill] FullHouse counter selector: #jp-counter-fh .jp-cval → ${counterEl ? 'FOUND' : 'NOT FOUND'}`);
         } else if (handName === 'FourOfAKind') {
             // slot 0 = counter-a, slot 1 = counter-b
-            counterEl = document.querySelector(
-                active4kSlot === 0 ? '#jp-counter-a .jp-cval' : '#jp-counter-b .jp-cval'
-            );
+            const selector = active4kSlot === 0 ? '#jp-counter-a .jp-cval' : '#jp-counter-b .jp-cval';
+            counterEl = document.querySelector(selector);
+            console.log(`[JackpotFill] FourOfAKind counter selector: ${selector} → ${counterEl ? 'FOUND' : 'NOT FOUND'} (active4kSlot=${active4kSlot})`);
         } else if (handName === 'StraightFlush') {
             counterEl = document.querySelector('#jp-counter-center .jp-cval');
+            console.log(`[JackpotFill] StraightFlush counter selector: #jp-counter-center .jp-cval → ${counterEl ? 'FOUND' : 'NOT FOUND'}`);
+        } else {
+            console.warn(`[JackpotFill] Unknown handName="${handName}" — no counter element will animate`);
         }
         resetValue = JACKPOT_RESET[handName] || 0;
+        console.log(`[JackpotFill] JACKPOT_RESET["${handName}"] = ${resetValue}`);
+
+        // Add visual freeze overlay during jackpot drain
+        const cardArea = document.getElementById('card-area');
+        if (cardArea) cardArea.classList.add('frozen');
 
         // Pre-win counter value equals the full amount won (entire jackpot is awarded).
         const jackpotStart = amount;
@@ -2770,6 +2826,8 @@ function animateJackpotFill(amount, startBalance, handName) {
             if (progress >= 1) {
                 CabinetClock.unregisterHandler(tickHandler);
                 if (winEl) winEl.textContent = '';
+                // Remove freeze overlay
+                if (cardArea) cardArea.classList.remove('frozen');
                 resolve();
             }
         };
@@ -2861,6 +2919,8 @@ function animateDrainToCredits(amount, startBalance, handRank = null) {
 /// Used for DU loss siphon — the player watches their winnings disappear.
 async function mainTakeScore() {
     if (!(gameState === 'win' || gameState === 'doubleup') || takeScoreAnimating) return;
+    takeScoreAnimating = true;
+    if (window.CabinetState) CabinetState.setPresentationLocked(true);
     playPress();
     stopShuffle();
     const collectHandRank = gameState === 'doubleup'
@@ -2907,6 +2967,9 @@ async function mainTakeScore() {
     } catch (e) {
         balance += amount;
         updateCredits();
+    } finally {
+        takeScoreAnimating = false;
+        if (window.CabinetState) CabinetState.setPresentationLocked(false);
     }
 
     if (!machineClosed) {
@@ -2917,6 +2980,8 @@ async function mainTakeScore() {
 
 async function mainTakeHalf() {
     if (!(gameState === 'win' || gameState === 'doubleup') || takeScoreAnimating) return;
+    takeScoreAnimating = true;
+    if (window.CabinetState) CabinetState.setPresentationLocked(true);
     playPress();
 
     const wasInDoubleUp = gameState === 'doubleup';

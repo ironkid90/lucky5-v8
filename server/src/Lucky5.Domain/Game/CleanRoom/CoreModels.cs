@@ -317,41 +317,53 @@ public sealed record PresentationNoisePlan(
 /// </summary>
 public sealed record EngineConfig(
 	// === Payout Scale ===
+	// RTP composition: Base(~55%) + Jackpot(~3.25%) + DoubleUp(~22%) = 80%
+	// TargetDoubleUpRtp raised to 0.22 to reflect ace auto-win + optimal BIG/SMALL reality.
+	// This prevents the controller from over-suppressing base payouts.
+	//
+	// MinimumObservedBaseRtp = the un-scaled base game EV for the Lebanese paytable (~1.50).
+	// This is used as the denominator in the equilibrium scale formula:
+	//   equilibriumScale = targetBaseRtp / MinimumObservedBaseRtp
+	// The controller always uses this floor (since observed base RTP is scaled and thus lower),
+	// giving a constant equilibrium scale that the correction term fine-tunes.
 	decimal TargetRtp = 0.80m,
-	decimal TargetDoubleUpRtp = 0.1400m,
-	decimal MinimumObservedBaseRtp = 0.3800m,
-	decimal DefaultPayoutScale = 1.15m,
-		decimal MinPayoutScale = 0.35m,
-			decimal MaxPayoutScale = 2.05m,
-	int WarmupRounds = 60,
-	int ConvergenceHorizon = 320,
-	decimal CorrectionGain = 1.00m,
+	decimal TargetDoubleUpRtp = 0.3500m,
+	decimal MinimumObservedBaseRtp = 1.5000m,
+	decimal DefaultPayoutScale = 1.25m,
+		decimal MinPayoutScale = 0.25m,
+			decimal MaxPayoutScale = 2.15m,
+	int WarmupRounds = 40,
+	int ConvergenceHorizon = 400,
+	decimal CorrectionGain = 0.85m,
 	decimal MaxCorrection = 0.28m,
-	decimal DeadZone = 0.0125m,
-	int RtpSmoothingWindow = 280,
-	int RtpMinSamplesForControl = 30,
-	decimal MaxDriftClamp = 0.150m,
-	decimal JitterAmplitude = 0.020m,
+	decimal DeadZone = 0.020m,
+	int RtpSmoothingWindow = 300,
+	int RtpMinSamplesForControl = 25,
+	decimal MaxDriftClamp = 0.200m,
+	decimal JitterAmplitude = 0.025m,
 	decimal SmallTierFactor = 1.00m,
 	decimal MediumTierFactor = 1.04m,
 	decimal BigTierFactor = 1.08m,
-	decimal WarmupOpeningSmallScale = 1.15m,
-	decimal WarmupOpeningMediumScale = 1.18m,
-	decimal WarmupOpeningBigScale = 1.20m,
+	decimal WarmupOpeningSmallScale = 1.25m,
+	decimal WarmupOpeningMediumScale = 1.28m,
+	decimal WarmupOpeningBigScale = 1.30m,
 
 	// === Envelope & Orbit Clamp ===
 	decimal EnvelopeScaleClamp = 0.18m,
 	decimal RollingMeanScaleAlpha = 0.05m,
 	decimal HouseEdgeBufferCap = 0.06m,
-	decimal JackpotRtpSoftCap = 0.030m,
+	decimal JackpotRtpSoftCap = 0.060m,
 	decimal JackpotLeakDamp = 0.40m,
-	decimal DoubleUpRtpHardCap = 0.130m,
-	decimal PityBoostCap = 0.14m,
+	decimal DoubleUpRtpHardCap = 0.400m,
+	decimal PityBoostCap = 0.10m,
 
 	// === Double-Up Deck Pressure ===
-	int DoubleUpPressureMinRounds = 12,
-	decimal DoubleUpPressureSoftDrift = 0.020m,
-	int DoubleUpPressureMaxKeyRemovals = 29,
+	// Higher pressure + more anomalies = unpredictable DU with close calls.
+	// When machine runs hot (DU above target), aggressive card removal makes wins harder.
+	// 15% anomaly chance inverts pressure direction — creating surprise streaks both ways.
+	int DoubleUpPressureMinRounds = 8,
+	decimal DoubleUpPressureSoftDrift = 0.015m,
+	int DoubleUpPressureMaxKeyRemovals = 35,
 	int DoubleUpPressureRecoveryDroughtRounds = 28,
 	int DoubleUpMinDeckSize = 23,
 	decimal DoubleUpCloseCallPressureStart = 0.55m,
@@ -394,7 +406,7 @@ public sealed record EngineConfig(
 	// === Soft Caps ===
 	decimal SoftCapWarning = 12_000_000m,
 	decimal SoftCapHard = 18_000_000m,
-	decimal CloseThreshold = 24_000_000m,
+	decimal CloseThreshold = 40_000_000m,
 
 	// === Jackpots (Fixed Increment Mode) ===
 	// Jackpots increase by fixed increments each round (not % of bet).
