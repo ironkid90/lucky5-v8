@@ -61,19 +61,18 @@ const GAME_CONFIG = Object.freeze({
     // frames at runtime by CabinetClock.delayMs().
     timing: Object.freeze({
         // ── Global stagger (one value drives everything) ──
-        // AI9 PARITY: 4 frames = ~66ms @ 60Hz for snappy mechanical arcade feel
-        // This matches the 50-80ms stagger observed in AI9 reference video
-        staggerFrames:         4,   // ~66ms @ 60Hz — snappy mechanical arcade feel
+        // VSYNC-locked @ 60Hz: 8 frames = ~133ms per card — snappy arcade pace
+        staggerFrames:         8,   // ~133ms @ 60Hz — snappy but readable arcade feel
 
         // Main-hand deal
-        dealBaseFrames:        3,   //  50ms — brief pause before first card
-        dealDurationFrames:    4,   //  66ms — slide/thump settle time
+        dealBaseFrames:        4,   // ~66ms — brief pause before first card
+        dealDurationFrames:    8,   // ~133ms — slide/thump settle time
 
         // Draw (replacing non-held cards) — equal timing to initial deal
-        drawStaggerFrames:     4,   //  66ms — equal to deal stagger (staggerFrames)
+        drawStaggerFrames:     8,   // ~133ms — equal to deal stagger (staggerFrames)
         drawOutFrames:         1,   //   1 frame — old cards vanish instantly
-        drawDurationFrames:    4,   //  66ms — replacement slide/thump settle
-        drawRevealStartFrames: 3,   //  50ms — equal to dealBaseFrames
+        drawDurationFrames:    8,   // ~133ms — replacement slide/thump settle
+        drawRevealStartFrames: 4,   // ~66ms — equal to dealBaseFrames
 
         // Legacy ms aliases — derived from staggerFrames at 60fps
         // Kept for backward-compat with game.js helpers that still use delayMs.
@@ -87,9 +86,8 @@ const GAME_CONFIG = Object.freeze({
         get drawRevealStartMs()  { return Math.round(this.drawRevealStartFrames * 1000 / 60); },
 
         // Double-up: shuffle animation
-        // AI9 PARITY: Rapid reel blur ~30-50ms per frame swap for mechanical slot effect
-        // The active slot cycles through card faces visibly, like a spinning reel.
-        shuffleFrameMs:        35,  // Rapid reel blur cadence (30-50ms range, using 35ms for balance)
+        // Authentic reel shuffle cadence (100ms per frame swap for clear readable card cycling)
+        shuffleFrameMs:        100, // 100ms per frame swap for readable card cycling
 
         // Bet Ramp timing
         betRampTickMs:         50,  // 50ms per step tick
