@@ -65,7 +65,7 @@ async function loadGameRules() {
             GAME_RULES = { ...GAME_RULES, ...JSON.parse(cached) };
         }
         
-        const res = await fetch(`${API_BASE_URL}/api/config/rules?t=${Date.now()}`);
+        const res = await fetch(`${API}/api/config/rules?t=${Date.now()}`);
         if (res.ok) {
             const data = await res.json();
             if (data.configured && data.rules) {
@@ -2199,7 +2199,6 @@ async function doDeal() {
                             }
                             if (roundDoubleUpAvailable) {
                                 CabinetClock.delayMs(T.winToDoubleUpDelayMs || 800, () => {
-                                    _actionLock = true;
                                     startDoubleUpFlow();
                                 });
                             } else {
