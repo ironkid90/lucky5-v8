@@ -80,6 +80,11 @@ const GAME_CONFIG = Object.freeze({
         // Double-up: shuffle animation (Video Klein style)
         shuffleFrameMs:       100, // Calibrated shuffle cadence (~100ms per frame swap)
 
+        // Bet Ramp timing
+        betRampTickMs:         50,  // 50ms per step tick (must match main config)
+        betRampStep:          100,  // 100 credits per step
+        betRampSettleMs:      200,  // 200ms settle after ramp completes
+
         // Double-up: reveal sequence
         duRevealDelayMs:      150,  // wait after server responds before showing challenger card
         duWinHoldMs:          900,  // show WIN message before advancing the trail
