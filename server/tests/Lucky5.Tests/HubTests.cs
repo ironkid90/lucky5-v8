@@ -21,6 +21,9 @@ public static class HubTests
         await BetPlacedEmittedOnDealAsync(failures);
         await HoldCardUpdatedEmittedOnDrawAsync(failures);
         await DoubleUpWinEmittedOnDoubleUpAsync(failures);
+        await LobbyMachinesUpdatedEmittedOnJoinMachineAsync(failures);
+        await LobbyMachinesUpdatedEmittedOnLeaveMachineAsync(failures);
+        await LobbyMachinesUpdatedEmittedOnSpectatorJoinAsync(failures);
     }
 
     private static async Task GetAvailableMachinesReturnsMachineListAsync(List<string> failures)
@@ -66,7 +69,9 @@ public static class HubTests
     {
         var gameServiceMock = new Mock<IGameService>();
         var registry = new ConnectionRegistry();
-        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry, new Mock<ISpectatorTracker>().Object);
+        var spectatorTrackerMock = new Mock<ISpectatorTracker>();
+        spectatorTrackerMock.Setup(x => x.GetLobbySnapshot()).Returns(new List<LobbyMachineInfo>());
+        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry, spectatorTrackerMock.Object);
 
         var hubClientsMock = new Mock<IHubCallerClients>();
         var allMock = new Mock<IClientProxy>();
@@ -97,6 +102,10 @@ public static class HubTests
         var groupsProperty = typeof(Hub).GetProperty("Groups");
         groupsProperty?.SetValue(hub, groupManagerMock.Object);
 
+        gameServiceMock
+            .Setup(x => x.GetMachinesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<MachineListingDto>());
+
         await hub.JoinMachine(1);
 
         allMock.Verify(
@@ -110,7 +119,9 @@ public static class HubTests
     {
         var gameServiceMock = new Mock<IGameService>();
         var registry = new ConnectionRegistry();
-        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry, new Mock<ISpectatorTracker>().Object);
+        var spectatorTrackerMock = new Mock<ISpectatorTracker>();
+        spectatorTrackerMock.Setup(x => x.GetLobbySnapshot()).Returns(new List<LobbyMachineInfo>());
+        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry, spectatorTrackerMock.Object);
 
         var hubClientsMock = new Mock<IHubCallerClients>();
         var allMock = new Mock<IClientProxy>();
@@ -132,6 +143,10 @@ public static class HubTests
 
         var groupsProperty = typeof(Hub).GetProperty("Groups");
         groupsProperty?.SetValue(hub, groupManagerMock.Object);
+
+        gameServiceMock
+            .Setup(x => x.GetMachinesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<MachineListingDto>());
 
         await hub.LeaveMachine(1);
 
@@ -346,6 +361,142 @@ public static class HubTests
             Times.Once);
 
         Assert(failures, "DoubleUp should emit DoubleUpWin event with result", true);
+    }
+
+    private static async Task LobbyMachinesUpdatedEmittedOnJoinMachineAsync(List<string> failures)
+    {
+        var gameServiceMock = new Mock<IGameService>();
+        var registry = new ConnectionRegistry();
+        var spectatorTrackerMock = new Mock<ISpectatorTracker>();
+        spectatorTrackerMock.Setup(x => x.GetLobbySnapshot()).Returns(new List<LobbyMachineInfo>());
+        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry, spectatorTrackerMock.Object);
+
+        var hubClientsMock = new Mock<IHubCallerClients>();
+        var allMock = new Mock<IClientProxy>();
+        var callerMock = new Mock<ISingleClientProxy>();
+        var groupClientMock = new Mock<IClientProxy>();
+        var groupManagerMock = new Mock<IGroupManager>();
+
+        hubClientsMock.Setup(x => x.All).Returns(allMock.Object);
+        hubClientsMock.Setup(x => x.Caller).Returns(callerMock.Object);
+        hubClientsMock.Setup(x => x.Group(It.IsAny<string>())).Returns(groupClientMock.Object);
+
+        var hubContextMock = new Mock<HubCallerContext>();
+        var userId = Guid.NewGuid();
+        var user = new ClaimsPrincipal(new ClaimsIdentity(new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, userId.ToString())
+        }));
+        hubContextMock.Setup(x => x.User).Returns(user);
+        hubContextMock.Setup(x => x.ConnectionAborted).Returns(CancellationToken.None);
+        hubContextMock.Setup(x => x.Items).Returns(new Dictionary<object, object?> { ["machine-id"] = 1 });
+
+        var contextProperty = typeof(Hub).GetProperty("Context");
+        contextProperty?.SetValue(hub, hubContextMock.Object);
+
+        var clientsProperty = typeof(Hub).GetProperty("Clients");
+        clientsProperty?.SetValue(hub, hubClientsMock.Object);
+
+        var groupsProperty = typeof(Hub).GetProperty("Groups");
+        groupsProperty?.SetValue(hub, groupManagerMock.Object);
+
+        gameServiceMock
+            .Setup(x => x.GetMachinesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<MachineListingDto>());
+
+        await hub.JoinMachine(1);
+
+        allMock.Verify(
+            x => x.SendCoreAsync("LobbyMachinesUpdated", It.Is<object[]>(args => args.Length == 1), It.IsAny<CancellationToken>()),
+            Times.Once);
+
+        Assert(failures, "JoinMachine should emit LobbyMachinesUpdated event", true);
+    }
+
+    private static async Task LobbyMachinesUpdatedEmittedOnLeaveMachineAsync(List<string> failures)
+    {
+        var gameServiceMock = new Mock<IGameService>();
+        var registry = new ConnectionRegistry();
+        var spectatorTrackerMock = new Mock<ISpectatorTracker>();
+        spectatorTrackerMock.Setup(x => x.GetLobbySnapshot()).Returns(new List<LobbyMachineInfo>());
+        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry, spectatorTrackerMock.Object);
+
+        var hubClientsMock = new Mock<IHubCallerClients>();
+        var allMock = new Mock<IClientProxy>();
+        var groupClientMock = new Mock<IClientProxy>();
+        var groupManagerMock = new Mock<IGroupManager>();
+
+        hubClientsMock.Setup(x => x.All).Returns(allMock.Object);
+        hubClientsMock.Setup(x => x.Group(It.IsAny<string>())).Returns(groupClientMock.Object);
+
+        var hubContextMock = new Mock<HubCallerContext>();
+        hubContextMock.Setup(x => x.ConnectionAborted).Returns(CancellationToken.None);
+        hubContextMock.Setup(x => x.Items).Returns(new Dictionary<object, object?> { ["machine-id"] = 1 });
+
+        var contextProperty = typeof(Hub).GetProperty("Context");
+        contextProperty?.SetValue(hub, hubContextMock.Object);
+
+        var clientsProperty = typeof(Hub).GetProperty("Clients");
+        clientsProperty?.SetValue(hub, hubClientsMock.Object);
+
+        var groupsProperty = typeof(Hub).GetProperty("Groups");
+        groupsProperty?.SetValue(hub, groupManagerMock.Object);
+
+        gameServiceMock
+            .Setup(x => x.GetMachinesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<MachineListingDto>());
+
+        await hub.LeaveMachine(1);
+
+        allMock.Verify(
+            x => x.SendCoreAsync("LobbyMachinesUpdated", It.Is<object[]>(args => args.Length == 1), It.IsAny<CancellationToken>()),
+            Times.Once);
+
+        Assert(failures, "LeaveMachine should emit LobbyMachinesUpdated event", true);
+    }
+
+    private static async Task LobbyMachinesUpdatedEmittedOnSpectatorJoinAsync(List<string> failures)
+    {
+        var gameServiceMock = new Mock<IGameService>();
+        var registry = new ConnectionRegistry();
+        var spectatorTrackerMock = new Mock<ISpectatorTracker>();
+        spectatorTrackerMock.Setup(x => x.GetLobbySnapshot()).Returns(new List<LobbyMachineInfo>());
+        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry, spectatorTrackerMock.Object);
+
+        var hubClientsMock = new Mock<IHubCallerClients>();
+        var allMock = new Mock<IClientProxy>();
+        var callerMock = new Mock<ISingleClientProxy>();
+        var groupClientMock = new Mock<IClientProxy>();
+        var groupManagerMock = new Mock<IGroupManager>();
+
+        hubClientsMock.Setup(x => x.All).Returns(allMock.Object);
+        hubClientsMock.Setup(x => x.Caller).Returns(callerMock.Object);
+        hubClientsMock.Setup(x => x.Group(It.IsAny<string>())).Returns(groupClientMock.Object);
+
+        var hubContextMock = new Mock<HubCallerContext>();
+        hubContextMock.Setup(x => x.ConnectionAborted).Returns(CancellationToken.None);
+        hubContextMock.Setup(x => x.Items).Returns(new Dictionary<object, object?>());
+
+        var contextProperty = typeof(Hub).GetProperty("Context");
+        contextProperty?.SetValue(hub, hubContextMock.Object);
+
+        var clientsProperty = typeof(Hub).GetProperty("Clients");
+        clientsProperty?.SetValue(hub, hubClientsMock.Object);
+
+        var groupsProperty = typeof(Hub).GetProperty("Groups");
+        groupsProperty?.SetValue(hub, groupManagerMock.Object);
+
+        gameServiceMock
+            .Setup(x => x.GetMachinesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<MachineListingDto>());
+
+        await hub.JoinMachineAsSpectator(1);
+
+        allMock.Verify(
+            x => x.SendCoreAsync("LobbyMachinesUpdated", It.Is<object[]>(args => args.Length == 1), It.IsAny<CancellationToken>()),
+            Times.Once);
+
+        Assert(failures, "JoinMachineAsSpectator should emit LobbyMachinesUpdated event", true);
     }
 
     private static void Assert(List<string> failures, string message, bool condition)
