@@ -78,7 +78,7 @@ public sealed class AuthController(IAuthService authService, IHostEnvironment en
     }
 
     [HttpPost("TransferBalance")]
-    public async Task<ActionResult<ApiResponse<WalletLedgerEntryDto>>> TransferBalance([FromBody] TransferRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<WalletLedgerEntryDto>>> TransferBalance([FromBody] UserTransactionRequest request, CancellationToken cancellationToken)
     {
         var userId = HttpContext.RequireUserId();
         var row = await authService.TransferBalanceAsync(userId, request, cancellationToken);
