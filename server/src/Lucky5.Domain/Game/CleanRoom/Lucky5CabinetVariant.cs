@@ -10,14 +10,15 @@ public sealed class Lucky5CabinetVariant : ICabinetVariantEngine
 
 	public IReadOnlyList<CleanRoomCard> BuildDeck() => FiveCardDrawEngine.BuildStandardDeck();
 
-	public IDoubleUpSession StartDoubleUp(int openingAmount, ulong seedRoot, int machineCreditBaseline, int boardBetAmount)
+	public IDoubleUpSession StartDoubleUp(int openingAmount, ulong seedRoot, int machineCreditBaseline, int boardBetAmount, int? closeThreshold = null)
 	{
 		return Lucky5DoubleUpEngine.Start(
 			openingAmount: openingAmount,
 			seedRoot: seedRoot,
 			machineCreditBaseline: machineCreditBaseline,
 			options: null,
-			boardBetAmount: boardBetAmount
+			boardBetAmount: boardBetAmount,
+			closeThreshold: closeThreshold
 		);
 	}
 

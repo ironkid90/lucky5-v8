@@ -12,7 +12,7 @@ using Lucky5.Domain.Entities;
 using Lucky5.Domain.Game.CleanRoom;
 using Lucky5.Application.Interfaces;
 
-public sealed class GameService(IDataStore store, IEntropyGenerator entropyGenerator, IMachineStateCache stateCache) : IGameService
+public sealed class GameService(IDataStore store, IEntropyGenerator entropyGenerator, IMachineStateCache stateCache, ISpectatorTracker spectatorTracker) : IGameService
 {
 	private const decimal CashInUnit = 200_000m;
 	private const decimal MaxSessionCashIn = 1_000_000m;
@@ -22,7 +22,6 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 	private const string CabinetPaytableHash = "sha256:cbe816c3eaa3d13cf0a55850ffb27140b856a35015a8fd44d41bd507babdb196";
 	private const int CabinetReplayMaxEvents = 128;
 	private static readonly EngineConfig EngineCfg = EngineConfig.Default;
-	private static readonly decimal MachineCloseCredits = EngineCfg.CloseThreshold;
 	private static readonly ConcurrentDictionary<string, SemaphoreSlim> CabinetCommandLocks = new(StringComparer.OrdinalIgnoreCase);
 	private static readonly JsonSerializerOptions CabinetJsonOptions = new(JsonSerializerDefaults.Web)
 	{
@@ -37,17 +36,17 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 	private static readonly Dictionary<string, decimal> Rules = new(StringComparer.OrdinalIgnoreCase)
 	{
 		["RoyalFlush"] = 1000,
-		["StraightFlush"] = 75,
-		["FourOfAKind"] = 15,
-		["FullHouse"] = 12,
-		["Flush"] = 10,
-		["Straight"] = 8,
-		["ThreeOfAKind"] = 3,
-		["TwoPair"] = 2
+		["StraightFlush"] = 300,
+		["FourOfAKind"] = 120,
+		["FullHouse"] = 20,
+		["Flush"] = 14,
+		["Straight"] = 10,
+		["ThreeOfAKind"] = 6,
+		["TwoPair"] = 4
 	};
 
 	public GameService(IDataStore store, IEntropyGenerator entropyGenerator)
-		: this(store, entropyGenerator, new InMemoryMachineStateCache(new MachineCacheTtlOptions()))
+		: this(store, entropyGenerator, new InMemoryMachineStateCache(new MachineCacheTtlOptions()), new SpectatorTracker())
 	{
 	}
 
@@ -56,7 +55,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 
 	public async Task<IReadOnlyList<MachineListingDto>> GetMachinesAsync(CancellationToken cancellationToken)
 		=> (await store.GetMachinesAsync())
-			.Select(x => new MachineListingDto(x.Id, x.Name, x.IsOpen, x.MinBet, x.MaxBet))
+			.Select(x => new MachineListingDto(x.Id, x.Name, x.IsOpen, x.MinBet, x.MaxBet, x.BetIncrement))
 			.ToArray();
 
 	public async Task<PlayerLobbyDto> GetLobbyAsync(Guid userId, CancellationToken cancellationToken)
@@ -87,7 +86,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 				var remaining = (reservedUntil.Value - DateTime.UtcNow).TotalSeconds;
 				idleSec = remaining > 0 ? (int)remaining : 0;
 			}
-			int spectatorCount = 0;
+			int spectatorCount = spectatorTracker.GetSpectatorCount(machine.Id);
 
 			lobbyMachines.Add(new PlayerLobbyMachineDto(
 				machine.Id,
@@ -141,6 +140,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		var profile = await RequireProfileAsync(userId);
 		await RequireMachineAsync(machineId);
 		var session = await RequireMachineSessionAsync(userId, machineId, createIfMissing: true);
+
 		var dto = await ToMachineSessionDtoAsync(userId, session, profile.WalletBalance);
 		stateCache.SetMachineSession(userId, machineId, dto);
 		return dto;
@@ -149,7 +149,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 	public async Task<MachineSessionDto> CashInAsync(Guid userId, int machineId, decimal amount, CancellationToken cancellationToken)
 	{
 		var profile = await RequireProfileAsync(userId);
-		await RequireMachineAsync(machineId);
+		var machine = await RequireMachineAsync(machineId);
 		var session = await RequireMachineSessionAsync(userId, machineId, createIfMissing: true);
 
 		if (amount <= 0)
@@ -175,7 +175,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		session.MachineCredits += amount;
 		session.TotalCashIn += amount;
 		session.LastUpdatedUtc = DateTime.UtcNow;
-		session.IsMachineClosed = session.MachineCredits >= MachineCloseCredits;
+		session.IsMachineClosed = session.MachineCredits >= machine.CloseThreshold;
 
 		await store.UpdateMachineSessionAsync(session);
 
@@ -196,7 +196,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		return await ToMachineSessionDtoAsync(userId, session, profile.WalletBalance);
 	}
 
-	public async Task<MachineSessionDto> CashOutAsync(Guid userId, int machineId, CancellationToken cancellationToken)
+	public async Task<MachineSessionDto> CashOutAsync(Guid userId, int machineId, CancellationToken cancellationToken, bool bypassRules = false)
 	{
 		var profile = await RequireProfileAsync(userId);
 		var session = await RequireMachineSessionAsync(userId, machineId, createIfMissing: false);
@@ -211,10 +211,19 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		{
 			if (!latestRound.IsCompleted)
 			{
-				throw new InvalidOperationException("Finish the current round before cashing out");
+				try
+				{
+					_ = await DrawAsync(userId, new DrawRequest(latestRound.RoundId, []), CancellationToken.None);
+					latestRound = await store.GetRoundAsync(latestRound.RoundId);
+				}
+				catch
+				{
+					latestRound.IsCompleted = true;
+					await store.SaveRoundAsync(latestRound);
+				}
 			}
 
-			if (!latestRound.IsPayoutSettled && latestRound.WinAmount > 0m)
+			if (latestRound is not null && !latestRound.IsPayoutSettled && latestRound.WinAmount > 0m)
 			{
 				var settleCredits = latestRound.DoubleUpSession?.CurrentAmount ?? (int)latestRound.WinAmount;
 				await FinalizeDoubleUpAsync(latestRound, session, settleCredits);
@@ -222,11 +231,14 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 			}
 		}
 
-		if (!CanCashOut(session))
-			throw new InvalidOperationException("Cash out is only available when the machine is closed or credits reach the 2x session threshold");
+		if (!bypassRules)
+		{
+			if (!CanCashOut(session))
+				throw new InvalidOperationException("Cash out is only available when the machine is closed or credits reach the 2x session threshold");
 
-		if (profile.MinimumOut > 0m && session.MachineCredits < profile.MinimumOut)
-			throw new InvalidOperationException($"Minimum cash-out threshold is {profile.MinimumOut:N0} credits");
+			if (profile.MinimumOut > 0m && session.MachineCredits < profile.MinimumOut)
+				throw new InvalidOperationException($"Minimum cash-out threshold is {profile.MinimumOut:N0} credits");
+		}
 
 		var amount = session.MachineCredits;
 		profile.WalletBalance += amount;
@@ -260,10 +272,22 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 
 		if (session.IsMachineClosed)
 			throw new InvalidOperationException("Machine is closed - cash out to wallet before continuing");
-		if (request.BetAmount <= 0 || request.BetAmount < machine.MinBet || request.BetAmount > machine.MaxBet)
+
+		// Last-hand behavior: if credits < min bet but > 0, allow play with remaining credits.
+		// Paytable scales to the actual bet amount. This prevents orphaned credits on the machine.
+		bool isLastHand = session.MachineCredits > 0 && session.MachineCredits < machine.MinBet;
+		var effectiveMinBet = isLastHand ? 1m : machine.MinBet;
+
+		if (request.BetAmount <= 0 || request.BetAmount < effectiveMinBet || request.BetAmount > machine.MaxBet)
 			throw new InvalidOperationException("Bet amount is outside machine limits");
-		if (session.MachineCredits < request.BetAmount * 2m)
-			throw new InvalidOperationException("Insufficient machine credits for deal and draw - cash in from wallet first");
+		if (session.MachineCredits < request.BetAmount && !isLastHand)
+			throw new InvalidOperationException("Insufficient machine credits for deal - cash in from wallet first");
+
+		// For last-hand: clamp bet to available credits
+		if (isLastHand)
+		{
+			request = request with { BetAmount = Math.Min(request.BetAmount, session.MachineCredits) };
+		}
 
 		ulong seed;
 		int active4kSlot;
@@ -368,14 +392,17 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		var session = await RequireMachineSessionAsync(userId, round.MachineId, createIfMissing: false);
 		if (session.IsMachineClosed)
 			throw new InvalidOperationException("Machine is closed - cash out to wallet before continuing");
-		if (session.MachineCredits < round.BetAmount)
-			throw new InvalidOperationException("Not enough machine credits for draw");
 
-		session.MachineCredits -= round.BetAmount;
+		// Last-hand: draw ante is deducted from remaining credits (may be 0 if all consumed by deal)
+		var drawAnte = Math.Min(round.BetAmount, session.MachineCredits);
+		if (drawAnte > 0)
+		{
+			session.MachineCredits -= drawAnte;
+		}
 		session.LastUpdatedUtc = DateTime.UtcNow;
 
 		var ledger = await RequireMachineLedgerAsync(round.MachineId);
-		ledger.CapitalIn += round.BetAmount;
+		ledger.CapitalIn += drawAnte;
 		// Draw-phase jackpot contribution honors the deal-time starred slot.
 		// This keeps "only the starred 4OAK grows this round" consistent across
 		// both the deal bet and the draw bet even if the ledger's live active
@@ -389,7 +416,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		await store.AddWalletLedgerEntryAsync(new WalletLedgerEntry
 		{
 			UserId = userId,
-			Amount = -round.BetAmount,
+			Amount = -drawAnte,
 			BalanceAfter = session.MachineCredits, // Represents machine credits context here
 			TransactionType = "DrawBet",
 			ReferenceId = round.RoundId.ToString("N"),
@@ -509,7 +536,33 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 			payout = (int)jackpotWon;
 		}
 
-		session.IsMachineClosed = session.MachineCredits >= MachineCloseCredits;
+		// KENT evaluation: sequential straight in positional slots (ascending OR descending).
+		// Evaluated on BOTH initial dealt cards AND final cards after draw.
+		// Binary per round — if either qualifies, it's a Kent. Never double-count.
+		var initialCleanCards = round.InitialCards.Select(ConvertToCleanRoomCard).ToArray();
+		var finalCleanCards = state.Hand;
+		bool isKent = FiveCardDrawEngine.IsSequentialBoard(initialCleanCards) || FiveCardDrawEngine.IsSequentialBoard(finalCleanCards);
+		if (isKent)
+		{
+			round.IsKent = true;
+			ledger.KentStreak++;
+			if (ledger.KentStreak >= 3)
+			{
+				// Kent jackpot pays!
+				jackpotWon = ledger.JackpotKent;
+				ledger.JackpotKent = EngineCfg.JackpotKentStart;
+				ledger.KentStreak = 0;
+				ledger.CapitalOut += jackpotWon;
+				ledger.JackpotCapitalOut += jackpotWon;
+				payout = (int)jackpotWon;
+			}
+		}
+		round.KentStreak = ledger.KentStreak;
+
+		// SERIE: increments every round, visible counter on cabinet
+		ledger.MachineSerie = (int.Parse(string.IsNullOrEmpty(ledger.MachineSerie) ? "0" : ledger.MachineSerie) + 1).ToString();
+
+		session.IsMachineClosed = session.MachineCredits >= machine.CloseThreshold;
 
 		round.WinAmount = payout;
 		round.OriginalWinAmount = payout;
@@ -529,25 +582,6 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		return new DrawResultDto(round.RoundId, finalCards.Select(ToDto).ToArray(), handRankName, payout, session.MachineCredits, jackpotWon, jackpots, doubleUpAvailable);
 	}
 
-	public async Task<RewardStatusDto> DoubleUpAsync(Guid userId, DoubleUpRequest request, CancellationToken cancellationToken)
-	{
-		var round = await store.GetRoundAsync(request.RoundId);
-		if (round == null || round.UserId != userId)
-			throw new KeyNotFoundException("Round not found");
-
-		var sessionBank = await RequireMachineSessionAsync(userId, round.MachineId, createIfMissing: false);
-
-		var result = await GuessDoubleUpAsync(userId, request.RoundId, request.Guess, cancellationToken);
-		var status = result.Status switch
-		{
-			"Win" => "Won",
-			"SafeFail" => "Won",
-			"MachineClosed" => "Won",
-			_ => "Lost"
-		};
-		return new RewardStatusDto(request.RoundId, status, result.CurrentAmount, result.WalletBalance, result.ChallengerCard);
-	}
-
 	public async Task<DoubleUpResultDto> StartDoubleUpAsync(Guid userId, Guid roundId, CancellationToken cancellationToken)
 	{
 		var round = await store.GetRoundAsync(roundId);
@@ -559,15 +593,14 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 			throw new InvalidOperationException("No win to double up");
 		round.DoubleUpOffered = true;
 
+		var machine = await RequireMachineAsync(round.MachineId);
 		var sessionBank = await RequireMachineSessionAsync(userId, round.MachineId, createIfMissing: false);
-		if (sessionBank.IsMachineClosed || sessionBank.MachineCredits >= MachineCloseCredits)
+		if (sessionBank.IsMachineClosed || sessionBank.MachineCredits >= machine.CloseThreshold)
 			throw new InvalidOperationException("Machine closed - take score and cash out to wallet");
 		var machineCreditBaseline = (int)Math.Min(sessionBank.MachineCredits, int.MaxValue);
 
 		// WinAmount already includes the Ace multiplier from DrawAsync.
 		var startingAmount = (int)round.WinAmount;
-
-		var machine = await RequireMachineAsync(round.MachineId);
 		var engine = CabinetVariantFactory.GetEngine(machine.GameId);
 
 		Lucky5DoubleUpSession session;
@@ -593,7 +626,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 				new Lucky5DoubleUpOptions(
 					FirstLuckyMultiplier: specialRules.LuckyFiveFirstSwitchMultiplier,
 					RepeatLuckyMultiplier: specialRules.LuckyFiveRepeatSwitchMultiplier,
-					MaxCreditLimit: Decimal.ToInt32(EngineCfg.CloseThreshold),
+					MaxCreditLimit: Decimal.ToInt32(machine.CloseThreshold),
 					AceCountsHiOrLo: specialRules.AceAutoWinsDoubleUp,
 					LuckyFiveArmsNoLose: specialRules.LuckyFiveSwitchArmsNoLose),
 				Decimal.ToInt32(round.BetAmount));
@@ -866,7 +899,8 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 
 			await store.UpdateMachineLedgerAsync(ledger);
 
-			session.IsMachineClosed = session.MachineCredits >= MachineCloseCredits;
+			var machine = await RequireMachineAsync(round.MachineId);
+			session.IsMachineClosed = session.MachineCredits >= machine.CloseThreshold;
 			await store.UpdateMachineSessionAsync(session);
 
 			var profile = await RequireProfileAsync(userId);
@@ -897,6 +931,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		if (round.TakeHalfUsed)
 			throw new InvalidOperationException("Take-half already used this round");
 
+		var machine = await RequireMachineAsync(round.MachineId);
 		var session = await RequireMachineSessionAsync(userId, round.MachineId, createIfMissing: false);
 		var currentAmount = round.DoubleUpSession != null ? round.DoubleUpSession.CurrentAmount : (int)round.WinAmount;
 		if (currentAmount <= 1) throw new InvalidOperationException("Amount too small to split");
@@ -907,7 +942,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		// Add half to machine credits immediately
 		session.MachineCredits += half;
 		session.LastUpdatedUtc = DateTime.UtcNow;
-		session.IsMachineClosed = session.MachineCredits >= MachineCloseCredits;
+		session.IsMachineClosed = session.MachineCredits >= machine.CloseThreshold;
 
 		// Update round state
 		round.TakeHalfUsed = true;
@@ -1349,7 +1384,11 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 				return;
 
 			case "swap_double_up_card":
+				// Legacy alias: this IS the dealer-switch action used by older clients.
 				await SwitchDealerAsync(userId, GetRequiredGuidPayload(command.Payload, "round_id"), cancellationToken);
+				return;
+			case "swap_challenger_card":
+				await SwapDoubleUpCardAsync(userId, GetRequiredGuidPayload(command.Payload, "round_id"), GetRequiredIntPayload(command.Payload, "swap_position"), cancellationToken);
 				return;
 
 			case "take_half":
@@ -1874,9 +1913,10 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 			return;
 		}
 
+		var machine = await RequireMachineAsync(round.MachineId);
 		session.MachineCredits += cashoutCredits;
 		session.LastUpdatedUtc = DateTime.UtcNow;
-		session.IsMachineClosed = session.MachineCredits >= MachineCloseCredits;
+		session.IsMachineClosed = session.MachineCredits >= machine.CloseThreshold;
 		round.IsPayoutSettled = true;
 		round.SettledAmount += cashoutCredits;
 		var ledgerDelta = round.SettledAmount - round.OriginalWinAmount;
@@ -1943,7 +1983,9 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 			ledger.JackpotStraightFlush,
 			ledger.MachineSerial,
 			ledger.MachineSerie,
-			ledger.MachineKent);
+			ledger.MachineKent,
+			ledger.JackpotKent,
+			ledger.KentStreak);
 
 	private static CabinetSnapshotDto BuildCabinetSnapshot(
 		Guid userId,
@@ -2410,8 +2452,11 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		var fhCap = cfg.GetFullHouseCapForRank(ledger.JackpotFullHouseRank);
 		ledger.JackpotFullHouse = Math.Min(ledger.JackpotFullHouse + cfg.JackpotFullHouseContribution, fhCap);
 
-		// STRAIGHT FLUSH: Fixed increment of 800 per round. Capped at 10,000,000.
+		// STRAIGHT FLUSH: Fixed increment of 800 per round. Capped at 9,999,999.
 		ledger.JackpotStraightFlush = Math.Min(ledger.JackpotStraightFlush + cfg.JackpotStraightFlushContribution, cfg.JackpotStraightFlushCap);
+
+		// KENT: Fixed increment of 200 per round. Capped at 5,000,000.
+		ledger.JackpotKent = Math.Min(ledger.JackpotKent + cfg.JackpotKentContribution, cfg.JackpotKentCap);
 	}
 
 	private static IReadOnlyList<PokerCardDto> BuildCardTrail(Lucky5DoubleUpSession session)
@@ -2421,6 +2466,18 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 			return session.CurrentBoardCards.Select(ToCleanRoomDto).ToArray();
 		}
 		return [ToCleanRoomDto(session.DealerCard)];
+	}
+
+	private static CleanRoomCard ConvertToCleanRoomCard(PokerCard c)
+	{
+		var rankInt = c.Rank switch
+		{
+			"A" => 14, "K" => 13, "Q" => 12, "J" => 11, "10" => 10,
+			"9" => 9, "8" => 8, "7" => 7, "6" => 6, "5" => 5,
+			"4" => 4, "3" => 3, "2" => 2,
+			_ => throw new ArgumentException($"Unknown rank: {c.Rank}")
+		};
+		return new CleanRoomCard(rankInt, c.Suit[0]);
 	}
 
 	private static PokerCardDto ToDto(PokerCard c)
@@ -2492,33 +2549,6 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		_ => "Nothing"
 	};
 
-	private static IReadOnlyList<string> BuildCabinetEnabledButtons(string gameState, int cardCount, MachineSessionState session)
-	{
-		var buttons = new List<string> { "menu", "bet" };
-		if (gameState == "dealing")
-		{
-			buttons.AddRange(Enumerable.Range(0, cardCount).Select(index => $"hold_{index}"));
-			buttons.Add("cancel");
-			buttons.Add("deal");
-		}
-		else if (gameState is "drawn" or "double_up")
-		{
-			buttons.AddRange(["big", "small", "take_half", "take_score"]);
-		}
-		else if (!session.IsMachineClosed && session.MachineCredits > 0m)
-		{
-			buttons.Add("deal");
-			buttons.Add("hold_0");
-		}
-
-		if (CanCashOut(session))
-		{
-			buttons.Add("take_score");
-		}
-
-		return buttons.Distinct().ToArray();
-	}
-
 	private static string BuildCabinetMessage(string gameState, decimal pendingWin, MachineSessionState session)
 	{
 		return gameState switch
@@ -2556,10 +2586,12 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 
 	private async Task<MachineSessionState> RequireMachineSessionAsync(Guid userId, int machineId, bool createIfMissing)
 	{
+		var machine = await store.GetMachineAsync(machineId);
+		var closeThreshold = machine?.CloseThreshold ?? EngineCfg.CloseThreshold;
 		var session = await store.GetMachineSessionAsync(userId, machineId);
 		if (session != null)
 		{
-			if (NormalizeMachineSession(session))
+			if (NormalizeMachineSession(session, closeThreshold))
 			{
 				await store.UpdateMachineSessionAsync(session);
 				InvalidateCaches(userId, machineId);
@@ -2575,7 +2607,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		return session;
 	}
 
-	private static bool NormalizeMachineSession(MachineSessionState session)
+	private static bool NormalizeMachineSession(MachineSessionState session, decimal closeThreshold)
 	{
 		var changed = false;
 
@@ -2599,7 +2631,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 				changed = true;
 			}
 		}
-		else if (!session.IsMachineClosed && session.MachineCredits >= MachineCloseCredits)
+		else if (!session.IsMachineClosed && session.MachineCredits >= closeThreshold)
 		{
 			session.IsMachineClosed = true;
 			changed = true;

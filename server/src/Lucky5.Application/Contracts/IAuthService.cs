@@ -14,8 +14,10 @@ public interface IAuthService
     Task<MemberProfileDto> GetUserByIdAsync(Guid userId, CancellationToken cancellationToken);
     Task<IReadOnlyList<WalletLedgerEntryDto>> GetMemberHistoryAsync(Guid userId, CancellationToken cancellationToken);
     Task<WalletLedgerEntryDto> TransferBalanceAsync(Guid userId, TransferRequest request, CancellationToken cancellationToken);
-    Task<WalletLedgerEntryDto> MoveWinToBalanceAsync(Guid userId, TransferRequest request, CancellationToken cancellationToken);
+    Task<WalletLedgerEntryDto> MoveWinToBalanceAsync(Guid userId, UserTransactionRequest request, CancellationToken cancellationToken);
     Task<WalletLedgerEntryDto> UpdateCreditAsync(Guid userId, TransferRequest request, CancellationToken cancellationToken);
+    Task<WalletLedgerEntryDto> DepositAsync(Guid userId, UserTransactionRequest request, CancellationToken cancellationToken);
+    Task<WalletLedgerEntryDto> WithdrawAsync(Guid userId, UserTransactionRequest request, CancellationToken cancellationToken);
     Task<WalletLedgerEntryDto> RechargeBonusAsync(Guid userId, decimal rechargeAmount, CancellationToken cancellationToken);
     Task LogoutAsync(string accessToken, CancellationToken cancellationToken);
 }

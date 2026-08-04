@@ -15,4 +15,22 @@ public sealed class Machine
     public decimal SecondRechargeCredit { get; init; } = 500_000m;
     public decimal FirstRechargeBonus { get; init; } = 20_000m;
     public decimal SecondRechargeBonus { get; init; } = 75_000m;
+
+    /// <summary>
+    /// Bet increment for the Lebanese bet ramp counter. Credits tick up in these steps.
+    /// Default: 100 credits per tick.
+    /// </summary>
+    public decimal BetIncrement { get; init; } = 100m;
+
+    /// <summary>
+    /// Tier-based machine close threshold. When machine credits reach this value,
+    /// the machine freezes and the player must cash out.
+    /// Tier 1 (2500-5000): 11M | Tier 2 (5000-10000): 22M | Tier 3 (10000-20000): 44M
+    /// </summary>
+    public decimal CloseThreshold => MinBet switch
+    {
+        >= 10000 => 44_000_000m,
+        >= 5000 => 22_000_000m,
+        _ => 11_000_000m
+    };
 }

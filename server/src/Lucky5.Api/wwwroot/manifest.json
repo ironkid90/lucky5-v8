@@ -1,0 +1,16 @@
+{
+  "name": "Lucky 5 Video Poker",
+  "short_name": "Lucky 5",
+  "start_url": "/",
+  "display": "fullscreen",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/assets/images/coin.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}

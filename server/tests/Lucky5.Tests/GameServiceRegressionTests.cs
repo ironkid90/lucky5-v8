@@ -1130,7 +1130,7 @@ public static class GameServiceRegressionTests
 		=> store.MachineSessions.Values.First(session => session.UserId == userId && session.MachineId == machineId);
 
 	private static GameService CreateService(InMemoryDataStore store, IEntropyGenerator? entropy = null, IMachineStateCache? cache = null)
-		=> new(new InMemoryDataStoreAdapter(store), entropy ?? new DefaultEntropyGenerator(), cache ?? new NullMachineStateCache());
+		=> new(new InMemoryDataStoreAdapter(store), entropy ?? new DefaultEntropyGenerator(), cache ?? new NullMachineStateCache(), new SpectatorTracker());
 
 	private static AdminService CreateAdminService(InMemoryDataStore store)
 		=> new(

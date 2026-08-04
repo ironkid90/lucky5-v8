@@ -394,6 +394,158 @@ public sealed class AdminService(InMemoryDataStore store, PersistenceStore persi
         return Task.FromResult(ToAdminMachineDto(machine));
     }
 
+    /// <summary>
+    /// Force-reset a machine even if it has active rounds/DU sessions.
+    /// Clears all active rounds, settles any pending payouts to wallet, and resets the ledger.
+    /// Use this to unstick machines with stuck DU sessions from disconnected players.
+    /// </summary>
+    public Task<AdminMachineDto> ForceResetMachineAsync(Guid adminId, int machineId, CancellationToken cancellationToken)
+    {
+        var machine = store.Machines.Values.FirstOrDefault(m => m.Id == machineId)
+            ?? throw new KeyNotFoundException("Machine not found");
+        if (!store.MachineLedgers.TryGetValue(machineId, out var ledger))
+            throw new KeyNotFoundException("Machine ledger not found");
+
+        // Force-clear all active rounds for this machine
+        var stuckRounds = store.ActiveRounds.Values
+            .Where(r => r.MachineId == machineId)
+            .Select(r => r.RoundId)
+            .ToList();
+        foreach (var roundId in stuckRounds)
+        {
+            store.ActiveRounds.TryRemove(roundId, out _);
+        }
+
+        // Force-settle all machine sessions — return credits to wallet
+        foreach (var session in store.MachineSessions.Values.Where(s => s.MachineId == machineId))
+        {
+            if (session.MachineCredits > 0m && store.MemberProfiles.TryGetValue(session.UserId, out var profile))
+            {
+                lock (store.LedgerSync)
+                {
+                    profile.WalletBalance += session.MachineCredits;
+                }
+                store.Ledger.Add(new WalletLedgerEntry
+                {
+                    UserId = session.UserId,
+                    Amount = session.MachineCredits,
+                    Type = "ForceCashout",
+                    Reference = $"machine:{machineId}:force_reset",
+                    BalanceAfter = profile.WalletBalance,
+                    CreatedUtc = DateTime.UtcNow
+                });
+            }
+            session.MachineCredits = 0m;
+            session.TotalCashIn = 0m;
+            session.IsMachineClosed = false;
+            session.CounterplayScore = 0;
+            session.LastUpdatedUtc = DateTime.UtcNow;
+        }
+
+        // Reset ledger
+        lock (store.LedgerSync)
+        {
+            var cfg = EngineConfig.Default;
+            ledger.CapitalIn = 0;
+            ledger.CapitalOut = 0;
+            ledger.BaseCapitalOut = 0;
+            ledger.JackpotCapitalOut = 0;
+            ledger.DoubleUpCapitalOut = 0;
+            ledger.RoundCount = 0;
+            ledger.TargetRtp = cfg.TargetRtp;
+            ledger.LastDistributionMode = DistributionMode.Neutral;
+            ledger.LastRoundUtc = DateTime.UtcNow;
+            ledger.LastPayoutScale = cfg.DefaultPayoutScale;
+            ledger.ConsecutiveLosses = 0;
+            ledger.RoundsSinceMediumWin = 0;
+            ledger.CooldownRoundsRemaining = 0;
+            ledger.NetSinceLastClose = 0;
+            ledger.LastCloseRoundNumber = 0;
+            ledger.LastWinChannel = WinChannel.None;
+            ledger.RoundsSinceLucky5Hit = 0;
+            ledger.JackpotFullHouse = cfg.JackpotFullHouseStart;
+            ledger.JackpotFullHouseRank = 14;
+            ledger.JackpotFourOfAKindA = cfg.JackpotFourOfAKindStart;
+            ledger.JackpotFourOfAKindB = cfg.JackpotFourOfAKindStart;
+            ledger.ActiveFourOfAKindSlot = 0;
+            ledger.JackpotStraightFlush = cfg.JackpotStraightFlushStart;
+        }
+
+        store.Ledger.Add(new WalletLedgerEntry
+        {
+            UserId = adminId,
+            Amount = 0,
+            Type = "AdminForceReset",
+            Reference = $"machine:{machineId}:force_reset:{stuckRounds.Count}_rounds_cleared",
+            BalanceAfter = store.MemberProfiles.TryGetValue(adminId, out var p) ? p.WalletBalance : 0,
+            CreatedUtc = DateTime.UtcNow
+        });
+
+        PersistStateSafe(cancellationToken);
+        return Task.FromResult(ToAdminMachineDto(machine));
+    }
+
+    /// <summary>
+    /// Force-end a specific player's session on a machine.
+    /// Settles remaining credits to wallet and clears the session.
+    /// </summary>
+    public Task<AdminUserDto> ForceEndSessionAsync(Guid adminId, Guid userId, int machineId, CancellationToken cancellationToken)
+    {
+        if (!store.Users.TryGetValue(userId, out var user))
+            throw new KeyNotFoundException("User not found");
+
+        // Clear active rounds for this user on this machine
+        var userRounds = store.ActiveRounds.Values
+            .Where(r => r.UserId == userId && r.MachineId == machineId)
+            .Select(r => r.RoundId)
+            .ToList();
+        foreach (var roundId in userRounds)
+        {
+            store.ActiveRounds.TryRemove(roundId, out _);
+        }
+
+        // Settle session credits to wallet
+        var session = store.MachineSessions.Values
+            .FirstOrDefault(s => s.UserId == userId && s.MachineId == machineId);
+        if (session is not null)
+        {
+            if (session.MachineCredits > 0m && store.MemberProfiles.TryGetValue(userId, out var profile))
+            {
+                lock (store.LedgerSync)
+                {
+                    profile.WalletBalance += session.MachineCredits;
+                }
+                store.Ledger.Add(new WalletLedgerEntry
+                {
+                    UserId = userId,
+                    Amount = session.MachineCredits,
+                    Type = "ForceCashout",
+                    Reference = $"machine:{machineId}:force_end_session",
+                    BalanceAfter = profile.WalletBalance,
+                    CreatedUtc = DateTime.UtcNow
+                });
+            }
+            session.MachineCredits = 0m;
+            session.TotalCashIn = 0m;
+            session.IsMachineClosed = false;
+            session.CounterplayScore = 0;
+            session.LastUpdatedUtc = DateTime.UtcNow;
+        }
+
+        store.Ledger.Add(new WalletLedgerEntry
+        {
+            UserId = adminId,
+            Amount = 0,
+            Type = "AdminForceEndSession",
+            Reference = $"user:{userId}:machine:{machineId}:force_end",
+            BalanceAfter = store.MemberProfiles.TryGetValue(adminId, out var p) ? p.WalletBalance : 0,
+            CreatedUtc = DateTime.UtcNow
+        });
+
+        PersistStateSafe(cancellationToken);
+        return Task.FromResult(ToAdminUserDto(user));
+    }
+
     public Task<DoorState> SetDoorStateAsync(int machineId, DoorState doorState, CancellationToken cancellationToken)
     {
         if (!store.MachineLedgers.TryGetValue(machineId, out var ledger))

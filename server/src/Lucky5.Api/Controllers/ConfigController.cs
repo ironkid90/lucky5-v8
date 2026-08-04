@@ -29,4 +29,22 @@ public class ConfigController(IConfiguration configuration) : ControllerBase
 
         return Ok(new { configured = true, config });
     }
+
+    /// <summary>
+    /// Returns dynamic game rules and server limits to align the client.
+    /// </summary>
+    [HttpGet("rules")]
+    public IActionResult GetGameRules()
+    {
+        var rules = new
+        {
+            maxStake = configuration.GetValue<int>("Game:MaxStake", 50000),
+            minStake = configuration.GetValue<int>("Game:MinStake", 100),
+            animationPaceMs = configuration.GetValue<int>("Game:AnimationPaceMs", 150),
+            doubleUpMaxConsecutive = configuration.GetValue<int>("Game:DoubleUpMaxConsecutive", 5),
+            rtpTarget = configuration.GetValue<string>("Game:RtpTarget", "96.5")
+        };
+
+        return Ok(new { configured = true, rules });
+    }
 }

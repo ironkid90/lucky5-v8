@@ -96,6 +96,15 @@ window.CabinetShell = (function () {
             return;
         }
 
+        const allCount = machines.length;
+        const busyCount = machines.filter(m => m.isOccupied).length;
+        const readyCount = machines.filter(m => m.isOpen && !m.isOccupied).length;
+        
+        const countsEl = document.getElementById('lobby-aggregate-counts');
+        if (countsEl) {
+            countsEl.textContent = `(ALL ${allCount} / READY ${readyCount} / BUSY ${busyCount})`;
+        }
+
         const fmt = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
 
         machines.forEach(machine => {
@@ -111,12 +120,19 @@ window.CabinetShell = (function () {
             statusRow.className = 'lobby-machine-status-row';
 
             const statusEl = document.createElement('div');
-            statusEl.className = `lobby-machine-status ${machine.isOpen ? 'is-open' : 'is-closed'}`;
-            statusEl.textContent = machine.isOpen ? 'OPEN' : 'CLOSED';
+            statusEl.className = `lobby-machine-status ${machine.isOpen ? (machine.isOccupied ? 'is-occupied' : 'is-open') : 'is-closed'}`;
+            statusEl.textContent = machine.isOpen ? (machine.isOccupied ? `IN USE BY ${machine.occupiedByUsername?.toUpperCase() || 'PLAYER'}` : 'OPEN') : 'CLOSED';
 
             const idEl = document.createElement('div');
             idEl.className = 'lobby-machine-id';
             idEl.textContent = `CAB #${machine.id}`;
+            
+            const specEl = document.createElement('div');
+            specEl.className = 'lobby-machine-spectators';
+            specEl.style.cssText = 'font-size:8px; color:#888; text-align:right; flex-grow:1; display:flex; justify-content:flex-end; align-items:center; gap:4px; margin-right:4px;';
+            if (machine.activeSpectatorCount > 0) {
+                specEl.innerHTML = `<span style="display:inline-block;width:6px;height:6px;background:red;border-radius:50%;box-shadow:0 0 4px red;animation:pulse 1s infinite;"></span> ${machine.activeSpectatorCount} SPECTATOR${machine.activeSpectatorCount !== 1 ? 'S' : ''}`;
+            }
 
             const nameEl = document.createElement('div');
             nameEl.className = 'lobby-machine-name';
@@ -132,9 +148,14 @@ window.CabinetShell = (function () {
 
             const cta = document.createElement('div');
             cta.className = 'lobby-machine-cta';
-            cta.textContent = machine.isOpen ? 'ENTER CABINET' : 'UNAVAILABLE';
+            if (machine.isOpen) {
+                cta.textContent = machine.isOccupied ? 'SPECTATE' : 'ENTER CABINET';
+            } else {
+                cta.textContent = 'UNAVAILABLE';
+            }
 
             statusRow.appendChild(statusEl);
+            statusRow.appendChild(specEl);
             statusRow.appendChild(idEl);
             meta.appendChild(statusRow);
             meta.appendChild(nameEl);

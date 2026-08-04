@@ -2,6 +2,7 @@ using System.Net;
 using System.Security.Claims;
 using System.Text.Json;
 using Lucky5.Api.Observability;
+using Lucky5.Api.Middleware;
 using Lucky5.Application.Contracts;
 using Lucky5.Application.Dtos;
 using Lucky5.Infrastructure.Services;
@@ -13,6 +14,8 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Configuration.AddEnvironmentVariables();
+
+builder.Services.AddMemoryCache(); // for rate limiting
 
 // NOTE: Rate limiting disabled for .NET 10 compatibility.
 // Re-enable when Microsoft.AspNetCore.RateLimiter has a stable .NET 10/11 build.
@@ -155,12 +158,37 @@ app.Use(async (context, next) =>
     await next();
 });
 
+app.Use(async (context, next) =>
+{
+    // Content Security Policy — start with report-only in development,
+    // enforced in production.
+    var isProduction = !app.Environment.IsDevelopment();
+    var headerName = isProduction
+        ? "Content-Security-Policy"
+        : "Content-Security-Policy-Report-Only";
+
+    context.Response.Headers[headerName] =
+        "default-src 'self'; " +
+        "script-src 'self' 'unsafe-inline' https://www.gstatic.com; " +
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+        "connect-src 'self' ws: wss:; " +
+        "img-src 'self' data:; " +
+        "font-src 'self' https://fonts.gstatic.com; " +
+        "frame-ancestors 'none'; " +
+        "base-uri 'self'; " +
+        "form-action 'self'";
+
+    await next();
+});
+
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
 app.UseRouting();
 app.UseCors();
 app.UseLangfuseTraceContext();
+app.UseMiddleware<SlidingWindowRateLimiterMiddleware>();
+app.UseMiddleware<AuditLoggingMiddleware>();
 // NOTE: Rate limiting disabled for .NET 10 compatibility - re-enable when stable
 // app.UseRateLimiter();
 app.MapControllers();

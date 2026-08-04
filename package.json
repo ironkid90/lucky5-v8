@@ -6,6 +6,35 @@
     "grep": "^0.1.0",
     "hermes-cli": "^1.0.0",
     "newrelic": "^14.1.2",
+    "playwright": "^1.62.0",
     "web": "^0.0.2"
-  }
+  },
+  "name": "lucky5-v8",
+  "version": "1.0.0",
+  "description": "Web-native Lucky 5 cabinet built around the existing .NET backend and CleanRoom game logic.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "devDependencies": {
+    "eslint": "^10.8.0",
+    "globals": "^17.7.0"
+  },
+  "scripts": {
+    "lint": "npx eslint \"server/src/Lucky5.Api/wwwroot/js/*.js\"",
+    "format:check": "dotnet format server/Lucky5.sln --verify-no-changes",
+    "test": "node --test tests/frontend/api-client.test.mjs tests/frontend/cabinet-store.test.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ironkid90/lucky5-v8.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/ironkid90/lucky5-v8/issues"
+  },
+  "homepage": "https://github.com/ironkid90/lucky5-v8#readme"
 }

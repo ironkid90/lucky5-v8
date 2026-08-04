@@ -33,4 +33,6 @@ public sealed class GameRound
     public PokerCard? AceCard { get; set; }
     public int AceMultiplier { get; set; } = 1;
     public bool AceMultiplierFired { get; set; }
+    public bool IsKent { get; set; }
+    public int KentStreak { get; set; }
 }

@@ -4,16 +4,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="lucky5-api-base" content="">
-    <title>Lucky 5 - Video Poker</title>
-    <link rel="stylesheet" href="/css/game.css?v=20">
-    <link rel="stylesheet" href="/css/cabinet-layout-vnext.css?v=2">
-    <link rel="stylesheet" href="/css/cabinet-labels-vnext.css?v=2">
-    <link rel="stylesheet" href="/css/cabinet-shell-vnext.css?v=2">
-    <link rel="stylesheet" href="/css/cabinet-frame-vnext.css?v=2">
-    <link rel="stylesheet" href="/css/cabinet-frame-azurefix.css?v=1">
-    <link rel="stylesheet" href="/css/cabinet-v8-realism.css?v=4">
-    <link rel="stylesheet" href="/css/cabinet-v8-quality.css?v=10">
-    <link rel="stylesheet" href="/css/cabinet-ai9-parity.css?v=5">
+    
+    <!-- PWA Standalone Mode -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#000000">
+
+    <!-- Asset Preloading -->
+        <link rel="preload" href="/css/cabinet-v8-quality.css?v=14" as="style">
+        <link rel="preload" href="/css/game.css?v=26" as="style">
+
+        <title>Lucky 5 - Video Poker</title>
+        <link rel="stylesheet" href="/css/game.css?v=26">
+        <link rel="stylesheet" href="/css/cabinet-layout-vnext.css?v=2">
+        <link rel="stylesheet" href="/css/cabinet-labels-vnext.css?v=3">
+        <link rel="stylesheet" href="/css/cabinet-shell-vnext.css?v=2">
+        <link rel="stylesheet" href="/css/cabinet-frame-vnext.css?v=3">
+        <link rel="stylesheet" href="/css/cabinet-frame-azurefix.css?v=1">
+        <link rel="stylesheet" href="/css/cabinet-v8-realism.css?v=4">
+        <link rel="stylesheet" href="/css/cabinet-v8-quality.css?v=14">
+        <link rel="stylesheet" href="/css/cabinet-ai9-parity.css?v=13">
     <link rel="icon" href="/assets/images/coin.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -29,6 +41,18 @@
                 <div class="loader-text" id="loader-text">LOADING ASSETS...</div>
             </div>
         </div>
+        <script>
+            (function() {
+                var dismiss = function() {
+                    var loader = document.getElementById('asset-loader');
+                    if (loader && !loader.classList.contains('done')) {
+                        loader.classList.add('done');
+                        setTimeout(function() { loader.style.display = 'none'; }, 500);
+                    }
+                };
+                setTimeout(dismiss, 2000);
+            })();
+        </script>
         <div class="crt-overlay"></div>
         <div id="auth-screen">
             <div class="auth-ambient"></div>
@@ -110,7 +134,10 @@
 
             <div class="lobby-body">
                 <div class="lobby-section">
-                    <div class="lobby-section-title">SELECT GAME</div>
+                    <div class="lobby-section-title" style="display:flex; justify-content:space-between; align-items:flex-end;">
+                        <span>SELECT GAME</span>
+                        <span id="lobby-aggregate-counts" style="font-size: 8px; color: #888; letter-spacing: 0.5px;"></span>
+                    </div>
                     <div class="lobby-game-grid" id="lobby-game-grid"></div>
                 </div>
 
@@ -187,13 +214,39 @@
                     </div>
                 </div>
                 <div class="admin-subnav-tabs" role="tablist">
-                    <button class="admin-tab-btn is-active" data-tab="players">PLAYERS</button>
-                    <button class="admin-tab-btn" data-tab="agents">AGENTS</button>
-                    <button class="admin-tab-btn" data-tab="machines">MACHINES</button>
-                </div>
+                                    <button class="admin-tab-btn is-active" data-tab="dashboard">DASHBOARD</button>
+                                    <button class="admin-tab-btn" data-tab="players">PLAYERS</button>
+                                    <button class="admin-tab-btn" data-tab="agents">AGENTS</button>
+                                    <button class="admin-tab-btn" data-tab="machines">MACHINES</button>
+                                    <button class="admin-tab-btn" data-tab="audit">AUDIT LOG</button>
+                                </div>
+
+                                <!-- SUBPAGE 0: DASHBOARD -->
+                                <div id="admin-pane-dashboard" class="admin-tab-pane is-active">
+                                    <div class="wallet-history-title">DASHBOARD — LIVE FLOOR OVERVIEW</div>
+                                    <div class="admin-section-help">Real-time metrics: player counts, wallet totals, machine status, recent transactions.</div>
+
+                                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin-bottom:12px;">
+                                        <div class="admin-stat-card"><span>TOTAL USERS</span><strong id="db-stat-users">--</strong></div>
+                                        <div class="admin-stat-card"><span>PLAYERS</span><strong id="db-stat-players">--</strong></div>
+                                        <div class="admin-stat-card"><span>AGENTS</span><strong id="db-stat-agents">--</strong></div>
+                                        <div class="admin-stat-card"><span>ADMINS</span><strong id="db-stat-admins">--</strong></div>
+                                        <div class="admin-stat-card"><span>TOTAL WALLETS</span><strong id="db-stat-wallets">--</strong></div>
+                                        <div class="admin-stat-card"><span>ACTIVE SESSIONS</span><strong id="db-stat-active-sessions">--</strong></div>
+                                        <div class="admin-stat-card"><span>OPEN MACHINES</span><strong id="db-stat-open-machines">--</strong></div>
+                                        <div class="admin-stat-card"><span>OBSERVED RTP</span><strong id="db-stat-rtp">--</strong></div>
+                                        <div class="admin-stat-card"><span>CAPITAL IN</span><strong id="db-stat-c-in">--</strong></div>
+                                        <div class="admin-stat-card"><span>CAPITAL OUT</span><strong id="db-stat-c-out">--</strong></div>
+                                        <div class="admin-stat-card"><span>TODAY CREDITS</span><strong id="db-stat-credits-today">--</strong></div>
+                                        <div class="admin-stat-card"><span>TODAY DEBITS</span><strong id="db-stat-debits-today">--</strong></div>
+                                    </div>
+
+                                    <div class="wallet-history-title">RECENT LEDGER ACTIVITY</div>
+                                    <div id="admin-dashboard-ledger" class="wallet-history-list" style="max-height:300px;overflow-y:auto;"></div>
+                                </div>
 
                 <!-- SUBPAGE 1: PLAYERS -->
-                <div id="admin-pane-players" class="admin-tab-pane is-active">
+                <div id="admin-pane-players" class="admin-tab-pane" style="display:none;">
                     <div class="wallet-history-title">PLAYERS & WALLETS</div>
                     <div class="admin-section-help">Create players/agents, manage roles, bulk assign agents, or credit/debit wallets.</div>
                     <div class="wallet-deposit-withdraw" style="flex-wrap:wrap;gap:6px;">
@@ -233,7 +286,26 @@
                         <button class="lobby-btn wallet-action-btn" id="admin-machine-refresh-btn" style="flex:1;">REFRESH MACHINES</button>
                     </div>
                     <div id="admin-machines-list" class="wallet-history-list"></div>
-                </div>
+                                    </div>
+
+                                    <!-- SUBPAGE 4: AUDIT LOG -->
+                                    <div id="admin-pane-audit" class="admin-tab-pane" style="display:none;">
+                                        <div class="wallet-history-title">ADMIN AUDIT LOG</div>
+                                        <div class="admin-section-help">Track all admin actions: user creation, role changes, credit/debit operations, machine resets.</div>
+                                        <div class="wallet-deposit-withdraw">
+                                            <button class="lobby-btn wallet-action-btn" id="admin-audit-refresh-btn" style="flex:1;">REFRESH AUDIT LOG</button>
+                                        </div>
+                                        <div id="admin-audit-list" class="wallet-history-list" style="max-height:500px;overflow-y:auto;"></div>
+                                    </div>
+
+                                    <!-- SUBPAGE: PLAYER DETAIL (shown dynamically) -->
+                                    <div id="admin-pane-player-detail" class="admin-tab-pane" style="display:none;">
+                                        <div class="wallet-history-title">PLAYER DETAIL</div>
+                                        <div class="wallet-deposit-withdraw">
+                                            <button class="lobby-btn wallet-action-btn" id="admin-player-detail-back-btn">&lt; BACK TO PLAYERS</button>
+                                        </div>
+                                        <div id="admin-player-detail-content" style="padding:8px;"></div>
+                                    </div>
             </div>
         </div>
 
@@ -295,6 +367,9 @@
                 <div id="stake-display" class="stake-val">STAKE<br><span>0</span></div>
             </div>
 
+            <!-- Watermark: always-visible "LUCKY 5 POKER" behind cards, cyan glow -->
+            <div id="watermark">LUCKY 5 POKER</div>
+
             <div id="card-area" data-zone="card-stage"></div>
 
             <!-- Large win amount display (clone-style golden outlined number) -->
@@ -317,7 +392,7 @@
                     <span class="jp-counter" id="jp-counter-center" data-jackpot-slot="sf"><span class="jp-tag">SF</span> <span class="jp-cval">0</span></span>
                     <span class="jp-counter" id="jp-counter-b" data-jackpot-slot="4k-b"><span class="jp-4k-star" id="jp-star-b">*</span><span class="jp-cval">0</span></span>
                 </div>
-                <div id="bonus-hand-text">4 OF A KIND WINS BONUS</div>
+                <div id="bonus-hand-text"><span class="bonus-4k">4 OF A KIND</span> <span class="bonus-wins">WINS BONUS</span></div>
             </div>
 
 
@@ -332,8 +407,8 @@
                 <div id="du-info-right">
                     <div id="du-gamble-box">
                         <div id="du-gamble-title">GAMBLE</div>
-                        <div id="du-gamble-rule1">ACE COUNTS HI OR LO</div>
-                        <div id="du-gamble-rule2">5 NEVER LOSE WHEN BUYING</div>
+                        <div id="du-gamble-rule1">ACE ALWAYS WIN</div>
+                                                <div id="du-gamble-rule2">5 NEVER LOSE WHEN BUYING</div>
                     </div>
                 </div>
             </div>
@@ -408,23 +483,25 @@
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
-    <script src="/js/game-config.js?v=9"></script>
+    <script src="/js/signalr.min.js?v=8.0.0"></script>
+    <script src="/js/game-config.js?v=15"></script>
+    <script src="/js/api-client.js?v=1"></script>
     <script src="/js/paytable-canvas.js?v=1"></script>
     <script src="/js/cabinet-clock.js?v=1"></script>
 
     <script src="/js/no_sleep.js?v=1"></script>
-    <script src="/js/game.js?v=31"></script>
-    <script src="/js/cabinet-stage-vnext.js?v=11"></script>
+    <script src="/js/game.js?v=36"></script>
+    <script src="/js/cabinet-stage-vnext.js?v=13"></script>
     <script src="/js/cabinet-pace-vnext.js?v=1"></script>
     <script src="/js/cabinet-image-cache.js?v=1"></script>
     <script src="/js/cabinet-firebase.js?v=1"></script>
     <script src="/js/cabinet-bonus.js?v=1"></script>
     <script src="/js/cabinet-shell-vnext.js?v=1"></script>
     <script src="/js/cabinet-state-vnext.js?v=1"></script>
-    <script src="/js/cabinet-audio-vnext.js?v=1"></script>
+        <script src="/js/cabinet-store-vnext.js?v=1"></script>
+        <script src="/js/cabinet-audio-vnext.js?v=1"></script>
     <script src="/js/cabinet-transition-vnext.js?v=1"></script>
-    <script src="/js/cabinet-orchestrator-vnext.js?v=2"></script>
+    <script src="/js/cabinet-orchestrator-vnext.js?v=3"></script>
     <script src="/js/cabinet-ai9-button-images.js?v=2"></script>
     <script src="/js/cabinet-v8-effects.js?v=3"></script>
 </body>

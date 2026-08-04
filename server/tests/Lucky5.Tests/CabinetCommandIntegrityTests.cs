@@ -417,7 +417,7 @@ public static class CabinetCommandIntegrityTests
         => store.MachineSessions.Values.First(session => session.UserId == userId && session.MachineId == machineId);
 
     private static GameService CreateService(InMemoryDataStore store, IEntropyGenerator? entropy = null, IMachineStateCache? cache = null)
-        => new(new InMemoryDataStoreAdapter(store), entropy ?? new DefaultEntropyGenerator(), cache ?? new NullMachineStateCache());
+        => new(new InMemoryDataStoreAdapter(store), entropy ?? new DefaultEntropyGenerator(), cache ?? new NullMachineStateCache(), new SpectatorTracker());
 
     private static void SeedPlayer(InMemoryDataStore store, Guid userId, string username, decimal walletBalance, decimal credit)
     {

@@ -27,7 +27,7 @@ public static class HubTests
     {
         var gameServiceMock = new Mock<IGameService>();
         var registry = new ConnectionRegistry();
-        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry);
+        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry, new Mock<ISpectatorTracker>().Object);
 
         var hubClientsMock = new Mock<IHubCallerClients>();
         var callerMock = new Mock<ISingleClientProxy>();
@@ -66,7 +66,7 @@ public static class HubTests
     {
         var gameServiceMock = new Mock<IGameService>();
         var registry = new ConnectionRegistry();
-        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry);
+        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry, new Mock<ISpectatorTracker>().Object);
 
         var hubClientsMock = new Mock<IHubCallerClients>();
         var allMock = new Mock<IClientProxy>();
@@ -110,7 +110,7 @@ public static class HubTests
     {
         var gameServiceMock = new Mock<IGameService>();
         var registry = new ConnectionRegistry();
-        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry);
+        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry, new Mock<ISpectatorTracker>().Object);
 
         var hubClientsMock = new Mock<IHubCallerClients>();
         var allMock = new Mock<IClientProxy>();
@@ -146,7 +146,7 @@ public static class HubTests
     {
         var gameServiceMock = new Mock<IGameService>();
         var registry = new ConnectionRegistry();
-        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry);
+        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry, new Mock<ISpectatorTracker>().Object);
 
         var hubClientsMock = new Mock<IHubCallerClients>();
         var allMock = new Mock<IClientProxy>();
@@ -183,7 +183,7 @@ public static class HubTests
     {
         var gameServiceMock = new Mock<IGameService>();
         var registry = new ConnectionRegistry();
-        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry);
+        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry, new Mock<ISpectatorTracker>().Object);
 
         var hubClientsMock = new Mock<IHubCallerClients>();
         var allMock = new Mock<IClientProxy>();
@@ -220,7 +220,7 @@ public static class HubTests
     {
         var gameServiceMock = new Mock<IGameService>();
         var registry = new ConnectionRegistry();
-        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry);
+        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry, new Mock<ISpectatorTracker>().Object);
 
         var hubClientsMock = new Mock<IHubCallerClients>();
         var callerMock = new Mock<ISingleClientProxy>();
@@ -228,6 +228,7 @@ public static class HubTests
 
         hubClientsMock.Setup(x => x.Caller).Returns(callerMock.Object);
         hubClientsMock.Setup(x => x.Group(It.IsAny<string>())).Returns(groupClientMock.Object);
+        hubClientsMock.Setup(x => x.Groups(It.IsAny<IReadOnlyList<string>>())).Returns(groupClientMock.Object);
 
         var hubContextMock = new Mock<HubCallerContext>();
         var userId = Guid.NewGuid();
@@ -263,7 +264,7 @@ public static class HubTests
     {
         var gameServiceMock = new Mock<IGameService>();
         var registry = new ConnectionRegistry();
-        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry);
+        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry, new Mock<ISpectatorTracker>().Object);
 
         var hubClientsMock = new Mock<IHubCallerClients>();
         var callerMock = new Mock<ISingleClientProxy>();
@@ -271,6 +272,7 @@ public static class HubTests
 
         hubClientsMock.Setup(x => x.Caller).Returns(callerMock.Object);
         hubClientsMock.Setup(x => x.Group(It.IsAny<string>())).Returns(groupClientMock.Object);
+        hubClientsMock.Setup(x => x.Groups(It.IsAny<IReadOnlyList<string>>())).Returns(groupClientMock.Object);
 
         var hubContextMock = new Mock<HubCallerContext>();
         var userId = Guid.NewGuid();
@@ -306,7 +308,7 @@ public static class HubTests
     {
         var gameServiceMock = new Mock<IGameService>();
         var registry = new ConnectionRegistry();
-        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry);
+        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry, new Mock<ISpectatorTracker>().Object);
 
         var hubClientsMock = new Mock<IHubCallerClients>();
         var callerMock = new Mock<ISingleClientProxy>();

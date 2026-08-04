@@ -13,10 +13,11 @@ public sealed class GameServiceSimple : IGameService
     public GameServiceSimple(
         InMemoryDataStore store,
         IEntropyGenerator entropyGenerator,
-        IPersistentStateStore persistentStateStore)
+        IPersistentStateStore persistentStateStore,
+        ISpectatorTracker spectatorTracker)
     {
         _ = persistentStateStore;
-        inner = new GameService(new InMemoryDataStoreAdapter(store), entropyGenerator, new InMemoryMachineStateCache(new MachineCacheTtlOptions()));
+        inner = new GameService(new InMemoryDataStoreAdapter(store), entropyGenerator, new InMemoryMachineStateCache(new MachineCacheTtlOptions()), spectatorTracker);
     }
 
     public Task<IReadOnlyList<string>> GetGamesAsync(CancellationToken cancellationToken) => inner.GetGamesAsync(cancellationToken);
@@ -25,7 +26,7 @@ public sealed class GameServiceSimple : IGameService
     public Task<DefaultRulesDto> GetDefaultRulesAsync(CancellationToken cancellationToken) => inner.GetDefaultRulesAsync(cancellationToken);
     public Task<MachineSessionDto> GetMachineSessionAsync(Guid userId, int machineId, CancellationToken cancellationToken) => inner.GetMachineSessionAsync(userId, machineId, cancellationToken);
     public Task<MachineSessionDto> CashInAsync(Guid userId, int machineId, decimal amount, CancellationToken cancellationToken) => inner.CashInAsync(userId, machineId, amount, cancellationToken);
-    public Task<MachineSessionDto> CashOutAsync(Guid userId, int machineId, CancellationToken cancellationToken) => inner.CashOutAsync(userId, machineId, cancellationToken);
+    public Task<MachineSessionDto> CashOutAsync(Guid userId, int machineId, CancellationToken cancellationToken, bool bypassRules = false) => inner.CashOutAsync(userId, machineId, cancellationToken, bypassRules);
     public Task<CabinetSnapshotDto> GetCabinetSnapshotAsync(Guid userId, int machineId, CancellationToken cancellationToken) => inner.GetCabinetSnapshotAsync(userId, machineId, cancellationToken);
     public Task<CabinetCommandResultDto> SubmitCabinetCommandAsync(Guid userId, CabinetCommandDto command, CancellationToken cancellationToken) => inner.SubmitCabinetCommandAsync(userId, command, cancellationToken);
     public Task<CabinetReplayDto> GetCabinetReplayAsync(Guid userId, int machineId, long lastStateVersion, long lastSequenceNumber, CancellationToken cancellationToken) => inner.GetCabinetReplayAsync(userId, machineId, lastStateVersion, lastSequenceNumber, cancellationToken);

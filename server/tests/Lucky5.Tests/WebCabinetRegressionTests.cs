@@ -7,6 +7,9 @@ public static class WebCabinetRegressionTests
         string program;
         string indexHtml;
         string gameJs;
+        string gameCss;
+        string apiClientJs;
+        string cabinetStoreJs;
         string readme;
         string devScript;
 
@@ -15,6 +18,9 @@ public static class WebCabinetRegressionTests
             program = await File.ReadAllTextAsync(ResolveRepoFilePath("server", "src", "Lucky5.Api", "Program.cs"));
             indexHtml = await File.ReadAllTextAsync(ResolveRepoFilePath("server", "src", "Lucky5.Api", "wwwroot", "index.html"));
             gameJs = await File.ReadAllTextAsync(ResolveRepoFilePath("server", "src", "Lucky5.Api", "wwwroot", "js", "game.js"));
+            gameCss = await File.ReadAllTextAsync(ResolveRepoFilePath("server", "src", "Lucky5.Api", "wwwroot", "css", "game.css"));
+            apiClientJs = await File.ReadAllTextAsync(ResolveRepoFilePath("server", "src", "Lucky5.Api", "wwwroot", "js", "api-client.js"));
+            cabinetStoreJs = await File.ReadAllTextAsync(ResolveRepoFilePath("server", "src", "Lucky5.Api", "wwwroot", "js", "cabinet-store-vnext.js"));
             readme = await File.ReadAllTextAsync(ResolveRepoFilePath("README.md"));
             devScript = await File.ReadAllTextAsync(ResolveRepoFilePath("dev.ps1"));
         }
@@ -57,6 +63,36 @@ public static class WebCabinetRegressionTests
                 && gameJs.Contains("/api/Auth/verify-otp", StringComparison.Ordinal)
                 && gameJs.Contains("allowLobbyFallback: true", StringComparison.Ordinal)
                 && gameJs.Contains("btn-logout-menu", StringComparison.Ordinal));
+
+        Assert(
+            failures,
+            "The web cabinet should load the typed transport boundary and route API calls through it.",
+            indexHtml.Contains("/js/api-client.js", StringComparison.Ordinal)
+                && apiClientJs.Contains("class ApiClient", StringComparison.Ordinal)
+                && gameJs.Contains("transportClient", StringComparison.Ordinal)
+                && gameJs.Contains("invokeHub", StringComparison.Ordinal));
+
+        Assert(
+            failures,
+            "The cabinet store layer should wire selectors, dispatch, and optimistic updates on top of CabinetState.",
+            indexHtml.Contains("/js/cabinet-store-vnext.js", StringComparison.Ordinal)
+                && cabinetStoreJs.Contains("selectors", StringComparison.Ordinal)
+                && cabinetStoreJs.Contains("dispatch", StringComparison.Ordinal)
+                && cabinetStoreJs.Contains("optimistic", StringComparison.Ordinal)
+                && cabinetStoreJs.Contains("createSelector", StringComparison.Ordinal));
+
+        Assert(
+            failures,
+            "Admin submenus should use a responsive grid so every tab remains reachable inside the portrait cabinet viewport.",
+            indexHtml.Contains("admin-tab-btn", StringComparison.Ordinal)
+                && indexHtml.Contains("data-tab=\"dashboard\"", StringComparison.Ordinal)
+                && indexHtml.Contains("data-tab=\"players\"", StringComparison.Ordinal)
+                && indexHtml.Contains("data-tab=\"agents\"", StringComparison.Ordinal)
+                && indexHtml.Contains("data-tab=\"machines\"", StringComparison.Ordinal)
+                && indexHtml.Contains("data-tab=\"audit\"", StringComparison.Ordinal)
+                && gameCss.Contains(".admin-subnav-tabs", StringComparison.Ordinal)
+                && gameCss.Contains("display: grid", StringComparison.Ordinal)
+                && gameCss.Contains("grid-template-columns: repeat(auto-fit, minmax(90px, 1fr))", StringComparison.Ordinal));
 
         Assert(
             failures,

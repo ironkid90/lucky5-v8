@@ -181,18 +181,9 @@ public static class MachinePolicy
 
         var liveScale = ResolveLivePayoutScale(state, jitter, cfg);
 
-        if (state.RoundCount < cfg.WarmupRounds)
-        {
-            var warmupProgress = cfg.WarmupRounds <= 1
-                ? 1m
-                : Math.Clamp((state.RoundCount - 1m) / (cfg.WarmupRounds - 1m), 0m, 1m);
-
-            return new PayoutScaleResult(
-                Lerp(cfg.WarmupOpeningSmallScale, liveScale.SmallScale, warmupProgress),
-                Lerp(cfg.WarmupOpeningMediumScale, liveScale.MediumScale, warmupProgress),
-                Lerp(cfg.WarmupOpeningBigScale, liveScale.BigScale, warmupProgress));
-        }
-
+        // Warmup: controller is inactive for first 30 rounds (no correction),
+        // but we do NOT artificially boost payouts. The live scale at baseline
+        // is used directly — no generosity burst that machine-hoppers can exploit.
         return liveScale;
     }
 
@@ -216,23 +207,23 @@ public static class MachinePolicy
             correction = Math.Clamp(-drift * cfg.CorrectionGain * rampFactor, -cfg.MaxCorrection, cfg.MaxCorrection);
         }
 
-        decimal crisisBoost = 0m;
-        if (state.ConsecutiveLosses >= cfg.CrisisThreshold)
-            crisisBoost = cfg.CrisisScaleBoost;
-
-        var warmupBias = 0m;
-        if (state.RoundCount > 0 && state.RoundCount <= cfg.WarmupRounds)
-        {
-            var decay = cfg.WarmupRounds <= 1
-                ? 0m
-                : 1m - ((state.RoundCount - 1m) / (cfg.WarmupRounds - 1m));
-            warmupBias = Math.Max(0m, decay) * 0.08m;
-        }
-
-        var rawScale = equilibriumScale + correction + warmupBias + jitter + crisisBoost;
+        var rawScale = equilibriumScale + correction + jitter;
         var smallScale = rawScale * cfg.SmallTierFactor;
         var mediumScale = rawScale * cfg.MediumTierFactor;
         var bigScale = rawScale * cfg.BigTierFactor;
+
+        // Warmup: blend each tier's opening scale down to equilibrium.
+        // At RoundCount=1, the opening scales are used exactly (progress=0).
+        // At RoundCount=WarmupRounds, the equilibrium scales are used (progress=1).
+        if (state.RoundCount > 0 && state.RoundCount <= cfg.WarmupRounds)
+        {
+            var warmupProgress = cfg.WarmupRounds <= 1
+                ? 1m
+                : (state.RoundCount - 1m) / (cfg.WarmupRounds - 1m);
+            smallScale = Lerp(cfg.WarmupOpeningSmallScale, smallScale, warmupProgress);
+            mediumScale = Lerp(cfg.WarmupOpeningMediumScale, mediumScale, warmupProgress);
+            bigScale = Lerp(cfg.WarmupOpeningBigScale, bigScale, warmupProgress);
+        }
 
         return new PayoutScaleResult(
             Math.Clamp(smallScale, cfg.MinPayoutScale, cfg.MaxPayoutScale),
@@ -338,20 +329,17 @@ public static class MachinePolicy
 
     private static decimal ComputePityBoost(MachinePolicyState state, EngineConfig cfg)
     {
-        decimal boost = 0m;
-        
-        if (state.ConsecutiveLosses >= cfg.StreakHardThreshold)
-            boost += 0.06m;
-        else if (state.ConsecutiveLosses >= cfg.StreakSoftThreshold)
-        {
-            var progress = (decimal)(state.ConsecutiveLosses - cfg.StreakSoftThreshold) / (cfg.StreakHardThreshold - cfg.StreakSoftThreshold);
-            boost += 0.02m + progress * 0.04m;
-        }
-        
+        // Continuous sigmoid pity — no discrete tiers that create predictable relief waves.
+        // sigmoid((losses - 6) / 3) ramps smoothly: ~0 at 0 losses, ~0.5 at 6 losses, ~0.88 at 12 losses.
+        var x = (double)(state.ConsecutiveLosses - 6) / 3.0;
+        var sigmoid = 1.0 / (1.0 + Math.Exp(-x));
+        var boost = (decimal)(sigmoid * 0.14); // max ~0.12 at 12+ losses
+
+        // Drought bonus (smooth, not discrete)
         if (state.RoundsSinceMediumWin >= cfg.MediumWinDroughtThreshold)
             boost += 0.02m;
-        
-        return boost;
+
+        return Math.Min(boost, cfg.PityBoostCap);
     }
 
     private static decimal ComputeJackpotLeakAdjustment(MachinePolicyState state, EngineConfig cfg)
@@ -408,16 +396,24 @@ public static class MachinePolicy
     {
         var cfg = config ?? Cfg;
         var rng = new SplitMix64Rng(DeterministicSeed.Derive(entropySeed, "cooldown-jitter"));
-        var jitter = rng.NextInt(3) - 1;
 
-        var baseCooldown = winCategory switch
+        // Weighted random cooldown: prevents the "every win = 2 quiet rounds" pattern.
+        // Distribution: 1r=20%, 2r=35%, 3r=25%, 4r=15%, 5r=5%
+        var roll = rng.NextUnit();
+        var weightedCooldown = roll switch
         {
-            HandCategory.FourOfAKind or HandCategory.StraightFlush or HandCategory.RoyalFlush => cfg.CooldownLength + 1,
-            HandCategory.FullHouse or HandCategory.Flush or HandCategory.Straight => cfg.CooldownLength,
-            _ => Math.Max(cfg.CooldownLength - 1, 1)
+            < 0.20 => 1,
+            < 0.55 => 2,
+            < 0.80 => 3,
+            < 0.95 => 4,
+            _ => 5
         };
 
-        return Math.Max(baseCooldown + jitter, 1);
+        // Big wins get +1 cooldown
+        if (winCategory is HandCategory.FourOfAKind or HandCategory.StraightFlush or HandCategory.RoyalFlush)
+            weightedCooldown += 1;
+
+        return Math.Max(weightedCooldown, 1);
     }
 
     // Overload for simulation compatibility (no entropy seed)
@@ -465,12 +461,23 @@ public static class MachinePolicy
     {
         var cfg = config ?? Cfg;
         var pressure = ComputeDoubleUpDeckPressure(state, roundsSinceLucky5Hit, netSinceLastClose, roundPolicyMode, openingAmount, machineCreditBaseline, cfg);
+
+        var rng = new SplitMix64Rng(DeterministicSeed.Derive(entropySeed, "double-up-deck-pressure"));
+
+        // Deck anomaly: 15% chance per DU session to invert pressure.
+        // Creates surprise outcomes — sometimes the deck HELPS the player unexpectedly,
+        // sometimes it BURNS them when they expected it to be easy.
+        // This is the "close call" engine — the reason every DU round feels tense.
+        if (rng.NextUnit() < 0.15)
+        {
+            pressure = -pressure;
+        }
+
         if (Math.Abs(pressure) < 0.12m)
         {
             return standardDeck;
         }
 
-        var rng = new SplitMix64Rng(DeterministicSeed.Derive(entropySeed, "double-up-deck-pressure"));
         return pressure > 0m
             ? BuildPressureDoubleUpDeck(standardDeck, pressure, roundsSinceLucky5Hit, rng, cfg)
             : BuildRecoveryDoubleUpDeck(standardDeck, -pressure, roundsSinceLucky5Hit, rng, cfg);
@@ -535,19 +542,10 @@ public static class MachinePolicy
                 pressure += (doubleUpExcess / Math.Max(cfg.TargetDoubleUpRtp, 0.0001m)) * 0.38m;
             }
 
-            if (state.ConsecutiveLosses >= cfg.StreakHardThreshold)
-            {
-                pressure -= 0.20m;
-            }
-            else if (state.ConsecutiveLosses >= cfg.StreakSoftThreshold)
-            {
-                pressure -= 0.10m;
-            }
-
-            if (state.RoundsSinceMediumWin >= cfg.MediumWinDroughtThreshold)
-            {
-                pressure -= 0.08m;
-            }
+            // Pity relief REMOVED from DU deck pressure.
+            // Pity now only affects base-game payout scale (single-channel).
+            // The DU deck remains neutral during loss streaks — the player's only
+            // enemy is the cards themselves, not a ratcheting difficulty system.
         }
 
         if (cfg.CloseThreshold > 0m && machineCreditBaseline > 0 && openingAmount > 0)
@@ -582,39 +580,55 @@ public static class MachinePolicy
         EngineConfig cfg)
     {
         var deck = new List<CleanRoomCard>(standardDeck);
-        var removalBudget = Math.Clamp((int)Math.Ceiling(pressure * cfg.DoubleUpPressureMaxKeyRemovals), 1, cfg.DoubleUpPressureMaxKeyRemovals);
+
+        // Phase 1: Remove auto-win cards (aces, 5♠) based on pressure.
+        // This is the base lever — fewer auto-wins = harder DU.
+        var maxBudget = Math.Clamp((int)Math.Ceiling(pressure * cfg.DoubleUpPressureMaxKeyRemovals), 1, cfg.DoubleUpPressureMaxKeyRemovals);
+        var randomizedMax = Math.Max(maxBudget / 2, rng.NextInt(maxBudget + 1));
+        var removalBudget = randomizedMax;
         var removals = 0;
 
+        // Remove aces first (auto-win cards)
         removals += RemoveMatching(deck, card => card.Rank == 14, removalBudget - removals, rng, cfg);
 
+        // Remove 5♠ under high pressure
         if (roundsSinceLucky5Hit < cfg.DoubleUpPressureRecoveryDroughtRounds && pressure >= 0.42m && removals < removalBudget)
         {
             removals += RemoveMatching(deck, card => card.Rank == FiveOfSpades.Rank && card.Suit == FiveOfSpades.Suit, 1, rng, cfg);
         }
 
-        if (pressure >= 0.28m && removals < removalBudget)
+        // Phase 2: ADD duplicate middle ranks to create close calls.
+        // This is the "lam3a" engine — the reason every DU round feels tense.
+        // More 7s, 8s, 9s = more coin-flip situations where BIG/SMALL is ambiguous.
+        // More duplicate ranks = more TIES (house wins) = the worst feeling.
+        if (pressure >= 0.20m)
+        {
+            // Add 2-4 duplicate middle cards to create ambiguity
+            var closeCallRanks = new[] { 7, 8, 9, 6, 10 };
+            var addCount = pressure >= 0.60m ? 4 : (pressure >= 0.40m ? 3 : 2);
+
+            for (int i = 0; i < addCount && deck.Count < 56; i++) // Cap at 56 to avoid infinite growth
+            {
+                var rank = closeCallRanks[rng.NextInt(closeCallRanks.Length)];
+                var suit = "CDHS"[rng.NextInt(4)];
+                var card = new CleanRoomCard(rank, suit);
+                // Only add if this exact card isn't already duplicated excessively
+                if (deck.Count(c => c.Rank == rank) < 6)
+                {
+                    deck.Add(card);
+                }
+            }
+        }
+
+        // Phase 3: Under extreme pressure, remove some edge cards too
+        if (pressure >= 0.58m && removals < removalBudget)
         {
             removals += RemoveMatching(deck, card => card.Rank is 2 or 13, removalBudget - removals, rng, cfg);
         }
 
-        if (pressure >= 0.58m && removals < removalBudget)
-        {
-            removals += RemoveMatching(deck, card => card.Rank is 3 or 12, removalBudget - removals, rng, cfg);
-        }
-
         if (pressure >= 0.74m && removals < removalBudget)
         {
-            removals += RemoveMatching(deck, card => card.Rank is 4 or 11, removalBudget - removals, rng, cfg);
-        }
-
-        if (pressure >= 0.86m && removals < removalBudget)
-        {
-            removals += RemoveMatching(
-                deck,
-                card => (card.Rank == 5 || card.Rank == 10) && !(card.Rank == FiveOfSpades.Rank && card.Suit == FiveOfSpades.Suit),
-                removalBudget - removals,
-                rng,
-                cfg);
+            removals += RemoveMatching(deck, card => card.Rank is 3 or 12, removalBudget - removals, rng, cfg);
         }
 
         return deck.ToArray();
@@ -685,11 +699,37 @@ public static class MachinePolicy
             return deck.ToArray();
         }
 
-        var removableMiddleRanks = recovery >= 0.65m
-            ? new HashSet<int> { 7, 8, 9, 10 }
-            : new HashSet<int> { 8, 9 };
-        var removalBudget = recovery >= 0.65m ? 2 : 1;
-        RemoveMatching(deck, card => removableMiddleRanks.Contains(card.Rank), removalBudget, rng, cfg);
+        // Recovery mode: make DU exciting with more 5♠ appearances.
+        // 5♠ is the "lam3a" card — it arms no-lose mode and multiplies.
+        // Appears ~30% of recovery sessions (not every time — keeps it surprising).
+        // Players may switch AWAY from 5♠ hoping for a better BIG/SMALL card.
+        if (rng.NextUnit() < 0.30)
+        {
+            // Add 1-2 extra 5♠ to the deck (player might see it on switch)
+            var extraSpades = recovery >= 0.65m ? 2 : 1;
+            for (int i = 0; i < extraSpades && deck.Count(c => c.Rank == 5 && c.Suit == 'S') < 4; i++)
+            {
+                deck.Add(new CleanRoomCard(5, 'S'));
+            }
+        }
+
+        // Add 1-2 high cards for decisive BIG/SMALL moments
+        if (recovery >= 0.30m)
+        {
+            var highRank = rng.NextInt(2) == 0 ? 14 : 13;
+            var highSuit = "CDHS"[rng.NextInt(4)];
+            deck.Add(new CleanRoomCard(highRank, highSuit));
+        }
+
+        // 40% chance: add a trap card even during hot streaks
+        // Keeps tension — you never know if the next card is safe
+        if (rng.NextUnit() < 0.40)
+        {
+            var trapRank = 6 + rng.NextInt(5); // 6-10
+            var trapSuit = "CDHS"[rng.NextInt(4)];
+            deck.Add(new CleanRoomCard(trapRank, trapSuit));
+        }
+
         return deck.ToArray();
     }
 

@@ -6,6 +6,7 @@ public sealed record MachineListingDto(
     bool IsOpen,
     decimal MinBet,
     decimal MaxBet,
+    decimal BetIncrement = 100m,
     bool IsOccupied = false,
     string? OccupiedByUsername = null,
     DateTime? ReservedUntilUtc = null,

@@ -8,7 +8,7 @@ using Lucky5.Application.Requests;
 using Lucky5.Realtime.Services;
 using Microsoft.AspNetCore.SignalR;
 
-public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegistry registry) : Hub
+public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegistry registry, ISpectatorTracker spectatorTracker) : Hub
 {
     // Legacy v1 events (deprecated, kept for backward compatibility during migration)
     private const string MachineStateUpdatedEvent = "MachineStateUpdated";
@@ -42,6 +42,8 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
     // the grace period, the timer fires and releases the machine lock.
     private static readonly ConcurrentDictionary<int, (Guid UserId, Timer Timer)> PendingDisconnects = new();
 
+    private static string SpectatorGroupName(int machineId) => $"machine:spectate:{machineId}";
+
     public override Task OnConnectedAsync()
     {
         if (TryGetUserId(out var userId))
@@ -68,14 +70,29 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
             // Don't immediately release the machine lock. Instead, start a grace-period
             // timer. If the same player reconnects within the window, they resume their
             // session (DU, win settlement, etc.). If the timer expires, the machine
-            // is released for other players.
-            var timer = new Timer(_ =>
+            // is released and the player's credits are auto-cashed out to their wallet.
+            var timer = new Timer(async _ =>
             {
-                // Grace period expired — release the machine lock.
+                // Grace period expired — auto-cashout and release the machine lock.
                 PendingDisconnects.TryRemove(machineId, out var _);
                 MachineOccupancy.TryRemove(machineId, out var _);
+
+                // Auto-cashout: return remaining machine credits to player's wallet
+                try
+                {
+                    await gameService.CashOutAsync(userId, machineId, CancellationToken.None, bypassRules: true);
+                }
+                catch (Exception ex)
+                {
+                    // Log but don't throw — we still need to release the machine
+                    Console.WriteLine($"[AutoCashout] Failed for user {userId} on machine {machineId}: {ex.Message}");
+                }
+
                 _ = Clients.All.SendAsync(MachineStatusChangedEvent,
                     new { machineId, isOccupied = false, playerId = (int?)null, gameId = 0 },
+                    CancellationToken.None);
+                _ = Clients.All.SendAsync(UserStatusChangedEvent,
+                    new { userId = GetMemberId(userId), state = "Idle" },
                     CancellationToken.None);
             }, null, SessionPauseGracePeriod, Timeout.InfiniteTimeSpan);
 
@@ -83,6 +100,13 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
 
             // Machine still appears occupied to other players during the grace period.
             // The lobby shows "Reconnecting" state.
+        }
+
+        if (Context.Items.TryGetValue("spectate-machine-id", out var specObj) && specObj is int specMachineId)
+        {
+            spectatorTracker.RemoveSpectator(specMachineId, Context.ConnectionId);
+            var count = spectatorTracker.GetSpectatorCount(specMachineId);
+            _ = Clients.All.SendAsync("SpectatorsChanged", new { machineId = specMachineId, count }, CancellationToken.None);
         }
 
         Context.Items.Remove(CurrentMachineContextKey);
@@ -147,6 +171,18 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
 
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, GroupName(machineId));
 
+        if (TryGetUserId(out var userId))
+        {
+            try
+            {
+                await gameService.CashOutAsync(userId, machineId, Context.ConnectionAborted, bypassRules: true);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[LeaveMachine] Auto-cashout error for user {userId} on machine {machineId}: {ex.Message}");
+            }
+        }
+
         // Emit MachineStatusChanged for lobby presence
         await Clients.All.SendAsync(MachineStatusChangedEvent,
             new { machineId, isOccupied = false, playerId = (int?)null, gameId = 0 },
@@ -156,6 +192,33 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
         {
             Context.Items.Remove(CurrentMachineContextKey);
         }
+    }
+
+    public async Task JoinMachineAsSpectator(int machineId)
+    {
+        if (machineId <= 0) return;
+
+        spectatorTracker.AddSpectator(machineId, Context.ConnectionId);
+
+        Context.Items["spectate-machine-id"] = machineId;
+        await Groups.AddToGroupAsync(Context.ConnectionId, SpectatorGroupName(machineId));
+        
+        var count = spectatorTracker.GetSpectatorCount(machineId);
+        await Clients.All.SendAsync("SpectatorsChanged", new { machineId, count }, Context.ConnectionAborted);
+        await BroadcastMachineStateAsync(machineId, Clients.Caller, Context.ConnectionAborted);
+    }
+
+    public async Task LeaveMachineAsSpectator(int machineId)
+    {
+        if (machineId <= 0) return;
+
+        spectatorTracker.RemoveSpectator(machineId, Context.ConnectionId);
+
+        Context.Items.Remove("spectate-machine-id");
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, SpectatorGroupName(machineId));
+
+        var count = spectatorTracker.GetSpectatorCount(machineId);
+        await Clients.All.SendAsync("SpectatorsChanged", new { machineId, count }, Context.ConnectionAborted);
     }
 
     public async Task Deal(int machineId, decimal betAmount)
@@ -181,7 +244,7 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
         Context.Items[CurrentMachineContextKey] = machineId;
 
         // Emit BetPlaced for presentation sync
-        await Clients.Group(GroupName(machineId)).SendAsync(BetPlacedEvent,
+        await Clients.Groups(GroupName(machineId), SpectatorGroupName(machineId)).SendAsync(BetPlacedEvent,
             new { machineId, memberId = GetMemberId(userId), stake = betAmount },
             Context.ConnectionAborted);
 
@@ -191,7 +254,7 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
             Context.ConnectionAborted);
 
         await Clients.Caller.SendAsync(CardsDealtEvent, result, Context.ConnectionAborted);
-        await BroadcastMachineStateAsync(machineId, Clients.Group(GroupName(machineId)), Context.ConnectionAborted);
+        await BroadcastMachineStateAsync(machineId, Clients.Groups(GroupName(machineId), SpectatorGroupName(machineId)), Context.ConnectionAborted);
     }
 
     public async Task Draw(Guid roundId, int[] holdIndexes)
@@ -219,7 +282,7 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
                     holds[index] = true;
                 }
             }
-            await Clients.Group(GroupName(machineId)).SendAsync(HoldCardUpdatedEvent,
+            await Clients.Groups(GroupName(machineId), SpectatorGroupName(machineId)).SendAsync(HoldCardUpdatedEvent,
                 new { machineId, memberId = GetMemberId(userId), holds },
                 Context.ConnectionAborted);
         }
@@ -241,7 +304,7 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
 
         if (TryGetCurrentMachineId(out machineId))
         {
-            await BroadcastMachineStateAsync(machineId, Clients.Group(GroupName(machineId)), Context.ConnectionAborted);
+            await BroadcastMachineStateAsync(machineId, Clients.Groups(GroupName(machineId), SpectatorGroupName(machineId)), Context.ConnectionAborted);
         }
     }
 

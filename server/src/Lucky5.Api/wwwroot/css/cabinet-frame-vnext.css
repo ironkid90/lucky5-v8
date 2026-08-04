@@ -41,17 +41,11 @@ body {
     filter: saturate(0.65) brightness(0.88);
 }
 
+/* .crt-overlay background is defined in game.css (three-layer CRT simulation).
+   Do NOT override background here — it would erase the pixel grid. */
 .crt-overlay {
     pointer-events: none;
-    background:
-        linear-gradient(rgba(255,255,255,0.035), rgba(255,255,255,0.01)),
-        repeating-linear-gradient(
-            to bottom,
-            rgba(255,255,255,0.025) 0,
-            rgba(255,255,255,0.025) 1px,
-            rgba(0,0,0,0.02) 2px,
-            rgba(0,0,0,0.02) 4px
-        );
+    /* background intentionally omitted — game.css owns it */
 }
 
 .menu-panel {

@@ -136,7 +136,7 @@
     flex: none !important;
     overflow: hidden !important;
     border-radius: 0 !important;  /* AI9: sharp edges */
-    border: 1px solid #000 !important;  /* AI9: 1px solid black border */
+        border: none !important;       /* AI9: pixel-edge — no drawn border, white face against black background */
 }
 
 /* Win amount display row: below cards, centered. */
@@ -459,9 +459,10 @@
    3. CRT SCREEN COLORS & TEXT RENDERING
    ───────────────────────────────────────────────────────────────────────────── */
 
-/* CRT background: pure black (arcade cabinet CRT field). */
+/* CRT background: very dark navy-gray (powered-on CRT idle glow), NOT pure black.
+   Matching ai9 reference — the CRT tube has a slight ambient illumination even when "black". */
 #game-screen {
-    background-color: #000000 !important;
+    background-color: #0a0a0a !important;  /* Very dark navy-gray CRT black level */
 }
 
 /* Paytable text: ARCADE dot-matrix font (or fallback monospace).
@@ -469,7 +470,7 @@
    Colors per AI9 reference: */
 #paytable .pay-row {
     color: #ffaa00 !important;  /* Default: gold/amber */
-    font-family: 'Arcade', 'ARCADE', 'Courier New', monospace !important;
+    font-family: 'ARCADE', 'Arcade', 'Press Start 2P', 'Courier New', monospace !important;
     font-size: 1.05cqh !important;
     font-weight: bold !important;
     letter-spacing: 0.08cqh !important;
@@ -483,19 +484,32 @@
     visibility: visible !important;
 }
 
-/* Paytable row colors (per AI9 frame analysis): */
+/* Paytable row colors (AI9 ground truth — exact color parity): */
 #paytable .pay-row.rf {
-    color: #ffaa00 !important;  /* ROYAL FLUSH: gold */
+    color: #FFB300 !important;  /* ROYAL FLUSH: gold/amber (AI9 exact) */
 }
 #paytable .pay-row.sf {
-    color: #ff3333 !important;  /* STRAIGHT FLUSH: red */
+    color: #FF0000 !important;  /* STRAIGHT FLUSH: red (AI9 exact) */
 }
 #paytable .pay-row.foak {
-    color: #33ff33 !important;  /* 4 OF A KIND: green */
+    color: #00FF00 !important;  /* 4 OF A KIND: green (AI9 exact) */
 }
 #paytable .pay-row.fh,
 #paytable .pay-row.fh .hand-name,
-#paytable .pay-row.fh .pay-amount,
+#paytable .pay-row.fh .pay-amount {
+    color: #FFFFFF !important;  /* FULL HOUSE: white text (AI9 exact) */
+    /* Permanent white rectangular outline box — always visible, not just when active */
+    border: 1px solid #ffffff !important;
+    border-radius: 2px !important;
+    padding: 0.05cqh 0.3cqh !important;
+    margin: 0.05cqh 0 !important;
+}
+#paytable .pay-row.fh.active,
+#paytable .pay-row.fh.active .hand-name,
+#paytable .pay-row.fh.active .pay-amount {
+    background-color: #ffffff !important;
+    color: #000000 !important;  /* White bg + black text when active */
+}
 #paytable .pay-row.jackpot-selected,
 #paytable .pay-row.jackpot-selected .hand-name,
 #paytable .pay-row.jackpot-selected .pay-amount {
@@ -504,13 +518,13 @@
     text-shadow: none !important;
 }
 #paytable .pay-row.fl {
-    color: #ffaa00 !important;  /* FLUSH: gold */
+    color: #00FFFF !important;  /* FLUSH: cyan (AI9 exact) */
 }
 #paytable .pay-row.st {
-    color: #00dddd !important;  /* STRAIGHT: cyan */
+    color: #FFFF00 !important;  /* STRAIGHT: yellow (AI9 exact) */
 }
 #paytable .pay-row.tok {
-    color: #ffaa00 !important;  /* 3 OF A KIND: gold */
+    color: #ffa500 !important;  /* 3 OF A KIND: orange */
 }
 #paytable .pay-row.tp {
     color: #00dddd !important;  /* 2 PAIR: cyan */
@@ -525,31 +539,37 @@
     flex-direction: column !important;
     align-items: flex-end !important;
     justify-content: flex-start !important;
-    font-family: 'Arcade', 'ARCADE', 'Courier New', monospace !important;
+    font-family: 'ARCADE', 'Arcade', 'Press Start 2P', 'Courier New', monospace !important;
     font-weight: bold !important;
     letter-spacing: 0.1cqh !important;
     line-height: 1.2 !important;
 }
 
 #credits {
-    color: #33ff33 !important;  /* CREDIT: green */
+    color: #00ffff !important;  /* CREDIT label: cyan */
     font-size: 1.0cqh !important;
+    font-family: 'ARCADE', 'Arcade', 'Press Start 2P', 'Courier New', monospace !important;
 }
 
 #credits span {
     font-size: 1.4cqh !important;
     display: block !important;
+    font-family: inherit !important;
+    color: #33ff33 !important;  /* CREDIT value: green */
 }
 
 #stake-display {
-    color: #ffaa00 !important;  /* STAKE: gold */
+    color: #00ffff !important;  /* STAKE label: cyan */
     font-size: 1.0cqh !important;
     margin-top: 0.5cqh !important;
+    font-family: 'ARCADE', 'Arcade', 'Press Start 2P', 'Courier New', monospace !important;
 }
 
 #stake-display span {
     font-size: 1.4cqh !important;
     display: block !important;
+    font-family: inherit !important;
+    color: #FFB800 !important;  /* STAKE value: yellow/orange */
 }
 
 /* Machine info block (SERIE/KENT/S/N + jackpot counters): */
@@ -588,6 +608,23 @@
 
 #jackpot-counters .jp-counter:nth-child(2) {
     color: #ff3333 !important;  /* Center (SF): red */
+}
+
+/* "4 OF A KIND WINS BONUS" banner — split colored spans, centered below jackpot counters */
+#bonus-hand-text {
+    text-align: center !important;
+    margin-top: 0.3cqh !important;
+    font-family: 'ARCADE', 'Arcade', 'Press Start 2P', 'Courier New', monospace !important;
+    font-weight: bold !important;
+    letter-spacing: 0.08cqh !important;
+}
+#bonus-hand-text .bonus-4k {
+    color: #ffaa00 !important;       /* Yellow */
+    font-size: 1.25cqh !important;
+}
+#bonus-hand-text .bonus-wins {
+    color: #ffffff !important;       /* White */
+    font-size: 1.0cqh !important;
 }
 
 /* Info bar (INSERT COIN, etc.): */
@@ -931,6 +968,17 @@ html, body {
     content: none !important;
 }
 
+/* Ensure disabled buttons show a visibly dimmed state even when active-screen rules override opacity.
+   AI9 reference: disabled buttons are visibly darker/greyed out, not hidden.
+   Apply after the active-screen force-opacity rules so :disabled takes priority. */
+#game-screen.active #hold-row .cab-btn:disabled,
+#game-screen.active #action-row .cab-btn:disabled,
+#game-screen.active #bottom-row .cab-btn:disabled {
+    opacity: 0.55 !important;
+    filter: grayscale(0.65) brightness(0.45) !important;
+    cursor: default !important;
+}
+
 #menu-panel.menu-panel {
     z-index: 20000 !important;
     pointer-events: auto !important;
@@ -1106,6 +1154,21 @@ html, body {
 
 #lucky5-flash.active {
     animation: lucky5-strobe-pulse 0.7s cubic-bezier(0.15, 0.85, 0.35, 1) forwards !important;
+}
+
+#lucky5-flash.active-quick {
+    animation: lucky5-strobe-quick 0.5s linear forwards !important;
+}
+
+@keyframes lucky5-strobe-quick {
+    0%, 20%, 40%, 60%, 80%, 100% {
+        opacity: 0 !important;
+        background-color: #ffffff !important;
+    }
+    10%, 30%, 50%, 70%, 90% {
+        opacity: 0.95 !important;
+        background-color: #ffffff !important;
+    }
 }
 
 @keyframes lucky5-strobe-pulse {
@@ -1346,6 +1409,36 @@ html, body {
         opacity: 1 !important;
         background: rgba(0, 0, 0, 0.85) !important;
     }
+}
+
+/* ═════════════════════════════════════════════════════════════════════════════
+   9. WATERMARK — "LUCKY 5 POKER" cyan glow behind cards (always visible)
+   ═════════════════════════════════════════════════════════════════════════════ */
+
+#watermark {
+    position: absolute !important;
+    top: 18% !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 22% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 5 !important;           /* Behind card-area (z-index 12) */
+    pointer-events: none !important;
+    opacity: 0.18 !important;        /* Low opacity — ghost text */
+    font-family: 'ARCADE', 'Arcade', 'Press Start 2P', 'Courier New', monospace !important;
+    font-weight: bold !important;
+    font-size: 4.5cqh !important;
+    letter-spacing: 0.4cqh !important;
+    color: #00FFFF !important;       /* Cyan */
+    text-shadow:
+        2px 2px 0 rgba(0, 180, 180, 0.9),     /* 3D extrusion shadow — dark cyan */
+        3px 3px 0 rgba(0, 120, 120, 0.7),     /* Deeper extrusion */
+        4px 4px 0 rgba(0, 60, 60, 0.5),       /* Furthest shadow layer */
+        0 0 2cqh rgba(0, 255, 255, 0.6),      /* Cyan glow bloom */
+        0 0 4cqh rgba(0, 200, 200, 0.3) !important;
+    white-space: nowrap !important;
 }
 
 /* ═════════════════════════════════════════════════════════════════════════════

@@ -8,6 +8,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddSingleton<ConnectionRegistry>();
         services.AddHostedService<HeartbeatMonitorService>();
+        services.AddHostedService<SessionCleanupService>();
         return services;
     }
 }

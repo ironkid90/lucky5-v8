@@ -61,32 +61,38 @@ const GAME_CONFIG = Object.freeze({
     // frames at runtime by CabinetClock.delayMs().
     timing: Object.freeze({
         // ── Global stagger (one value drives everything) ──
-        staggerFrames:        12,   // 200ms — AI9 cabinet frame analysis
+        // VSYNC-locked @ 60Hz: 5 frames = ~83ms per card — fast arcade feel for AI9 parity
+        staggerFrames:         5,   // ~83ms @ 60Hz — AI9 parity: 50-80ms target
 
         // Main-hand deal
-        dealBaseFrames:        5,   //  83ms — pause before first card
-        dealDurationFrames:   11,   // 183ms — slide settle time
+        dealBaseFrames:        4,   // ~66ms — brief pause before first card
+        dealDurationFrames:   11,   // ~183ms — slide/thump settle time
 
-        // Draw (replacing non-held cards) — slightly slower, more deliberate
-        drawStaggerFrames:    18,   // 300ms — deliberate redraw stagger (slower than deal)
+        // Draw (replacing non-held cards) — equal timing to initial deal
+        drawStaggerFrames:     5,   // ~83ms — equal to deal stagger (staggerFrames)
         drawOutFrames:         1,   //   1 frame — old cards vanish instantly
-        drawDurationFrames:   11,   // 183ms — replacement slide settle
-        drawRevealStartFrames: 3,   //  50ms — delay before first replacement
+        drawDurationFrames:   11,   // ~183ms — replacement slide/thump settle
+        drawRevealStartFrames: 4,   // ~66ms — equal to dealBaseFrames
 
         // Legacy ms aliases — derived from staggerFrames at 60fps
         // Kept for backward-compat with game.js helpers that still use delayMs.
         // All cabinet-stage-vnext.js paths use frames directly now.
-        get dealBaseMs()         { return this.staggerFrames <= 12 ?  80 : Math.round(this.dealBaseFrames    * 1000 / 60); },
+        get dealBaseMs()         { return Math.round(this.dealBaseFrames        * 1000 / 60); },
         get dealStaggerMs()      { return Math.round(this.staggerFrames        * 1000 / 60); },
         get dealAnimDurationMs() { return Math.round(this.dealDurationFrames   * 1000 / 60); },
         get drawOutMs()          { return Math.round(this.drawOutFrames        * 1000 / 60); },
         get drawInMs()           { return Math.round(this.drawDurationFrames   * 1000 / 60); },
-        get drawStaggerMs()      { return Math.round(this.staggerFrames        * 1000 / 60); },
+        get drawStaggerMs()      { return Math.round(this.drawStaggerFrames    * 1000 / 60); },
         get drawRevealStartMs()  { return Math.round(this.drawRevealStartFrames * 1000 / 60); },
 
         // Double-up: shuffle animation
-        // The active slot cycles through card faces visibly, like a spinning reel.
-        shuffleFrameMs:       100, // Calibrated shuffle cadence (~100ms per frame swap)
+        // Faster reel shuffle cadence for AI9 parity (15ms per frame swap for rapid blur effect)
+        shuffleFrameMs:         15, // 15ms per frame swap for faster DU shuffle blur
+
+        // Bet Ramp timing
+        betRampTickMs:         50,  // 50ms per step tick
+        betRampStep:          100,  // 100 credits per step
+        betRampSettleMs:      200,  // 200ms settle after ramp completes
 
         // Double-up: reveal sequence
         duRevealDelayMs:      150,  // wait after server responds before showing challenger card
@@ -94,25 +100,21 @@ const GAME_CONFIG = Object.freeze({
         duStaggerPerCardMs:   80,  // stagger between cards on a fresh DU page
 
         // Win collection / drain-to-credits
-        //   Duration scales with amount: ~1.0s at 500K, ~6.5s at 5M, capped at 20s.
-        //   Formula in animateDrainToCredits: minMs + (maxMs-minMs) * clamp01(amount/5M).
-        //   Min clamped at countUpMinMs (1.0s), max clamped at countUpMaxMs (20s).
-        //   Consistent feel across all payout sizes — small wins drain fast,
-        //   large wins drain slow but cap at 20s (not 65s) to avoid feeling stuck.
-        countUpMinMs:         1000,
-        countUpMaxMs:         15000,
+        //   Duration scales with amount: ~1.5s at 500K, ~60s at 40M.
+        countUpMinMs:         1500,
+        countUpMaxMs:         60000,
         creditTickMs:         50,  // digit-flash toggle during count-up (mechanical reel tick cadence)
 
         // Jackpot fill animation (for jackpot-level wins)
         //   Same scaling as animateDrainToCredits: amount / 1_000_000 * 1500.
-        //   500K → 750ms, 10M → 15s, capped at 20s for consistent pacing.
-        //   Jackpot wins behave like a mini machine-close: everything freezes,
-        //   the jackpot counter drains slowly into credits, then DU page appears.
-        jackpotFillMinMs:     750,
-        jackpotFillMaxMs:     20000,
+        jackpotFillMinMs:     1500,
+        jackpotFillMaxMs:     60000,
 
         // Lucky5 safe / machine-closed payout drain
         drainDelayMs:         500,   // brief pause before starting the drain animation
+
+        // Double-up transition delay
+        winToDoubleUpDelayMs: 800,   // delay before auto-entering DU mode after a win
 
         // Double-up exit delays
         exitDuLoseMs:         1000,  // delay before exiting DU after a loss (no siphon)
@@ -145,6 +147,7 @@ const GAME_CONFIG = Object.freeze({
         // Lobby / machines
         machines:         '/api/Game/games/machines',
         defaultRules:     '/api/Game/defaultRules',
+        configRules:      '/api/Config/rules',
 
         // Machine session
         machineSession:   (id) => `/api/Game/machine/${id}/session`,
@@ -214,10 +217,10 @@ const GAME_CONFIG = Object.freeze({
         maxTrailPerPage: 4,    // trail cards visible per page (+ 1 active slot = 5 total)
         // carryStep = maxTrailPerPage - 1; last card of page N is first card of page N+1
         copy: Object.freeze({
-            label:        'HI LO GAMBLE',
-            aceRule:      'ACE COUNTS',
-            guessRule:    'HI OR LO',
-            luckyRule:    '5 \u2660 NEVER LOSE',
+            label:        'DOUBLE UP',
+            aceRule:      'ACE ALWAYS WIN',
+            guessRule:    '',
+            luckyRule:    '5 NEVER LOSE',
             buyingRule:   'WHEN BUYING',
             prompt:       'BIG / SMALL ?',
             activeSuffix: 'ACTIVE',

@@ -9,4 +9,6 @@ public sealed record JackpotInfoDto(
     decimal StraightFlush,
     string MachineSerial,
     string MachineSerie,
-    string MachineKent);
+    string MachineKent,
+    decimal JackpotKent = 0,
+    int KentStreak = 0);
