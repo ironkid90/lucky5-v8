@@ -1666,7 +1666,7 @@ async function doBet() {
                 updateBonusHandText();
                 setButtonStates();
             }
-        }, 50); // 50ms per tick = ~1.25s for 2500 min bet
+        }, T.betRampTickMs); // config-driven tick cadence for arcade-authentic ramp
         return;
     }
 
