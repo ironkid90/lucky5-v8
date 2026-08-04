@@ -87,7 +87,7 @@ const GAME_CONFIG = Object.freeze({
 
         // Double-up: shuffle animation
         // Classic arcade reel shuffle cadence (30ms per frame swap for rapid blur effect)
-        shuffleFrameMs:         30, // 30ms per frame swap for classic DU shuffle blur
+        shuffleFrameMs:         50, // 50ms per frame swap for classic DU shuffle blur
 
         // Bet Ramp timing
         betRampTickMs:         50,  // 50ms per step tick
