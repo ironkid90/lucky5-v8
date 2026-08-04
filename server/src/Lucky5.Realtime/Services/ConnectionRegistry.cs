@@ -24,6 +24,17 @@ public sealed class ConnectionRegistry
         }
     }
 
+    public bool TryGetUserId(string connectionId, out Guid userId)
+    {
+        if (_connections.TryGetValue(connectionId, out var entry))
+        {
+            userId = entry.UserId;
+            return true;
+        }
+        userId = Guid.Empty;
+        return false;
+    }
+
     public IReadOnlyList<string> GetStaleConnections(TimeSpan maxAge)
     {
         var threshold = DateTime.UtcNow - maxAge;

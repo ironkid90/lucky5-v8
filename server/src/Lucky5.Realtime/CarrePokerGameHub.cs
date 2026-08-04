@@ -4,6 +4,7 @@ using System.Security.Claims;
 using System.Collections.Concurrent;
 using System.Threading;
 using Lucky5.Application.Contracts;
+using Lucky5.Application.Dtos;
 using Lucky5.Application.Requests;
 using Lucky5.Realtime.Services;
 using Microsoft.AspNetCore.SignalR;
@@ -25,6 +26,7 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
     private const string UserStatusChangedEvent = "UserStatusChanged";
     private const string CabinetReplayEvent = "CabinetReplay";
     private const string CabinetSnapshotEvent = "CabinetSnapshot";
+    private const string LobbyMachinesUpdatedEvent = "LobbyMachinesUpdated";
     private const string ErrorEvent = "Error";
     private const string CurrentMachineContextKey = "machine-id";
 
@@ -94,6 +96,7 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
                 _ = Clients.All.SendAsync(UserStatusChangedEvent,
                     new { userId = GetMemberId(userId), state = "Idle" },
                     CancellationToken.None);
+                _ = BroadcastLobbyMachinesUpdatedAsync(CancellationToken.None);
             }, null, SessionPauseGracePeriod, Timeout.InfiniteTimeSpan);
 
             PendingDisconnects[machineId] = (userId, timer);
@@ -107,6 +110,7 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
             spectatorTracker.RemoveSpectator(specMachineId, Context.ConnectionId);
             var count = spectatorTracker.GetSpectatorCount(specMachineId);
             _ = Clients.All.SendAsync("SpectatorsChanged", new { machineId = specMachineId, count }, CancellationToken.None);
+            _ = BroadcastLobbyMachinesUpdatedAsync(CancellationToken.None);
         }
 
         Context.Items.Remove(CurrentMachineContextKey);
@@ -154,6 +158,7 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
             await Clients.All.SendAsync(MachineStatusChangedEvent,
                 new { machineId, isOccupied = true, playerId = GetMemberId(userId), gameId = 0 },
                 Context.ConnectionAborted);
+            _ = BroadcastLobbyMachinesUpdatedAsync(Context.ConnectionAborted);
         }
 
         await BroadcastMachineStateAsync(machineId, Clients.Caller, Context.ConnectionAborted);
@@ -187,6 +192,7 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
         await Clients.All.SendAsync(MachineStatusChangedEvent,
             new { machineId, isOccupied = false, playerId = (int?)null, gameId = 0 },
             Context.ConnectionAborted);
+        _ = BroadcastLobbyMachinesUpdatedAsync(Context.ConnectionAborted);
 
         if (TryGetCurrentMachineId(out var currentMachineId) && currentMachineId == machineId)
         {
@@ -205,6 +211,7 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
         
         var count = spectatorTracker.GetSpectatorCount(machineId);
         await Clients.All.SendAsync("SpectatorsChanged", new { machineId, count }, Context.ConnectionAborted);
+        _ = BroadcastLobbyMachinesUpdatedAsync(Context.ConnectionAborted);
         await BroadcastMachineStateAsync(machineId, Clients.Caller, Context.ConnectionAborted);
     }
 
@@ -219,6 +226,7 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
 
         var count = spectatorTracker.GetSpectatorCount(machineId);
         await Clients.All.SendAsync("SpectatorsChanged", new { machineId, count }, Context.ConnectionAborted);
+        _ = BroadcastLobbyMachinesUpdatedAsync(Context.ConnectionAborted);
     }
 
     public async Task Deal(int machineId, decimal betAmount)
@@ -334,6 +342,11 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
         await Clients.Caller.SendAsync("AvailableMachines", machines, Context.ConnectionAborted);
     }
 
+    public async Task GetLobbySnapshot(CancellationToken cancellationToken = default)
+    {
+        await BroadcastLobbyMachinesUpdatedAsync(cancellationToken);
+    }
+
     public async Task ReconnectSync(int machineId, long lastStateVersion = 0, long lastSequenceNumber = 0)
     {
         Context.Items[CurrentMachineContextKey] = machineId;
@@ -356,6 +369,28 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
     {
         var state = await gameService.GetMachineStateAsync(machineId, cancellationToken);
         await target.SendAsync(MachineStateUpdatedEvent, state, cancellationToken);
+    }
+
+    private async Task BroadcastLobbyMachinesUpdatedAsync(CancellationToken cancellationToken)
+    {
+        var machines = await gameService.GetMachinesAsync(cancellationToken);
+        var spectatorSnapshot = spectatorTracker.GetLobbySnapshot();
+        var spectatorMap = spectatorSnapshot.ToDictionary(x => x.MachineId, x => x.SpectatorCount);
+
+        var result = new List<LobbyMachineInfo>();
+        foreach (var machine in machines)
+        {
+            int? occupantUserId = null;
+            var isOccupied = MachineOccupancy.ContainsKey(machine.Id);
+            if (isOccupied && MachineOccupancy.TryGetValue(machine.Id, out var connectionId)
+                && registry.TryGetUserId(connectionId, out var occUserId))
+            {
+                occupantUserId = GetMemberId(occUserId);
+            }
+            result.Add(new LobbyMachineInfo(machine.Id, isOccupied, occupantUserId, spectatorMap.GetValueOrDefault(machine.Id, 0)));
+        }
+
+        await Clients.All.SendAsync(LobbyMachinesUpdatedEvent, result, cancellationToken);
     }
 
     private Task EmitErrorAsync(string code, string message)

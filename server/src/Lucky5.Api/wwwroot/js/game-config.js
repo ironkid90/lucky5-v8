@@ -74,7 +74,7 @@ const GAME_CONFIG = Object.freeze({
         drawDurationFrames:   11,   // ~183ms — replacement slide/thump settle
         drawRevealStartFrames: 5,   // ~83ms — equal to dealBaseFrames
 
-        // Legacy ms aliases — derived from staggerFrames at 60fps
+        // Legacy ms aliases — derived from the frame values above at 60fps
         // Kept for backward-compat with game.js helpers that still use delayMs.
         // All cabinet-stage-vnext.js paths use frames directly now.
         get dealBaseMs()         { return Math.round(this.dealBaseFrames        * 1000 / 60); },
@@ -87,7 +87,7 @@ const GAME_CONFIG = Object.freeze({
 
         // Double-up: shuffle animation
         // Classic arcade reel shuffle cadence (30ms per frame swap for rapid blur effect)
-        shuffleFrameMs:         30, // 30ms per frame swap for classic DU shuffle blur
+        shuffleFrameMs:         50, // 50ms per frame swap for classic DU shuffle blur
 
         // Bet Ramp timing
         betRampTickMs:         50,  // 50ms per step tick
