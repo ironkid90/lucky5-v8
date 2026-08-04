@@ -1,0 +1,50 @@
+[
+  {
+    "name": "Real-Time Game Spectating & Lobby Presence Synchronization",
+    "playpoker_pattern_source": "Playpoker uses custom events 'gameState', 'machinesChanged', 'spectatorsChanged', and 'watchEnded' on its Socket.io service (playpoker-api.fly.dev) to manage multi-client spectator session synchronization and real-time lobby state updates.",
+    "lucky5_current_approach": "Lucky5 implements a single-player seat-occupancy lock in CarrePokerGameHub.cs (using MachineOccupancy and connection-to-machine mapping) which strictly blocks other players from joining or watching an active cabinet session (returns MACHINE_OCCUPIED error).",
+    "implementation_sketch": "Extend CarrePokerGameHub.cs to support spectating connections. When a player connection requests to join an occupied machine, subscribe them to a read-only spectator SignalR group (machine:spectate:{machineId}). Track and broadcast the live spectator count via a new 'SpectatorsChanged' event. Update frontend game.js to connect as a spectator when the seat-occupancy lock is held by another user, rendering a live watch view and spectator counter.",
+    "effort_estimate": "M",
+    "user_visible_benefit": "Brings a social, connected arcade atmosphere to the casino environment. Players can view active machines, watch other players' high-stakes game rounds and Double-Up climbs in real-time, and celebrate big wins together."
+  },
+  {
+    "name": "Client-Side Zustand Stores with Server-Authoritative State Versioning",
+    "playpoker_pattern_source": "Playpoker uses Zustand stores (useAuth, useGame) for client-side state management with a clear ownership model: authentication state (user, coins, status) lives in useAuth, and game session state (cards, holds, bet, phase) lives in useGame. The server broadcasts state versions via Socket.io events, allowing clients to detect stale state and request reconciliation.",
+    "lucky5_current_approach": "Lucky5 frontend (game.js, cabinet-stage-vnext.js) manages state imperatively through global variables and direct DOM manipulation. No centralized client store exists. State synchronization relies on SignalR event handlers that mutate UI directly without a versioning or reconciliation mechanism.",
+    "implementation_sketch": "Introduce a lightweight client store (e.g., Zustand or a minimal custom reducer) for auth (user, balance, status) and game session (machineId, phase, cards, holds, bet, winMeter, doubleUpState). Tag each server SignalR message with a monotonically increasing stateVersion. On receipt, the store compares versions; if a gap is detected, queue a ReconnectSync(machineId, lastKnownVersion) to fetch the missing delta. Replace direct DOM mutations in game.js with store subscriptions.",
+    "effort_estimate": "M",
+    "user_visible_benefit": "Eliminates UI desync bugs where the cabinet shows stale cards/balance after a network hiccup. Provides a clean foundation for optimistic UI updates (instant hold toggles, bet changes) that roll back automatically if the server rejects them."
+  },
+  {
+    "name": "State-Versioned Resilient Client Reconnection System",
+    "playpoker_pattern_source": "Playpoker's Socket.io implementation uses automated reconnect cycles (reconnection: true, reconnectionAttempts: Infinity, reconnectionDelay: 500) coupled with direct game state versions to instantly recover context when connectivity fluctuates. The server emits 'gameState' with a version field; clients track the last seen version and send it on reconnect.",
+    "lucky5_current_approach": "Lucky5 has a ReconnectSync method on CarrePokerGameHub.cs but game.js has basic reconnection logic that does not track sequence numbers or synchronize state-versions to trigger automated re-handshakes mid-game. The SignalR client uses default reconnection without version-aware recovery.",
+    "implementation_sketch": "Update game.js frontend to monitor the stateVersion and sequenceNumber on every incoming SignalR message (add these fields to hub DTOs). Build a background heartbeat monitor in game.js. On signal drop, initiate immediate silent reconnection, and invoke ReconnectSync(machineId, lastStateVersion, lastSequenceNumber) to replay delta states or apply a structural catch-up snapshot if states diverged. Add exponential backoff with jitter to the reconnection policy.",
+    "effort_estimate": "M",
+    "user_visible_benefit": "Improves gameplay resilience on flaky networks (mobile/Wi-Fi). If a player experiences a connection drop mid-round or during a critical Double-Up gamble, the game seamlessly recovers and matches the server's state without disrupting the session."
+  },
+  {
+    "name": "Spectator Tracker with Real-Time Lobby Machine List",
+    "playpoker_pattern_source": "Playpoker's 'machinesChanged' and 'spectatorsChanged' events broadcast the full lobby machine list (id, status, currentPlayer, spectatorCount) and per-machine spectator counts to all connected clients in real-time. The SSR'd index.html even embeds aggregate counts (All 20 / Ready 15 / Busy 5) for instant first paint.",
+    "lucky5_current_approach": "Lucky5 has an ISpectatorTracker service and SpectatorTracker implementation but only tracks counts per machine for the active player's session. No lobby-wide machine list or spectator counts are broadcast. The frontend has no 'lobby view' — players land directly on a machine.",
+    "implementation_sketch": "Extend ISpectatorTracker to maintain a lobby snapshot (machineId, status, occupantUserId?, spectatorCount). Add a 'LobbyMachinesUpdated' SignalR event broadcast on any occupancy/spectator change. Create a new optional lobby page (or modal) in the frontend that displays the live machine grid with status badges (READY / PLAYING / WATCHING) and spectator counts. On first load, fetch the snapshot via a new GET /api/Lobby/machines endpoint for instant paint.",
+    "effort_estimate": "M",
+    "user_visible_benefit": "Creates an 'arcade floor' experience where players browse live machines, see which cabinets are hot, and jump into spectating. Increases session time and social engagement by making the casino feel populated and alive."
+  },
+  {
+    "name": "Wallet State Synchronization via Server-Authoritative Events",
+    "playpoker_pattern_source": "Playpoker emits 'walletUpdated' events on every balance change (wins, top-ups, cashouts) directly from the secure server context. The client's useAuth Zustand store subscribes to this event and updates coins atomically. Wallet REST endpoints (/me/wallet, /me/topups, /me/cashout-coins) are strictly bound to the JWT subject, preventing IDOR via body parameters.",
+    "lucky5_current_approach": "Lucky5 uses claims-based identity resolution (HttpContext.RequireUserId()) but some API controller routes like AuthController.cs (Deposit, Withdraw, MoveWinToBalance) accept general TransferRequests from the body which pass arbitrary IDs and can introduce security or logic ambiguities. Balance updates are pushed via SignalR 'WalletUpdated' but the client applies them imperatively in game.js without a centralized store.",
+    "implementation_sketch": "Harden AuthController.cs by eliminating TransferRequests with client-supplied user IDs from endpoints meant for personal actions. Create a specialized 'UserTransactionRequest' containing only Amount and MachineId, resolving the target user profile context strictly from the authenticated ClaimsPrincipal (HttpContext.RequireUserId()). Keep administrative balance transfers isolated to dedicated admin controllers (AdminController.cs). Ensure every balance mutation emits a versioned WalletUpdated event (newBalance, stateVersion) that the client store consumes.",
+    "effort_estimate": "S",
+    "user_visible_benefit": "Provides absolute wallet and account security. Prevents credit theft, transaction spoofing, and malicious client-side data tampering by enforcing high-level server-side context validation. Balance updates become instant and trustworthy."
+  },
+  {
+    "name": "Optimistic UI with Server Reconciliation for Holds and Bets",
+    "playpoker_pattern_source": "Playpoker's useGame store allows immediate local state mutations (hold toggles, bet changes) that are instantly reflected in the UI. The corresponding Socket.io emit (setHold, placeBet) is sent asynchronously. If the server rejects or corrects the action, the 'gameState' event with the authoritative state overwrites the local store, causing a seamless rollback.",
+    "lucky5_current_approach": "Lucky5 frontend (game.js) sends hold/bet actions to the server via SignalR and waits for the response before updating the UI. This creates perceptible latency on high-RTT connections (mobile, cross-region). No optimistic update pattern exists.",
+    "implementation_sketch": "In the new client store (Zustand), implement holdCard(index) and setBet(amount) as optimistic actions: immediately update local state and UI, then emit the SignalR command. Tag the command with a local sequence number. On receipt of the server's authoritative state (CardsDealt, BetPlaced, HoldCardUpdated with matching sequence), reconcile: if server state matches, confirm; if it diverges, silently replace local state with server truth. Add a subtle 'pending' indicator for actions in-flight.",
+    "effort_estimate": "M",
+    "user_visible_benefit": "Eliminates perceived input lag. Hold toggles and bet changes feel instant even on 200ms+ RTT connections. The cabinet remains tactile and responsive — critical for the retro arcade feel — while the server remains the ultimate authority."
+  }
+]
