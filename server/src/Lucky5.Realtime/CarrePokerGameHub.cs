@@ -161,7 +161,7 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
             _ = BroadcastLobbyMachinesUpdatedAsync(Context.ConnectionAborted);
         }
 
-        await BroadcastMachineStateAsync(machineId, Clients.Caller, Context.ConnectionAborted);
+        await BroadcastMachineStateAsync(machineId, Clients.Caller, Context.ConnectionAborted, userId);
     }
 
     public async Task LeaveMachine(int machineId)
@@ -212,7 +212,7 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
         var count = spectatorTracker.GetSpectatorCount(machineId);
         await Clients.All.SendAsync("SpectatorsChanged", new { machineId, count }, Context.ConnectionAborted);
         _ = BroadcastLobbyMachinesUpdatedAsync(Context.ConnectionAborted);
-        await BroadcastMachineStateAsync(machineId, Clients.Caller, Context.ConnectionAborted);
+        await BroadcastMachineStateAsync(machineId, Clients.Caller, Context.ConnectionAborted, TryGetUserId(out var spectUserId) ? spectUserId : (Guid?)null);
     }
 
     public async Task LeaveMachineAsSpectator(int machineId)
@@ -252,8 +252,9 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
         Context.Items[CurrentMachineContextKey] = machineId;
 
         // Emit BetPlaced for presentation sync
+        var cursor = await gameService.GetCabinetStateCursorAsync(userId, machineId, Context.ConnectionAborted);
         await Clients.Groups(GroupName(machineId), SpectatorGroupName(machineId)).SendAsync(BetPlacedEvent,
-            new { machineId, memberId = GetMemberId(userId), stake = betAmount },
+            new { machineId, memberId = GetMemberId(userId), stake = betAmount, stateVersion = cursor.StateVersion, sequenceNumber = cursor.SequenceNumber },
             Context.ConnectionAborted);
 
         var result = await gameService.DealAsync(
@@ -261,8 +262,8 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
             new DealRequest(machineId, betAmount),
             Context.ConnectionAborted);
 
-        await Clients.Caller.SendAsync(CardsDealtEvent, result, Context.ConnectionAborted);
-        await BroadcastMachineStateAsync(machineId, Clients.Groups(GroupName(machineId), SpectatorGroupName(machineId)), Context.ConnectionAborted);
+        await Clients.Caller.SendAsync(CardsDealtEvent, result with { StateVersion = cursor.StateVersion, SequenceNumber = cursor.SequenceNumber }, Context.ConnectionAborted);
+        await BroadcastMachineStateAsync(machineId, Clients.Groups(GroupName(machineId), SpectatorGroupName(machineId)), Context.ConnectionAborted, userId);
     }
 
     public async Task Draw(Guid roundId, int[] holdIndexes)
@@ -290,8 +291,9 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
                     holds[index] = true;
                 }
             }
+            var cursor = await gameService.GetCabinetStateCursorAsync(userId, machineId, Context.ConnectionAborted);
             await Clients.Groups(GroupName(machineId), SpectatorGroupName(machineId)).SendAsync(HoldCardUpdatedEvent,
-                new { machineId, memberId = GetMemberId(userId), holds },
+                new { machineId, memberId = GetMemberId(userId), holds, stateVersion = cursor.StateVersion, sequenceNumber = cursor.SequenceNumber },
                 Context.ConnectionAborted);
         }
 
@@ -312,7 +314,7 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
 
         if (TryGetCurrentMachineId(out machineId))
         {
-            await BroadcastMachineStateAsync(machineId, Clients.Groups(GroupName(machineId), SpectatorGroupName(machineId)), Context.ConnectionAborted);
+            await BroadcastMachineStateAsync(machineId, Clients.Groups(GroupName(machineId), SpectatorGroupName(machineId)), Context.ConnectionAborted, userId);
         }
     }
 
@@ -325,8 +327,11 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
         }
 
         var result = await gameService.GuessDoubleUpAsync(userId, roundId, guess, Context.ConnectionAborted);
+        var cursor = TryGetCurrentMachineId(out var duMachineId)
+            ? await gameService.GetCabinetStateCursorAsync(userId, duMachineId, Context.ConnectionAborted)
+            : (StateVersion: 0L, SequenceNumber: 0L);
         // Emit DoubleUpWin (v2) instead of RewardStatus (v1)
-        await Clients.Caller.SendAsync(DoubleUpWinEvent, result, Context.ConnectionAborted);
+        await Clients.Caller.SendAsync(DoubleUpWinEvent, result with { StateVersion = cursor.StateVersion, SequenceNumber = cursor.SequenceNumber }, Context.ConnectionAborted);
         await Clients.Caller.SendAsync("DoubleUpCard", new { roundId, guess }, Context.ConnectionAborted);
     }
 
@@ -360,14 +365,18 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
             {
                 await Clients.Caller.SendAsync(CabinetSnapshotEvent, replay.Snapshot, Context.ConnectionAborted);
             }
-        }
 
-        await BroadcastMachineStateAsync(machineId, Clients.Caller, Context.ConnectionAborted);
+            await BroadcastMachineStateAsync(machineId, Clients.Caller, Context.ConnectionAborted, userId);
+        }
+        else
+        {
+            await BroadcastMachineStateAsync(machineId, Clients.Caller, Context.ConnectionAborted);
+        }
     }
 
-    private async Task BroadcastMachineStateAsync(int machineId, IClientProxy target, CancellationToken cancellationToken)
+    private async Task BroadcastMachineStateAsync(int machineId, IClientProxy target, CancellationToken cancellationToken, Guid? userId = null)
     {
-        var state = await gameService.GetMachineStateAsync(machineId, cancellationToken);
+        var state = await gameService.GetMachineStateAsync(machineId, cancellationToken, userId);
         await target.SendAsync(MachineStateUpdatedEvent, state, cancellationToken);
     }
 

@@ -30,5 +30,6 @@ public sealed record RewardStatusDto(
     bool AceMultiplierFired = false,
     int? SwapActivePosition = null,
     int SwapActiveRemaining = 0,
-    int GameId = 0
-);
+    int GameId = 0,
+    long StateVersion = 0,
+    long SequenceNumber = 0);

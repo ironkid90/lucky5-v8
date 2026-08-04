@@ -42,8 +42,9 @@ public sealed record DoubleUpResultDto(
     bool AceMultiplierFired = false,
     int? SwapActivePosition = null,
     int SwapActiveRemaining = 0,
-    int GameId = 0
-);
+    int GameId = 0,
+    long StateVersion = 0,
+    long SequenceNumber = 0);
 
 public sealed record PresentationNoiseDto(
     int SuspenseMs,

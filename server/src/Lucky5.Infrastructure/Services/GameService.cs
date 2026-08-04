@@ -1045,6 +1045,8 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 				RequiresFullSnapshot: true,
 				FromSequenceNumber: Math.Max(0, lastSequenceNumber),
 				ToSequenceNumber: snapshot.SequenceNumber,
+				StateVersion: snapshot.StateVersion,
+				SequenceNumber: snapshot.SequenceNumber,
 				Events: [],
 				Snapshot: snapshot,
 				Error: new CabinetCommandErrorDto("INVALID_RECONNECT_CURSOR", "Reconnect cursors must be zero or greater.", false));
@@ -1054,7 +1056,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		var cursor = await store.GetOrInitializeCabinetStateCursorAsync(userId, machineId);
 		if (lastSequenceNumber == cursor.SequenceNumber && lastStateVersion == cursor.StateVersion)
 		{
-			return new CabinetReplayDto(true, false, lastSequenceNumber, cursor.SequenceNumber, []);
+			return new CabinetReplayDto(true, false, lastSequenceNumber, cursor.SequenceNumber, cursor.StateVersion, cursor.SequenceNumber, []);
 		}
 
 		if (lastSequenceNumber > cursor.SequenceNumber || lastStateVersion > cursor.StateVersion)
@@ -1065,6 +1067,8 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 				RequiresFullSnapshot: true,
 				FromSequenceNumber: lastSequenceNumber,
 				ToSequenceNumber: cursor.SequenceNumber,
+				StateVersion: cursor.StateVersion,
+				SequenceNumber: cursor.SequenceNumber,
 				Events: [],
 				Snapshot: snapshot,
 				Error: new CabinetCommandErrorDto("REPLAY_GAP", "Client reconnect cursor is ahead of the authoritative server cursor. Apply the returned snapshot.", false));
@@ -1080,13 +1084,15 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 				RequiresFullSnapshot: true,
 				FromSequenceNumber: lastSequenceNumber,
 				ToSequenceNumber: cursor.SequenceNumber,
+				StateVersion: cursor.StateVersion,
+				SequenceNumber: cursor.SequenceNumber,
 				Events: [],
 				Snapshot: snapshot,
 				Error: new CabinetCommandErrorDto("REPLAY_GAP", "A contiguous replay range is not available. Apply the returned snapshot before enabling cabinet commands.", false));
 		}
 
 		var events = ordered.Select(ToCabinetEventDto).ToArray();
-		return new CabinetReplayDto(true, false, lastSequenceNumber, cursor.SequenceNumber, events);
+		return new CabinetReplayDto(true, false, lastSequenceNumber, cursor.SequenceNumber, cursor.StateVersion, cursor.SequenceNumber, events);
 	}
 
 	private async Task<CabinetSnapshotDto> BuildRecoverySnapshotAsync(Guid userId, int machineId, string reason, CancellationToken cancellationToken)
@@ -1842,13 +1848,21 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		return dto;
 	}
 
-	public async Task<object> GetMachineStateAsync(int machineId, CancellationToken cancellationToken)
+	public async Task<object> GetMachineStateAsync(int machineId, CancellationToken cancellationToken, Guid? userId = null)
 	{
 		var ledger = await RequireMachineLedgerAsync(machineId);
 		// Using some simplistic counts since we don't have direct access to all active rounds/sessions easily
 		// in EF without a specific query. These properties are mainly for admin debugging.
 		var activeRounds = 0; // Would require a specific repository method if really needed
 		var activeSessions = 0; // Same here
+		long stateVersion = 0;
+		long sequenceNumber = 0;
+		if (userId.HasValue)
+		{
+			var cursor = await store.GetOrInitializeCabinetStateCursorAsync(userId.Value, machineId);
+			stateVersion = cursor.StateVersion;
+			sequenceNumber = cursor.SequenceNumber;
+		}
 		return new
 		{
 			machineId,
@@ -1876,8 +1890,16 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 				machineSerie = ledger.MachineSerie,
 				machineKent = ledger.MachineKent
 			},
-			timestampUtc = DateTime.UtcNow
+			timestampUtc = DateTime.UtcNow,
+			stateVersion,
+			sequenceNumber
 		};
+	}
+
+	public async Task<(long StateVersion, long SequenceNumber)> GetCabinetStateCursorAsync(Guid userId, int machineId, CancellationToken cancellationToken)
+	{
+		var cursor = await store.GetOrInitializeCabinetStateCursorAsync(userId, machineId);
+		return (cursor.StateVersion, cursor.SequenceNumber);
 	}
 
 	public async Task<object> ResetMachineAsync(Guid userId, int machineId, CancellationToken cancellationToken)

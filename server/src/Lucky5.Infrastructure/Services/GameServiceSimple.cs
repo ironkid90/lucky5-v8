@@ -31,7 +31,8 @@ public sealed class GameServiceSimple : IGameService
     public Task<CabinetCommandResultDto> SubmitCabinetCommandAsync(Guid userId, CabinetCommandDto command, CancellationToken cancellationToken) => inner.SubmitCabinetCommandAsync(userId, command, cancellationToken);
     public Task<CabinetReplayDto> GetCabinetReplayAsync(Guid userId, int machineId, long lastStateVersion, long lastSequenceNumber, CancellationToken cancellationToken) => inner.GetCabinetReplayAsync(userId, machineId, lastStateVersion, lastSequenceNumber, cancellationToken);
     public Task<ActiveRoundStateDto?> GetActiveRoundAsync(Guid userId, int machineId, CancellationToken cancellationToken) => inner.GetActiveRoundAsync(userId, machineId, cancellationToken);
-    public Task<object> GetMachineStateAsync(int machineId, CancellationToken cancellationToken) => inner.GetMachineStateAsync(machineId, cancellationToken);
+    public Task<object> GetMachineStateAsync(int machineId, CancellationToken cancellationToken, Guid? userId = null) => inner.GetMachineStateAsync(machineId, cancellationToken, userId);
+    public Task<(long StateVersion, long SequenceNumber)> GetCabinetStateCursorAsync(Guid userId, int machineId, CancellationToken cancellationToken) => inner.GetCabinetStateCursorAsync(userId, machineId, cancellationToken);
     public Task<DealResultDto> DealAsync(Guid userId, DealRequest request, CancellationToken cancellationToken) => inner.DealAsync(userId, request, cancellationToken);
     public Task<DrawResultDto> DrawAsync(Guid userId, DrawRequest request, CancellationToken cancellationToken) => inner.DrawAsync(userId, request, cancellationToken);
     public Task<DoubleUpResultDto> StartDoubleUpAsync(Guid userId, Guid roundId, CancellationToken cancellationToken) => inner.StartDoubleUpAsync(userId, roundId, cancellationToken);
