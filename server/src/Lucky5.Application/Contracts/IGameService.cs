@@ -8,6 +8,7 @@ public interface IGameService
     Task<IReadOnlyList<string>> GetGamesAsync(CancellationToken cancellationToken);
     Task<PlayerLobbyDto> GetLobbyAsync(Guid userId, CancellationToken cancellationToken);
     Task<IReadOnlyList<MachineListingDto>> GetMachinesAsync(CancellationToken cancellationToken);
+    Task<IReadOnlyList<MachineListingDto>> GetLobbyMachinesAsync(Guid userId, CancellationToken cancellationToken);
     Task<DefaultRulesDto> GetDefaultRulesAsync(CancellationToken cancellationToken);
     Task<MachineSessionDto> GetMachineSessionAsync(Guid userId, int machineId, CancellationToken cancellationToken);
     Task<MachineSessionDto> CashInAsync(Guid userId, int machineId, decimal amount, CancellationToken cancellationToken);

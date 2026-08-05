@@ -213,6 +213,10 @@
     color: #49ff8b;
 }
 
+.lobby-machine-status.is-occupied {
+    color: #ffaa00;
+}
+
 .lobby-machine-status.is-closed {
     color: #ff7565;
 }

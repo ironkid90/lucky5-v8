@@ -58,6 +58,45 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 			.Select(x => new MachineListingDto(x.Id, x.Name, x.IsOpen, x.MinBet, x.MaxBet, x.BetIncrement))
 			.ToArray();
 
+	public async Task<IReadOnlyList<MachineListingDto>> GetLobbyMachinesAsync(Guid userId, CancellationToken cancellationToken)
+	{
+		var machines = (await store.GetMachinesAsync())
+			.OrderBy(machine => machine.Id)
+			.ToArray();
+		var allSessions = await store.GetAllMachineSessionsAsync();
+		var result = new List<MachineListingDto>(machines.Length);
+
+		foreach (var machine in machines)
+		{
+			var activeOccupantSession = allSessions.FirstOrDefault(s => s.MachineId == machine.Id && !s.IsMachineClosed && s.MachineCredits > 0m);
+			bool isOccupied = activeOccupantSession != null;
+			string? occupiedByUsername = isOccupied ? (await store.GetUserByIdAsync(activeOccupantSession!.UserId))?.Username : null;
+			DateTime? reservedUntil = isOccupied ? activeOccupantSession!.LastUpdatedUtc.AddMinutes(5) : null;
+			int idleSec = 0;
+			if (reservedUntil.HasValue)
+			{
+				var remaining = (reservedUntil.Value - DateTime.UtcNow).TotalSeconds;
+				idleSec = remaining > 0 ? (int)remaining : 0;
+			}
+			int spectatorCount = spectatorTracker.GetSpectatorCount(machine.Id);
+
+			result.Add(new MachineListingDto(
+				machine.Id,
+				machine.Name,
+				machine.IsOpen,
+				machine.MinBet,
+				machine.MaxBet,
+				machine.BetIncrement,
+				isOccupied,
+				occupiedByUsername,
+				reservedUntil,
+				idleSec,
+				spectatorCount));
+		}
+
+		return result;
+	}
+
 	public async Task<PlayerLobbyDto> GetLobbyAsync(Guid userId, CancellationToken cancellationToken)
 	{
 		var profile = await RequireProfileAsync(userId);

@@ -3179,6 +3179,38 @@ async function setupSignalR() {
         console.error('SignalR error:', err);
     });
 
+    hubConnection.on('LobbyMachinesUpdated', (machines) => {
+        if (!Array.isArray(machines)) return;
+        AVAILABLE_GAMES = machines.map(machine => {
+            const minBet = window.SERVER_RULES && window.SERVER_RULES.minStake !== undefined ? window.SERVER_RULES.minStake : machine.minBet;
+            const maxBet = window.SERVER_RULES && window.SERVER_RULES.maxStake !== undefined ? window.SERVER_RULES.maxStake : machine.maxBet;
+            const isOccupied = Boolean(machine.isOccupied);
+            const spectatorCount = Number(machine.spectatorCount) || 0;
+            let status = 'playable';
+            if (!machine.isOpen) {
+                status = 'unavailable';
+            } else if (isOccupied) {
+                status = 'playing';
+            }
+
+            return {
+                id: `machine-${machine.id}`,
+                machineId: machine.id,
+                name: machine.name.toUpperCase(),
+                icon: '/assets/images/lucky5.png',
+                status: status,
+                minBet: minBet,
+                maxBet: maxBet,
+                isOccupied: isOccupied,
+                occupiedByUsername: machine.occupiedByUsername,
+                activeSpectatorCount: spectatorCount,
+                idleSecondsRemaining: machine.idleSecondsRemaining || 0,
+                reservedUntilUtc: machine.reservedUntilUtc || null
+            };
+        });
+        renderGameGrid();
+    });
+
     hubConnection.onreconnecting((error) => {
         console.warn('[SignalR] Reconnecting...', error ? error.message : '');
         showMessage('RECONNECTING...');
@@ -3336,29 +3368,37 @@ let AVAILABLE_GAMES = [];
 // ── 10. SHELL / LOBBY ──────────────────────────────────────────────────
 async function loadAvailableMachines() {
     try {
-        const machineData = await apiCall('GET', GAME_CONFIG.api.machines);
-        // Convert machines to game cards
+        const machineData = await apiCall('GET', GAME_CONFIG.api.lobbyMachines);
         AVAILABLE_GAMES = machineData.map(machine => {
             const minBet = window.SERVER_RULES && window.SERVER_RULES.minStake !== undefined ? window.SERVER_RULES.minStake : machine.minBet;
             const maxBet = window.SERVER_RULES && window.SERVER_RULES.maxStake !== undefined ? window.SERVER_RULES.maxStake : machine.maxBet;
-            
+            const isOccupied = Boolean(machine.isOccupied);
+            const spectatorCount = Number(machine.spectatorCount) || 0;
+            let status = 'playable';
+            if (!machine.isOpen) {
+                status = 'unavailable';
+            } else if (isOccupied) {
+                status = 'playing';
+            }
+
             return {
                 id: `machine-${machine.id}`,
                 machineId: machine.id,
                 name: machine.name.toUpperCase(),
                 icon: '/assets/images/lucky5.png',
-                status: machine.isOpen ? 'playable' : 'unavailable',
+                status: status,
                 minBet: minBet,
                 maxBet: maxBet,
-                isOccupied: machine.isOccupied,
+                isOccupied: isOccupied,
                 occupiedByUsername: machine.occupiedByUsername,
-                activeSpectatorCount: machine.activeSpectatorCount
+                activeSpectatorCount: spectatorCount,
+                idleSecondsRemaining: machine.idleSecondsRemaining || 0,
+                reservedUntilUtc: machine.reservedUntilUtc || null
             };
         });
         return AVAILABLE_GAMES;
     } catch (e) {
         console.error('Failed to load machines:', e);
-        // Fallback to single game if API fails
         AVAILABLE_GAMES = [{
             id: 'machine-1',
             machineId: 1,
@@ -3405,10 +3445,11 @@ function renderGameGrid() {
             name: g.name,
             minBet: g.minBet,
             maxBet: g.maxBet,
-            isOpen: g.status === 'playable',
+            isOpen: g.status !== 'unavailable',
             isOccupied: g.isOccupied,
             occupiedByUsername: g.occupiedByUsername,
-            activeSpectatorCount: g.activeSpectatorCount
+            activeSpectatorCount: g.activeSpectatorCount,
+            status: g.status
         }));
         CabinetShell.renderLobbyMachineCards(rawMachines, machine => {
             const options = machine.isOccupied ? { isSpectator: true } : {};
@@ -3437,6 +3478,45 @@ function renderGameGrid() {
         nameDiv.className = 'game-card-name';
         nameDiv.textContent = game.name;
 
+        // Status badge: READY / PLAYING / CLOSED
+        const badge = document.createElement('div');
+        badge.className = 'game-card-badge ';
+        let badgeText = '';
+        if (game.status === 'playable') {
+            badge.classList.add('playable');
+            badgeText = 'READY';
+        } else if (game.status === 'playing') {
+            badge.classList.add('playing');
+            badgeText = 'PLAYING';
+        } else {
+            badge.classList.add('coming-soon');
+            badgeText = 'CLOSED';
+        }
+        badge.textContent = badgeText;
+
+        // Spectator count
+        const specDiv = document.createElement('div');
+        specDiv.className = 'game-card-spectators';
+        specDiv.style.fontSize = '8px';
+        specDiv.style.color = '#888';
+        specDiv.style.marginTop = '4px';
+        if (game.activeSpectatorCount > 0) {
+            specDiv.textContent = `👁 ${game.activeSpectatorCount} SPECTATOR${game.activeSpectatorCount !== 1 ? 'S' : ''}`;
+        } else if (game.isOccupied) {
+            specDiv.textContent = 'IN USE';
+        }
+
+        // Occupied by info
+        if (game.occupiedByUsername) {
+            const occupantDiv = document.createElement('div');
+            occupantDiv.className = 'game-card-occupant';
+            occupantDiv.style.fontSize = '7px';
+            occupantDiv.style.color = '#aaa';
+            occupantDiv.style.marginTop = '2px';
+            occupantDiv.textContent = `BY ${game.occupiedByUsername.toUpperCase()}`;
+            card.appendChild(occupantDiv);
+        }
+
         // Show bet range if available
         const betInfo = document.createElement('div');
         betInfo.className = 'game-card-bet-info';
@@ -3447,15 +3527,13 @@ function renderGameGrid() {
             betInfo.textContent = `BET: ${formatNum(game.minBet)} - ${formatNum(game.maxBet)}`;
         }
 
-        const badge = document.createElement('div');
-        badge.className = 'game-card-badge ' + (game.status === 'playable' ? 'playable' : 'coming-soon');
-        badge.textContent = game.status === 'playable' ? 'PLAY NOW' : game.status === 'unavailable' ? 'CLOSED' : 'COMING SOON';
-
         card.appendChild(iconDiv);
         card.appendChild(nameDiv);
-        if (game.minBet && game.maxBet) {
-            card.appendChild(betInfo);
+        if (game.occupiedByUsername) {
+            card.appendChild(occupantDiv);
         }
+        card.appendChild(betInfo);
+        card.appendChild(specDiv);
         card.appendChild(badge);
 
         if (game.status === 'playable') {
