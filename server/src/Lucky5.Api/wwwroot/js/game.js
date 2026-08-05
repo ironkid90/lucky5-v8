@@ -721,8 +721,6 @@ function applyCabinetSnapshot(snapshot) {
         updateJackpotDisplay(normalizedJackpots);
     }
 
-    _applyGameStoreFromCabinetSnapshot(snapshot);
-
     return {
         gameState: String(readCabinetField(snapshot, 'gameState', 'game_state') || 'idle').toLowerCase(),
         pendingWinAmount: parseCabinetNumber(
@@ -734,53 +732,6 @@ function applyCabinetSnapshot(snapshot) {
                 ?? readCabinetField(evaluation, 'message')
                 ?? '').trim()
     };
-}
-
-function _applyGameStoreFromCabinetSnapshot(snapshot) {
-    if (typeof CabinetClientStores === 'undefined' || !snapshot) return;
-    const credits = readCabinetField(snapshot, 'credits') || {};
-    const evaluation = readCabinetField(snapshot, 'evaluation') || {};
-    const sessionState = readCabinetField(snapshot, 'session') || {};
-    const doubleUp = readCabinetField(snapshot, 'doubleUp', 'double_up') || {};
-    const hand = readCabinetField(snapshot, 'hand') || {};
-
-    CabinetClientStores.setGameVersion(
-        readCabinetField(snapshot, 'stateVersion', 'state_version', 'version'),
-        readCabinetField(snapshot, 'sequenceNumber', 'sequence_number', 'sequence')
-    );
-    CabinetClientStores.setGameBet(parseCabinetNumber(readCabinetField(credits, 'stake'), currentBet));
-    CabinetClientStores.setAuthBalance(parseCabinetNumber(readCabinetField(credits, 'machineCredits', 'machine_credits'), balance));
-    CabinetClientStores.setAuthWalletBalance(parseCabinetNumber(readCabinetField(credits, 'walletBalance', 'wallet_balance'), walletBalance));
-    CabinetClientStores.setGameWinMeter(parseCabinetNumber(
-        readCabinetField(credits, 'pendingWinAmount', 'pending_win_amount')
-            ?? readCabinetField(evaluation, 'winAmount', 'win_amount'),
-        0
-    ));
-
-    const cabinetGameState = String(readCabinetField(snapshot, 'gameState', 'game_state') || 'idle').toLowerCase();
-    CabinetClientStores.setGamePhase(cabinetGameState);
-
-    const rawCards = (cabinetGameState === 'win' || cabinetGameState === 'double_up')
-        ? readCabinetField(hand, 'resultCards', 'result_cards') || readCabinetField(hand, 'cards')
-        : readCabinetField(hand, 'cards');
-    const cardsForStore = Array.isArray(rawCards)
-        ? rawCards.map(parseCabinetCard).filter(Boolean)
-        : [];
-    CabinetClientStores.setGameCards(cardsForStore);
-
-    const heldIndexes = Array.isArray(readCabinetField(hand, 'heldIndexes', 'held_indexes'))
-        ? readCabinetField(hand, 'heldIndexes', 'held_indexes').map((index) => parseInt(index, 10)).filter((index) => Number.isFinite(index))
-        : [];
-    CabinetClientStores.setGameHolds(heldIndexes);
-
-    CabinetClientStores.setGameDoubleUpState({
-        dealerCard: parseCabinetCard(readCabinetField(doubleUp, 'dealerCard', 'dealer_card')),
-        currentAmount: parseCabinetNumber(readCabinetField(doubleUp, 'currentAmount', 'current_amount'), 0),
-        switchesRemaining: parseCabinetNumber(readCabinetField(doubleUp, 'switchesRemaining', 'switches_remaining'), 0),
-        isNoLoseActive: Boolean(readCabinetField(doubleUp, 'isNoLoseActive', 'is_no_lose_active')),
-        luckyMultiplier: parseCabinetNumber(readCabinetField(doubleUp, 'luckyMultiplier', 'lucky_multiplier'), 1),
-        started: cabinetGameState === 'double_up'
-    });
 }
 
 function buildRoundSnapshotFromCabinetSnapshot(snapshot) {
@@ -1060,11 +1011,6 @@ function _registerStoreDomSubscriptions() {
         }
         if (state.phase !== prev.phase) {
             setButtonStates();
-        }
-        if (state.cards !== prev.cards && Array.isArray(state.cards)) {
-            // Card rendering is handled by action functions (deal/draw/restore)
-            // which use animated stages. Skip subscription re-render to avoid
-            // interrupting in-flight animations.
         }
         if (state.holds !== prev.holds) {
             const slots = $$('.card-slot');
@@ -2068,7 +2014,7 @@ function restoreRoundFromSnapshot(snapshot) {
     updateBonusBar(currentHandRank);
 
     if (typeof CabinetClientStores !== 'undefined') {
-        CabinetClientStores.setGamePhase(phase === 'Dealt' ? 'hold' : phase === 'DoubleUp' ? 'doubleup' : phase === 'Drawn' ? 'win' : 'idle');
+        CabinetClientStores.setGamePhase(phase === 'Dealt' ? 'hold' : phase === 'DoubleUp' ? 'doubleup' : 'idle');
         CabinetClientStores.setGameBet(currentBet);
         CabinetClientStores.setGameCards(cards);
         CabinetClientStores.setGameHolds(Array.from(holdIndexes));
@@ -2081,7 +2027,7 @@ function restoreRoundFromSnapshot(snapshot) {
                 switchesRemaining: du.switchesRemaining,
                 isNoLoseActive: du.isNoLoseActive,
                 luckyMultiplier: du.luckyMultiplier,
-                cardTrail: du.cardTrail,
+                trail: du.cardTrail,
                 started: true
             });
         } else {
@@ -2091,7 +2037,7 @@ function restoreRoundFromSnapshot(snapshot) {
                 switchesRemaining: 0,
                 isNoLoseActive: false,
                 luckyMultiplier: 1,
-                cardTrail: [],
+                trail: [],
                 started: false
             });
         }
@@ -3321,7 +3267,6 @@ async function setupSignalR() {
         if (snapshot) {
             if (snapshot.state_version !== undefined) clientStateVersion = snapshot.state_version;
             if (snapshot.sequence_number !== undefined) clientSequenceNumber = snapshot.sequence_number;
-            _applyGameStoreFromCabinetSnapshot(snapshot);
             const roundSnapshot = buildRoundSnapshotFromCabinetSnapshot(snapshot);
             if (roundSnapshot) restoreRoundFromSnapshot(roundSnapshot);
         }
@@ -3332,7 +3277,6 @@ async function setupSignalR() {
             const snapshot = replay.Snapshot;
             if (snapshot.state_version !== undefined) clientStateVersion = snapshot.state_version;
             if (snapshot.sequence_number !== undefined) clientSequenceNumber = snapshot.sequence_number;
-            _applyGameStoreFromCabinetSnapshot(snapshot);
             const roundSnapshot = buildRoundSnapshotFromCabinetSnapshot(snapshot);
             if (roundSnapshot) restoreRoundFromSnapshot(roundSnapshot);
         }
