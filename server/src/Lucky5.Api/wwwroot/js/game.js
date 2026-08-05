@@ -3721,7 +3721,7 @@ function renderGameGrid() {
         card.appendChild(specDiv);
         card.appendChild(badge);
 
-        if (game.status === 'playable' || game.status === 'watching') {
+        if (game.status === 'playable' || game.status === 'watching' || game.status === 'playing') {
             card.addEventListener('click', () => {
                 const options = game.isOccupied ? { isSpectator: true } : {};
                 openGame(game.id, game.machineId, options);
@@ -3751,7 +3751,9 @@ async function showLobby() {
     updateLobbyBalance();
     updateLobbyUsername();
     if (window.CabinetBonus) CabinetBonus.checkAndShowBanner();
-    // Load machines from backend before rendering
+    if (!isHubConnected() && token) {
+        await setupSignalR().catch(() => {});
+    }
     await loadAvailableMachines();
     renderGameGrid();
 }

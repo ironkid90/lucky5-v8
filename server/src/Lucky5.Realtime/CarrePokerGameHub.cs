@@ -382,24 +382,8 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
 
     private async Task BroadcastLobbyMachinesUpdatedAsync(CancellationToken cancellationToken)
     {
-        var machines = await gameService.GetMachinesAsync(cancellationToken);
-        var spectatorSnapshot = spectatorTracker.GetLobbySnapshot();
-        var spectatorMap = spectatorSnapshot.ToDictionary(x => x.MachineId, x => x.SpectatorCount);
-
-        var result = new List<LobbyMachineInfo>();
-        foreach (var machine in machines)
-        {
-            int? occupantUserId = null;
-            var isOccupied = MachineOccupancy.ContainsKey(machine.Id);
-            if (isOccupied && MachineOccupancy.TryGetValue(machine.Id, out var connectionId)
-                && registry.TryGetUserId(connectionId, out var occUserId))
-            {
-                occupantUserId = GetMemberId(occUserId);
-            }
-            result.Add(new LobbyMachineInfo(machine.Id, isOccupied, occupantUserId, spectatorMap.GetValueOrDefault(machine.Id, 0)));
-        }
-
-        await Clients.All.SendAsync(LobbyMachinesUpdatedEvent, result, cancellationToken);
+        var machines = await gameService.GetLobbyMachinesAsync(Guid.Empty, cancellationToken);
+        await Clients.All.SendAsync(LobbyMachinesUpdatedEvent, machines, cancellationToken);
     }
 
     private Task EmitErrorAsync(string code, string message)
