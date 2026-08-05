@@ -584,6 +584,10 @@ function resetGameRuntimeState({ clearSelection = false } = {}) {
     clientStateVersion = 0;
     clientSequenceNumber = 0;
 
+    if (typeof CabinetClientStores !== 'undefined') {
+        CabinetClientStores.resetGame(!clearSelection);
+    }
+
     if (clearSelection) {
         clearCurrentMachineSelection();
     }
@@ -596,6 +600,11 @@ function syncMachineSessionState(session) {
     if (Number.isFinite(nextThreshold)) {
         machineCashOutThreshold = nextThreshold;
     }
+}
+
+function _syncGameStoreFromGlobals() {
+    if (typeof CabinetClientStores === 'undefined') return;
+    CabinetClientStores.initGameFromGlobals();
 }
 
 function readCabinetField(source, ...keys) {
@@ -712,6 +721,8 @@ function applyCabinetSnapshot(snapshot) {
         updateJackpotDisplay(normalizedJackpots);
     }
 
+    _applyGameStoreFromCabinetSnapshot(snapshot);
+
     return {
         gameState: String(readCabinetField(snapshot, 'gameState', 'game_state') || 'idle').toLowerCase(),
         pendingWinAmount: parseCabinetNumber(
@@ -723,6 +734,53 @@ function applyCabinetSnapshot(snapshot) {
                 ?? readCabinetField(evaluation, 'message')
                 ?? '').trim()
     };
+}
+
+function _applyGameStoreFromCabinetSnapshot(snapshot) {
+    if (typeof CabinetClientStores === 'undefined' || !snapshot) return;
+    const credits = readCabinetField(snapshot, 'credits') || {};
+    const evaluation = readCabinetField(snapshot, 'evaluation') || {};
+    const sessionState = readCabinetField(snapshot, 'session') || {};
+    const doubleUp = readCabinetField(snapshot, 'doubleUp', 'double_up') || {};
+    const hand = readCabinetField(snapshot, 'hand') || {};
+
+    CabinetClientStores.setGameVersion(
+        readCabinetField(snapshot, 'stateVersion', 'state_version', 'version'),
+        readCabinetField(snapshot, 'sequenceNumber', 'sequence_number', 'sequence')
+    );
+    CabinetClientStores.setGameBet(parseCabinetNumber(readCabinetField(credits, 'stake'), currentBet));
+    CabinetClientStores.setAuthBalance(parseCabinetNumber(readCabinetField(credits, 'machineCredits', 'machine_credits'), balance));
+    CabinetClientStores.setAuthWalletBalance(parseCabinetNumber(readCabinetField(credits, 'walletBalance', 'wallet_balance'), walletBalance));
+    CabinetClientStores.setGameWinMeter(parseCabinetNumber(
+        readCabinetField(credits, 'pendingWinAmount', 'pending_win_amount')
+            ?? readCabinetField(evaluation, 'winAmount', 'win_amount'),
+        0
+    ));
+
+    const cabinetGameState = String(readCabinetField(snapshot, 'gameState', 'game_state') || 'idle').toLowerCase();
+    CabinetClientStores.setGamePhase(cabinetGameState);
+
+    const rawCards = (cabinetGameState === 'win' || cabinetGameState === 'double_up')
+        ? readCabinetField(hand, 'resultCards', 'result_cards') || readCabinetField(hand, 'cards')
+        : readCabinetField(hand, 'cards');
+    const cardsForStore = Array.isArray(rawCards)
+        ? rawCards.map(parseCabinetCard).filter(Boolean)
+        : [];
+    CabinetClientStores.setGameCards(cardsForStore);
+
+    const heldIndexes = Array.isArray(readCabinetField(hand, 'heldIndexes', 'held_indexes'))
+        ? readCabinetField(hand, 'heldIndexes', 'held_indexes').map((index) => parseInt(index, 10)).filter((index) => Number.isFinite(index))
+        : [];
+    CabinetClientStores.setGameHolds(heldIndexes);
+
+    CabinetClientStores.setGameDoubleUpState({
+        dealerCard: parseCabinetCard(readCabinetField(doubleUp, 'dealerCard', 'dealer_card')),
+        currentAmount: parseCabinetNumber(readCabinetField(doubleUp, 'currentAmount', 'current_amount'), 0),
+        switchesRemaining: parseCabinetNumber(readCabinetField(doubleUp, 'switchesRemaining', 'switches_remaining'), 0),
+        isNoLoseActive: Boolean(readCabinetField(doubleUp, 'isNoLoseActive', 'is_no_lose_active')),
+        luckyMultiplier: parseCabinetNumber(readCabinetField(doubleUp, 'luckyMultiplier', 'lucky_multiplier'), 1),
+        started: cabinetGameState === 'double_up'
+    });
 }
 
 function buildRoundSnapshotFromCabinetSnapshot(snapshot) {
@@ -880,6 +938,9 @@ function syncMachineCreditsFromResponse(source) {
         balance = nextBalance;
     }
     updateCredits();
+    if (typeof CabinetClientStores !== 'undefined') {
+        CabinetClientStores.setAuthBalance(balance);
+    }
     return balance;
 }
 
@@ -908,6 +969,10 @@ function refreshIdleMachineState(messageText = null, type = 'win') {
     updateWinIndicator(0);
     updateWinAmountDisplay(0);
     setButtonStates();
+
+    if (typeof CabinetClientStores !== 'undefined') {
+        _syncGameStoreFromGlobals();
+    }
 
     if (messageText) {
         showMessage(messageText, type);
@@ -966,6 +1031,59 @@ function showMessage(text, type) {
     const msg = $('#game-message');
     msg.textContent = text;
     msg.className = type || '';
+}
+
+function _registerStoreDomSubscriptions() {
+    if (typeof CabinetClientStores === 'undefined') return;
+
+    CabinetClientStores.auth.subscribe((state) => {
+        updateMenuVisibility();
+        updateLobbyUsername();
+        const lobbyBal = document.getElementById('lobby-balance');
+        const lobbyWalBal = document.getElementById('lobby-wallet-bal');
+        const walletBal = document.getElementById('wallet-balance');
+        const fmt = formatNum(state.walletBalance);
+        if (lobbyBal) lobbyBal.textContent = fmt;
+        if (lobbyWalBal) lobbyWalBal.textContent = fmt;
+        if (walletBal) walletBal.textContent = fmt;
+    });
+
+    CabinetClientStores.game.subscribe((state, prev) => {
+        if (!prev) return;
+        if (state.bet !== prev.bet) {
+            updateStakeDisplay();
+            updatePaytable();
+        }
+        if (state.winMeter !== prev.winMeter) {
+            updateWinIndicator(state.winMeter);
+            updateWinAmountDisplay(state.winMeter, getFourOfAKindSlotTag());
+        }
+        if (state.phase !== prev.phase) {
+            setButtonStates();
+        }
+        if (state.cards !== prev.cards && Array.isArray(state.cards)) {
+            // Card rendering is handled by action functions (deal/draw/restore)
+            // which use animated stages. Skip subscription re-render to avoid
+            // interrupting in-flight animations.
+        }
+        if (state.holds !== prev.holds) {
+            const slots = $$('.card-slot');
+            const holdBtns = $$('.cab-hold');
+            slots.forEach((slot, i) => {
+                slot.classList.toggle('held', state.holds.includes(i));
+            });
+            holdBtns.forEach((btn, i) => {
+                btn.classList.toggle('active', state.holds.includes(i));
+            });
+            if (window.CabinetStage) {
+                for (let i = 0; i < 5; i++) CabinetStage.setHold(i, state.holds.includes(i));
+            }
+            updateIdleOverlayVisibility();
+        }
+        if (state.doubleUpState !== prev.doubleUpState) {
+            updateDoubleUpInfoPanel();
+        }
+    });
 }
 
 let _autoRetryTimer = null;
@@ -1948,6 +2066,36 @@ function restoreRoundFromSnapshot(snapshot) {
     updateStakeDisplay();
     updatePaytable(currentHandRank);
     updateBonusBar(currentHandRank);
+
+    if (typeof CabinetClientStores !== 'undefined') {
+        CabinetClientStores.setGamePhase(phase === 'Dealt' ? 'hold' : phase === 'DoubleUp' ? 'doubleup' : phase === 'Drawn' ? 'win' : 'idle');
+        CabinetClientStores.setGameBet(currentBet);
+        CabinetClientStores.setGameCards(cards);
+        CabinetClientStores.setGameHolds(Array.from(holdIndexes));
+        CabinetClientStores.setGameWinMeter(phase === 'Dealt' ? 0 : snapshot.pendingWinAmount || 0);
+        if (snapshot.doubleUpSession) {
+            const du = snapshot.doubleUpSession;
+            CabinetClientStores.setGameDoubleUpState({
+                dealerCard: du.dealerCard,
+                currentAmount: du.currentAmount,
+                switchesRemaining: du.switchesRemaining,
+                isNoLoseActive: du.isNoLoseActive,
+                luckyMultiplier: du.luckyMultiplier,
+                cardTrail: du.cardTrail,
+                started: true
+            });
+        } else {
+            CabinetClientStores.setGameDoubleUpState({
+                dealerCard: null,
+                currentAmount: 0,
+                switchesRemaining: 0,
+                isNoLoseActive: false,
+                luckyMultiplier: 1,
+                cardTrail: [],
+                started: false
+            });
+        }
+    }
 
     if (phase === 'Dealt') {
         winAmount = 0;
@@ -3073,6 +3221,10 @@ function storeToken(t) {
     token = t;
     sessionStorage.setItem('lucky5_token', t);
     updateMenuVisibility();
+    if (typeof CabinetClientStores !== 'undefined') {
+        CabinetClientStores.setAuthToken(t);
+        CabinetClientStores.setAuthStatus('authenticated');
+    }
 }
 
 function storeUserInfo(username, role) {
@@ -3081,6 +3233,9 @@ function storeUserInfo(username, role) {
     sessionStorage.setItem('lucky5_username', currentUsername);
     sessionStorage.setItem('lucky5_role', currentRole);
     updateLobbyUsername();
+    if (typeof CabinetClientStores !== 'undefined') {
+        CabinetClientStores.setAuthUser({ username, role: currentRole });
+    }
 }
 
 function clearToken() {
@@ -3093,6 +3248,9 @@ function clearToken() {
     sessionStorage.removeItem('lucky5_machineId');
     updateMenuVisibility();
     updateLobbyUsername();
+    if (typeof CabinetClientStores !== 'undefined') {
+        CabinetClientStores.resetAuth();
+    }
 }
 
 async function setupSignalR() {
@@ -3122,6 +3280,9 @@ async function setupSignalR() {
         if (state) {
             if (state.state_version !== undefined) clientStateVersion = state.state_version;
             if (state.sequence_number !== undefined) clientSequenceNumber = state.sequence_number;
+            if (typeof CabinetClientStores !== 'undefined') {
+                CabinetClientStores.setGameVersion(state.state_version, state.sequence_number);
+            }
             if (state.jackpots || state.Jackpot) {
                 updateJackpotDisplay(state.jackpots || state.Jackpot);
             }
@@ -3160,6 +3321,7 @@ async function setupSignalR() {
         if (snapshot) {
             if (snapshot.state_version !== undefined) clientStateVersion = snapshot.state_version;
             if (snapshot.sequence_number !== undefined) clientSequenceNumber = snapshot.sequence_number;
+            _applyGameStoreFromCabinetSnapshot(snapshot);
             const roundSnapshot = buildRoundSnapshotFromCabinetSnapshot(snapshot);
             if (roundSnapshot) restoreRoundFromSnapshot(roundSnapshot);
         }
@@ -3170,6 +3332,7 @@ async function setupSignalR() {
             const snapshot = replay.Snapshot;
             if (snapshot.state_version !== undefined) clientStateVersion = snapshot.state_version;
             if (snapshot.sequence_number !== undefined) clientSequenceNumber = snapshot.sequence_number;
+            _applyGameStoreFromCabinetSnapshot(snapshot);
             const roundSnapshot = buildRoundSnapshotFromCabinetSnapshot(snapshot);
             if (roundSnapshot) restoreRoundFromSnapshot(roundSnapshot);
         }
@@ -3348,6 +3511,9 @@ async function doLogout() {
     resetGameRuntimeState({ clearSelection: true });
     balance = 0;
     walletBalance = 0;
+    if (typeof CabinetClientStores !== 'undefined') {
+        CabinetClientStores.resetAuth();
+    }
     setActiveScreen(null);
     $('#auth-screen').style.display = '';
     $('#auth-error').textContent = '';
@@ -4423,6 +4589,9 @@ async function backToLobbyFromGame() {
 async function enterLobbyAfterLogin(profileData) {
     walletBalance = profileData.walletBalance;
     storeUserInfo(profileData.username, profileData.role);
+    if (typeof CabinetClientStores !== 'undefined') {
+        CabinetClientStores.setAuthWalletBalance(walletBalance);
+    }
     $('#auth-screen').style.display = 'none';
     if (window.CabinetFirebase) {
         try {
@@ -4479,6 +4648,11 @@ async function initGame(options = {}) {
 
         const profile = await apiCall('GET', GAME_CONFIG.api.profile);
         walletBalance = profile.walletBalance;
+        if (typeof CabinetClientStores !== 'undefined') {
+            CabinetClientStores.initAuthFromStorage();
+            CabinetClientStores.setAuthWalletBalance(walletBalance);
+            CabinetClientStores.setGameMachineId(machineId);
+        }
         const session = await fetchMachineSession();
         updateCredits();
         updateStakeDisplay();
@@ -4556,6 +4730,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     debugLog('boot', { apiBase: API, userAgent: navigator.userAgent });
     updateMenuVisibility();
     updateLobbyUsername();
+
+    if (typeof CabinetClientStores !== 'undefined') {
+        CabinetClientStores.initAuthFromStorage();
+        CabinetClientStores.initGameFromGlobals();
+        _registerStoreDomSubscriptions();
+    }
     
     // Auto-enable wake lock on any user interaction gesture (touch, click, key)
     const enableWakeLock = () => {
@@ -4908,10 +5088,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             try {
                 const profile = await apiCall('GET', GAME_CONFIG.api.profile);
                 walletBalance = profile.walletBalance;
+                if (typeof CabinetClientStores !== 'undefined') {
+                    CabinetClientStores.initAuthFromStorage();
+                    CabinetClientStores.setAuthWalletBalance(walletBalance);
+                }
                 storeUserInfo(profile.username, profile.role);
                 const savedMachine = sessionStorage.getItem('lucky5_machineId');
                 if (savedMachine) {
                     machineId = parseInt(savedMachine, 10);
+                    if (typeof CabinetClientStores !== 'undefined') {
+                        CabinetClientStores.setGameMachineId(machineId);
+                    }
                     activateShellScreen('game', null);
                     await initGame({ allowLobbyFallback: true });
                 } else {
