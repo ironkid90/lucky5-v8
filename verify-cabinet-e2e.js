@@ -50,7 +50,7 @@ const path = require('path');
         await page.screenshot({ path: path.join(screenshotsDir, '1_auth_screen.png') });
         console.log('  ✓ Auth screen loaded and snapshotted.');
 
-        console.log('\n[2/6] Logging in as test user...');
+        console.log('[2/6] Logging in as test user...');
         await page.fill('#auth-username', 'tester');
         await page.fill('#auth-password', 'password');
         await page.click('#auth-submit');
@@ -59,7 +59,7 @@ const path = require('path');
         await page.screenshot({ path: path.join(screenshotsDir, '2_lobby_screen.png') });
         console.log('  ✓ Successfully logged in to lobby.');
 
-        console.log('\n[3/6] Joining machine 1...');
+        console.log('[3/6] Joining machine 1...');
         const playBtn = await page.waitForSelector('.lobby-game-card button, .lobby-game-btn', { timeout: 10000 });
         await playBtn.click();
 
@@ -68,7 +68,7 @@ const path = require('path');
         await page.screenshot({ path: path.join(screenshotsDir, '3_game_idle.png') });
         console.log('  ✓ Joined machine 1, game screen active.');
 
-        console.log('\n[4/6] Testing Bet Ramp & Deal Flow...');
+        console.log('[4/6] Testing Bet Ramp & Deal Flow...');
         const betBtn = await page.waitForSelector('#btn-bet', { timeout: 5000 });
         await betBtn.click();
         await page.waitForTimeout(300);

@@ -146,6 +146,7 @@ const GAME_CONFIG = Object.freeze({
 
         // Lobby / machines
         machines:         '/api/Game/games/machines',
+        lobbyMachines:    '/api/Lobby/machines',
         defaultRules:     '/api/Game/defaultRules',
         configRules:      '/api/Config/rules',
 

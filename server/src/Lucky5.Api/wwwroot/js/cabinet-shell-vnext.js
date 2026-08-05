@@ -80,7 +80,7 @@ window.CabinetShell = (function () {
     /**
      * Replaces the default lobby machine list rendering with cabinet-family styled cards.
      * Called by game.js after machines are loaded. Falls back gracefully if no machines.
-     * @param {Array<{id:number, name:string, minBet:number, maxBet:number, isOpen:boolean}>} machines
+     * @param {Array<{id:number, name:string, minBet:number, maxBet:number, isOpen:boolean, isOccupied:boolean, occupiedByUsername:string, activeSpectatorCount:number, status:string}>} machines
      * @param {function(machine): void} onSelect  — callback from game.js on machine selection
      */
     function renderLobbyMachineCards(machines, onSelect) {
@@ -121,7 +121,11 @@ window.CabinetShell = (function () {
 
             const statusEl = document.createElement('div');
             statusEl.className = `lobby-machine-status ${machine.isOpen ? (machine.isOccupied ? 'is-occupied' : 'is-open') : 'is-closed'}`;
-            statusEl.textContent = machine.isOpen ? (machine.isOccupied ? `IN USE BY ${machine.occupiedByUsername?.toUpperCase() || 'PLAYER'}` : 'OPEN') : 'CLOSED';
+            if (machine.isOpen) {
+                statusEl.textContent = machine.isOccupied ? 'PLAYING' : 'READY';
+            } else {
+                statusEl.textContent = 'CLOSED';
+            }
 
             const idEl = document.createElement('div');
             idEl.className = 'lobby-machine-id';
@@ -137,6 +141,15 @@ window.CabinetShell = (function () {
             const nameEl = document.createElement('div');
             nameEl.className = 'lobby-machine-name';
             nameEl.textContent = machine.name;
+
+            // Occupied by info
+            if (machine.occupiedByUsername) {
+                const occupantEl = document.createElement('div');
+                occupantEl.className = 'lobby-machine-occupant';
+                occupantEl.style.cssText = 'font-size:7px; color:#aaa;';
+                occupantEl.textContent = `IN USE BY ${machine.occupiedByUsername.toUpperCase()}`;
+                meta.appendChild(occupantEl);
+            }
 
             const betLabel = document.createElement('div');
             betLabel.className = 'lobby-machine-bet-label';

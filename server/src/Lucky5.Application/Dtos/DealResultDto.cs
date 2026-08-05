@@ -33,7 +33,9 @@ public sealed record DealResultDto(
     bool WasFreeGameRound = false,
     int? Swap10 = null,
     bool AceCard = false,
-    int AceMultiplier = 0
+    int AceMultiplier = 0,
+    long StateVersion = 0,
+    long SequenceNumber = 0
 )
 {
     public decimal MachineCreditsAfterBet => WalletBalanceAfterBet;

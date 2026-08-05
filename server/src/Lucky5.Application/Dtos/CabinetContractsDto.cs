@@ -248,6 +248,10 @@ public sealed record CabinetReplayDto(
     long FromSequenceNumber,
     [property: JsonPropertyName("to_sequence_number")]
     long ToSequenceNumber,
+    [property: JsonPropertyName("state_version")]
+    long StateVersion,
+    [property: JsonPropertyName("sequence_number")]
+    long SequenceNumber,
     IReadOnlyList<CabinetEventDto> Events,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     CabinetSnapshotDto? Snapshot = null,

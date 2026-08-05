@@ -8,6 +8,7 @@ public interface IGameService
     Task<IReadOnlyList<string>> GetGamesAsync(CancellationToken cancellationToken);
     Task<PlayerLobbyDto> GetLobbyAsync(Guid userId, CancellationToken cancellationToken);
     Task<IReadOnlyList<MachineListingDto>> GetMachinesAsync(CancellationToken cancellationToken);
+    Task<IReadOnlyList<MachineListingDto>> GetLobbyMachinesAsync(Guid userId, CancellationToken cancellationToken);
     Task<DefaultRulesDto> GetDefaultRulesAsync(CancellationToken cancellationToken);
     Task<MachineSessionDto> GetMachineSessionAsync(Guid userId, int machineId, CancellationToken cancellationToken);
     Task<MachineSessionDto> CashInAsync(Guid userId, int machineId, decimal amount, CancellationToken cancellationToken);
@@ -17,7 +18,8 @@ public interface IGameService
     Task<CabinetCommandResultDto> SubmitCabinetCommandAsync(Guid userId, CabinetCommandDto command, CancellationToken cancellationToken);
     Task<CabinetReplayDto> GetCabinetReplayAsync(Guid userId, int machineId, long lastStateVersion, long lastSequenceNumber, CancellationToken cancellationToken);
     Task<ActiveRoundStateDto?> GetActiveRoundAsync(Guid userId, int machineId, CancellationToken cancellationToken);
-    Task<object> GetMachineStateAsync(int machineId, CancellationToken cancellationToken);
+    Task<object> GetMachineStateAsync(int machineId, CancellationToken cancellationToken, Guid? userId = null);
+    Task<(long StateVersion, long SequenceNumber)> GetCabinetStateCursorAsync(Guid userId, int machineId, CancellationToken cancellationToken);
 
     Task<DealResultDto> DealAsync(Guid userId, DealRequest request, CancellationToken cancellationToken);
     Task<DrawResultDto> DrawAsync(Guid userId, DrawRequest request, CancellationToken cancellationToken);

@@ -180,14 +180,18 @@ public sealed class AuthService(InMemoryDataStore store, ITokenService tokenServ
         return Task.FromResult<IReadOnlyList<WalletLedgerEntryDto>>(rows);
     }
 
-    public Task<WalletLedgerEntryDto> TransferBalanceAsync(Guid userId, TransferRequest request, CancellationToken cancellationToken)
+    public Task<WalletLedgerEntryDto> TransferBalanceAsync(Guid userId, UserTransactionRequest request, CancellationToken cancellationToken)
     {
-        return Task.FromResult(AdjustBalance(userId, request.Amount, "TransferBalance", request.Reference));
+        if (request.Amount <= 0) throw new InvalidOperationException("Transfer amount must be positive.");
+        ValidateMachineId(store, request.MachineId);
+        var reference = request.MachineId > 0 ? $"Machine_{request.MachineId}" : "TransferBalance";
+        return Task.FromResult(AdjustBalance(userId, request.Amount, "TransferBalance", reference));
     }
 
     public Task<WalletLedgerEntryDto> MoveWinToBalanceAsync(Guid userId, UserTransactionRequest request, CancellationToken cancellationToken)
     {
         if (request.Amount <= 0) throw new InvalidOperationException("Amount must be positive.");
+        ValidateMachineId(store, request.MachineId);
         var reference = request.MachineId > 0 ? $"Machine_{request.MachineId}" : "Cashout";
         return Task.FromResult(AdjustBalance(userId, request.Amount, "MoveWinToBalance", reference));
     }
@@ -200,6 +204,7 @@ public sealed class AuthService(InMemoryDataStore store, ITokenService tokenServ
     public Task<WalletLedgerEntryDto> DepositAsync(Guid userId, UserTransactionRequest request, CancellationToken cancellationToken)
     {
         if (request.Amount <= 0) throw new InvalidOperationException("Deposit amount must be positive.");
+        ValidateMachineId(store, request.MachineId);
         var reference = request.MachineId > 0 ? $"Machine_{request.MachineId}" : "Deposit";
         return Task.FromResult(AdjustCredit(userId, request.Amount, "Deposit", reference));
     }
@@ -211,8 +216,8 @@ public sealed class AuthService(InMemoryDataStore store, ITokenService tokenServ
         {
             throw new InvalidOperationException("Insufficient credit.");
         }
+        ValidateMachineId(store, request.MachineId);
         var reference = request.MachineId > 0 ? $"Machine_{request.MachineId}" : "Withdraw";
-        // Pass negative amount to deduct
         return Task.FromResult(AdjustCredit(userId, -request.Amount, "Withdraw", reference));
     }
 
@@ -310,6 +315,14 @@ public sealed class AuthService(InMemoryDataStore store, ITokenService tokenServ
         => value.StartsWith("$2a$", StringComparison.Ordinal)
             || value.StartsWith("$2b$", StringComparison.Ordinal)
             || value.StartsWith("$2y$", StringComparison.Ordinal);
+
+    private static void ValidateMachineId(InMemoryDataStore store, int machineId)
+    {
+        if (machineId > 0 && !store.Machines.ContainsKey(machineId))
+        {
+            throw new KeyNotFoundException("Machine not found");
+        }
+    }
 
     private WalletLedgerEntryDto AdjustBalance(Guid userId, decimal amount, string type, string reference)
     {

@@ -1691,6 +1691,13 @@ body {
     box-shadow: 0 0 6px rgba(0,255,0,0.3);
 }
 
+.game-card-badge.playing {
+    background: linear-gradient(180deg, #a80, #760);
+    color: #fff;
+    border: 1px solid #c80;
+    box-shadow: 0 0 6px rgba(255,170,0,0.3);
+}
+
 .game-card-badge.coming-soon {
     background: linear-gradient(180deg, #555, #333);
     color: #aaa;
