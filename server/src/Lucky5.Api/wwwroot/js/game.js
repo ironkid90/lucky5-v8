@@ -3181,14 +3181,18 @@ async function setupSignalR() {
 
     hubConnection.on('LobbyMachinesUpdated', (machines) => {
         if (!Array.isArray(machines)) return;
+        const prevWatching = new Map(AVAILABLE_GAMES.map(g => [g.machineId, g.isWatching]));
         AVAILABLE_GAMES = machines.map(machine => {
             const minBet = window.SERVER_RULES && window.SERVER_RULES.minStake !== undefined ? window.SERVER_RULES.minStake : machine.minBet;
             const maxBet = window.SERVER_RULES && window.SERVER_RULES.maxStake !== undefined ? window.SERVER_RULES.maxStake : machine.maxBet;
             const isOccupied = Boolean(machine.isOccupied);
             const spectatorCount = Number(machine.spectatorCount) || 0;
+            const isWatching = prevWatching.get(machine.id) || false;
             let status = 'playable';
             if (!machine.isOpen) {
                 status = 'unavailable';
+            } else if (isWatching) {
+                status = 'watching';
             } else if (isOccupied) {
                 status = 'playing';
             }
@@ -3204,6 +3208,7 @@ async function setupSignalR() {
                 isOccupied: isOccupied,
                 occupiedByUsername: machine.occupiedByUsername,
                 activeSpectatorCount: spectatorCount,
+                isWatching: isWatching,
                 idleSecondsRemaining: machine.idleSecondsRemaining || 0,
                 reservedUntilUtc: machine.reservedUntilUtc || null
             };
@@ -3284,9 +3289,6 @@ function invokeHub(method, ...args) {
 async function joinMachine(id) {
     if (!isHubConnected()) return;
     try {
-        // Always reset to idle when joining — the server will send a snapshot
-        // if there's an active round/DU to restore. This prevents getting stuck
-        // in a stale DU state from a previous session.
         if (gameState !== 'idle') {
             exitDoubleUp();
             refreshIdleMachineState();
@@ -3296,6 +3298,8 @@ async function joinMachine(id) {
         betRampRunning = false;
         await invokeHub('JoinMachine', id);
         machineJoined = true;
+        const game = AVAILABLE_GAMES.find(g => g.machineId === id);
+        if (game) game.isWatching = false;
         updateStakeDisplay();
         setButtonStates();
     } catch (e) {
@@ -3309,6 +3313,8 @@ async function joinMachineAsSpectator(id) {
     try {
         await invokeHub('JoinMachineAsSpectator', id);
         machineJoined = true;
+        const game = AVAILABLE_GAMES.find(g => g.machineId === id);
+        if (game) game.isWatching = true;
     } catch (e) {
         console.error('JoinMachineAsSpectator failed:', e);
         machineJoined = false;
@@ -3328,6 +3334,8 @@ async function leaveMachineAsSpectator(id) {
     try {
         await invokeHub('LeaveMachineAsSpectator', id);
         machineJoined = false;
+        const game = AVAILABLE_GAMES.find(g => g.machineId === id);
+        if (game) game.isWatching = false;
     } catch (_) {}
 }
 
@@ -3351,8 +3359,9 @@ async function doLogout() {
     setActiveScreen(null);
     $('#auth-screen').style.display = '';
     $('#auth-error').textContent = '';
-    
-    // Reset admin/modal UI states on logout
+
+    AVAILABLE_GAMES.forEach(g => { g.isWatching = false; });
+
     updateLobbyUsername();
     const adminModal = document.getElementById('admin-modal-container');
     if (adminModal) adminModal.style.display = 'none';
@@ -3369,14 +3378,18 @@ let AVAILABLE_GAMES = [];
 async function loadAvailableMachines() {
     try {
         const machineData = await apiCall('GET', GAME_CONFIG.api.lobbyMachines);
+        const prevWatching = new Map(AVAILABLE_GAMES.map(g => [g.machineId, g.isWatching]));
         AVAILABLE_GAMES = machineData.map(machine => {
             const minBet = window.SERVER_RULES && window.SERVER_RULES.minStake !== undefined ? window.SERVER_RULES.minStake : machine.minBet;
             const maxBet = window.SERVER_RULES && window.SERVER_RULES.maxStake !== undefined ? window.SERVER_RULES.maxStake : machine.maxBet;
             const isOccupied = Boolean(machine.isOccupied);
             const spectatorCount = Number(machine.spectatorCount) || 0;
+            const isWatching = prevWatching.get(machine.id) || false;
             let status = 'playable';
             if (!machine.isOpen) {
                 status = 'unavailable';
+            } else if (isWatching) {
+                status = 'watching';
             } else if (isOccupied) {
                 status = 'playing';
             }
@@ -3392,6 +3405,7 @@ async function loadAvailableMachines() {
                 isOccupied: isOccupied,
                 occupiedByUsername: machine.occupiedByUsername,
                 activeSpectatorCount: spectatorCount,
+                isWatching: isWatching,
                 idleSecondsRemaining: machine.idleSecondsRemaining || 0,
                 reservedUntilUtc: machine.reservedUntilUtc || null
             };
@@ -3404,7 +3418,8 @@ async function loadAvailableMachines() {
             machineId: 1,
             name: 'LUCKY 5',
             icon: '/assets/images/lucky5.png',
-            status: 'playable'
+            status: 'playable',
+            isWatching: false
         }];
         return AVAILABLE_GAMES;
     }
@@ -3449,6 +3464,7 @@ function renderGameGrid() {
             isOccupied: g.isOccupied,
             occupiedByUsername: g.occupiedByUsername,
             activeSpectatorCount: g.activeSpectatorCount,
+            isWatching: g.isWatching,
             status: g.status
         }));
         CabinetShell.renderLobbyMachineCards(rawMachines, machine => {
@@ -3464,7 +3480,7 @@ function renderGameGrid() {
 
     AVAILABLE_GAMES.forEach(game => {
         const card = document.createElement('div');
-        card.className = 'game-card' + (game.status !== 'playable' ? ' unavailable' : '');
+        card.className = 'game-card' + (game.status !== 'playable' && game.status !== 'watching' ? ' unavailable' : '');
 
         const iconDiv = document.createElement('div');
         iconDiv.className = 'game-card-icon';
@@ -3478,7 +3494,7 @@ function renderGameGrid() {
         nameDiv.className = 'game-card-name';
         nameDiv.textContent = game.name;
 
-        // Status badge: READY / PLAYING / CLOSED
+        // Status badge: READY / PLAYING / WATCHING / CLOSED
         const badge = document.createElement('div');
         badge.className = 'game-card-badge ';
         let badgeText = '';
@@ -3488,6 +3504,9 @@ function renderGameGrid() {
         } else if (game.status === 'playing') {
             badge.classList.add('playing');
             badgeText = 'PLAYING';
+        } else if (game.status === 'watching') {
+            badge.classList.add('watching');
+            badgeText = 'WATCHING';
         } else {
             badge.classList.add('coming-soon');
             badgeText = 'CLOSED';
@@ -3536,7 +3555,7 @@ function renderGameGrid() {
         card.appendChild(specDiv);
         card.appendChild(badge);
 
-        if (game.status === 'playable') {
+        if (game.status === 'playable' || game.status === 'watching') {
             card.addEventListener('click', () => {
                 const options = game.isOccupied ? { isSpectator: true } : {};
                 openGame(game.id, game.machineId, options);
