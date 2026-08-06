@@ -124,6 +124,8 @@ let adminAgents = [];
 let adminMachines = [];
 let lucky5FlashResetTimer = null;
 let duCallToken = null;
+let duStartPromise = null;
+let pendingDuGuess = null;
 let clientStateVersion = 0;
 let clientSequenceNumber = 0;
 let isSpectatorMode = false;
@@ -258,9 +260,21 @@ function preloadAllAssets() {
     });
 }
 
-function randomCardSrc() {
-    const code = ALL_CARD_CODES[Math.floor(Math.random() * ALL_CARD_CODES.length)];
-    return `/assets/images/cards/${code}.png`;
+function randomCardCode(nextRandom = Math.random) {
+    const random = typeof nextRandom === 'function' ? nextRandom : Math.random;
+    return ALL_CARD_CODES[Math.floor(random() * ALL_CARD_CODES.length)];
+}
+
+function setDoubleUpShuffleCard(frame, card) {
+    if (!frame) return;
+    if (typeof window.CabinetStage?.createDomCard === 'function') {
+        frame.replaceChildren(CabinetStage.createDomCard(card));
+        return;
+    }
+
+    const code = typeof card === 'string' ? card : card?.code;
+    frame.textContent = code || '🂠';
+    frame.setAttribute('aria-label', code ? `card ${code}` : 'card back');
 }
 
 function $(sel) { return document.querySelector(sel); }
@@ -567,6 +581,8 @@ function resetGameRuntimeState({ clearSelection = false } = {}) {
     duCardTrail = [];
     duLastRenderedTrailLength = 0;
     duSessionStarted = false;
+    duStartPromise = null;
+    pendingDuGuess = null;
     resetDoubleUpPanelState();
     duDealerCard = null;
     roundDoubleUpAvailable = false;
@@ -1611,8 +1627,9 @@ function setButtonStates() {
     const betReady = minBet > 0 ? currentBet >= minBet : currentBet > 0;
     dealBtn.disabled = !(gameState === 'idle' && betReady || gameState === 'hold') || machineClosed;
     cancelBtn.disabled = gameState !== 'hold';
-    bigBtn.disabled = !(isDoubleUp || canStartDoubleUpFromWin());
-    smallBtn.disabled = !(isDoubleUp || canStartDoubleUpFromWin());
+    const canQueueDoubleUpGuess = canStartDoubleUpFromWin() || gameState === 'du-starting';
+    bigBtn.disabled = !(isDoubleUp || canQueueDoubleUpGuess);
+    smallBtn.disabled = !(isDoubleUp || canQueueDoubleUpGuess);
     takeScoreBtn.disabled = !(gameState === 'win' || isDoubleUp);
     takeHalfBtn.disabled = !GAME_RULES.doubleUpTakeHalfEnabled || !(gameState === 'win' || isDoubleUp) || takeHalfUsedThisRound;
 
@@ -1716,7 +1733,7 @@ async function doSwitchDealer() {
             triggerLucky5Flash();
         }
 
-        renderDoubleUpCards(duDealerCard, true, null, { pending: true });
+        renderDoubleUpCards(duDealerCard, true, null, { pending: true, noise: result.noise });
         updatePaytable(currentHandRank);
         if (isLucky5) {
             showMessage(`${getLuckyActiveBannerText()}! WIN: ${formatNum(result.currentAmount)}`, 'win');
@@ -2273,11 +2290,11 @@ function renderDoubleUpCards(dealerCard, showShuffle, challengerCard) {
         DuBoardCanvas.setCards(dealerCard, duCardTrail);
     }
     const stageOptions = arguments.length > 3 ? arguments[3] : null;
+    const options = stageOptions || (showShuffle ? { pending: true } : {});
     if (hasCabinetStage()) {
         const trailCards = getCabinetDoubleUpTrailCards();
         const trailEntries = getCabinetDoubleUpTrailEntries();
         const cabinetTrail = trailEntries.length > 0 ? trailEntries : trailCards;
-        const options = stageOptions || (showShuffle ? { pending: true } : {});
         if (challengerCard) {
             CabinetStage.updateDoubleUpTrail(cabinetTrail, dealerCard, challengerCard, options);
             return;
@@ -2372,11 +2389,11 @@ function renderDoubleUpCards(dealerCard, showShuffle, challengerCard) {
         const challFrame = document.createElement('div');
         challFrame.className = 'du-card-frame';
         challFrame.id = 'du-shuffle-frame';
-        challFrame.innerHTML = `<img src="${CARD_BACK_SRC}" alt="card">`;
+        setDoubleUpShuffleCard(challFrame, null);
         challSlot.appendChild(challLabel);
         challSlot.appendChild(challFrame);
         area.appendChild(challSlot);
-        startShuffle();
+        startShuffle(options.noise);
     }
 }
 
@@ -2385,30 +2402,29 @@ let shuffleRAF = null;
 let shuffleLastTime = 0;
 let shuffleTickHandler = null;
 
-function startShuffle() {
+function startShuffle(noise) {
     stopShuffle();
-    const frame = document.getElementById('du-shuffle-frame');
-    if (frame) frame.classList.add('du-flip-in');
+    const shuffleFrame = document.getElementById('du-shuffle-frame');
+    if (shuffleFrame) shuffleFrame.classList.add('du-flip-in');
 
-    const swapIntervalTicks = CabinetClock.msToTicks(T.shuffleFrameMs || 100);
+    const swapIntervalTicks = CabinetClock.msToTicks(T.shuffleFrameMs || 130);
+    const nextRandom = window.Lucky5PresentationNoise?.createRandom(noise) ?? Math.random;
     let elapsedTicks = 0;
 
     shuffleTickHandler = function(tickCount) {
         elapsedTicks++;
         if (elapsedTicks >= swapIntervalTicks) {
             elapsedTicks = 0;
-            const f = document.querySelector('#du-shuffle-frame img');
-            if (f) {
-                const frame = document.getElementById('du-shuffle-frame');
-                if (frame) {
-                    frame.classList.remove('du-flip-in');
-                    frame.classList.add('du-flip-out');
-                    CabinetClock.delayTicks(4, () => {
-                        f.src = randomCardSrc();
-                        frame.classList.remove('du-flip-out');
-                        frame.classList.add('du-flip-in');
-                    });
-                }
+            if (shuffleFrame) {
+                const activeShuffleHandler = shuffleTickHandler;
+                shuffleFrame.classList.remove('du-flip-in');
+                shuffleFrame.classList.add('du-flip-out');
+                CabinetClock.delayTicks(4, () => {
+                    if (shuffleTickHandler !== activeShuffleHandler) return;
+                    setDoubleUpShuffleCard(shuffleFrame, randomCardCode(nextRandom));
+                    shuffleFrame.classList.remove('du-flip-out');
+                    shuffleFrame.classList.add('du-flip-in');
+                });
             }
         }
     };
@@ -2420,58 +2436,99 @@ function stopShuffle(freezeCard) {
         CabinetClock.unregisterHandler(shuffleTickHandler);
         shuffleTickHandler = null;
     }
+    const shuffleFrame = document.getElementById('du-shuffle-frame');
+    if (shuffleFrame) {
+        shuffleFrame.classList.remove('du-flip-in', 'du-flip-out');
+    }
     const cardToFreeze = freezeCard || duDealerCard;
     if (cardToFreeze) {
-        const shuffleImg = document.querySelector('#du-shuffle-frame img');
-        if (shuffleImg) {
-            shuffleImg.src = resolveCardFaceSrc(cardToFreeze);
-        }
+        setDoubleUpShuffleCard(shuffleFrame, cardToFreeze);
     }
 }
 
-async function startDoubleUpFlow() {
-    if (_actionLock || jackpotDrainActive) return;
-    if (gameState !== 'win') return;
+function getDoubleUpRevealDelay(noise) {
+    const revealMs = Number(noise?.revealMs);
+    return Number.isFinite(revealMs) && revealMs >= 0
+        ? revealMs
+        : T.duRevealDelayMs;
+}
+
+async function startDoubleUpFlow(initialGuess = null) {
+    const queuedGuess = initialGuess === 'Big' || initialGuess === 'Small'
+        ? initialGuess
+        : null;
+
+    if (_actionLock || jackpotDrainActive) return false;
+    if (queuedGuess && (gameState === 'win' || gameState === 'du-starting')) {
+        pendingDuGuess = queuedGuess;
+    }
+    if (gameState === 'doubleup') {
+        if (queuedGuess) await doDoubleUp(queuedGuess);
+        return true;
+    }
+    if (gameState === 'du-starting' && duStartPromise) {
+        return duStartPromise;
+    }
+    if (gameState !== 'win') return false;
     if (!roundDoubleUpAvailable || winAmount <= 0) {
+        pendingDuGuess = null;
         showWinActionMessage();
         setButtonStates();
-        return;
+        return false;
     }
 
-    try {
-        const result = await apiCall('POST', GAME_CONFIG.api.duStart, { roundId });
-        duSessionStarted = true;
-        syncDoubleUpPanelState(result);
-        duDealerCard = result.dealerCard;
-        duCardTrail = syncDoubleUpTrailFromServer(result.cardTrail, duDealerCard, duCardTrail);
-        if ((!Array.isArray(duCardTrail) || duCardTrail.length === 0) && duDealerCard) {
-            duCardTrail = [{ card: duDealerCard, label: 'DEALER' }];
-        }
-        duLastRenderedTrailLength = 0;
-        gameState = 'doubleup';
+    gameState = 'du-starting';
+    setButtonStates();
+    showMessage('PREPARING DOUBLE UP...', 'win');
 
-        showDuInfo();
-        if (duIsNoLoseActive) {
-            triggerLucky5Flash();
-            showMessage(`${getLuckyActiveBannerText()}! DOUBLE UP: ${formatNum(result.currentAmount)}`, 'win');
-        } else {
-            showMessage(`DOUBLE UP - WIN: ${formatNum(result.currentAmount)}`, 'win');
-        }
-        updateWinAmountDisplay(result.currentAmount, getFourOfAKindSlotTag(currentHandRank));
-        updateWinIndicator(result.currentAmount);
-        updatePaytable(currentHandRank);
-        renderDoubleUpCards(duDealerCard, true, null, { pending: true });
-        setButtonStates();
-    } catch (e) {
-        if ((e.message || '').toLowerCase().includes('not available')) {
-            roundDoubleUpAvailable = false;
-            showWinActionMessage();
+    const startPromise = (async () => {
+        try {
+            const result = await apiCall('POST', GAME_CONFIG.api.duStart, { roundId });
+            duSessionStarted = true;
+            syncDoubleUpPanelState(result);
+            duDealerCard = result.dealerCard;
+            duCardTrail = syncDoubleUpTrailFromServer(result.cardTrail, duDealerCard, duCardTrail);
+            if ((!Array.isArray(duCardTrail) || duCardTrail.length === 0) && duDealerCard) {
+                duCardTrail = [{ card: duDealerCard, label: 'DEALER' }];
+            }
+            duLastRenderedTrailLength = 0;
+            gameState = 'doubleup';
+
+            showDuInfo();
+            if (duIsNoLoseActive) {
+                triggerLucky5Flash();
+                showMessage(`${getLuckyActiveBannerText()}! DOUBLE UP: ${formatNum(result.currentAmount)}`, 'win');
+            } else {
+                showMessage(`DOUBLE UP - WIN: ${formatNum(result.currentAmount)}`, 'win');
+            }
+            updateWinAmountDisplay(result.currentAmount, getFourOfAKindSlotTag(currentHandRank));
+            updateWinIndicator(result.currentAmount);
+            updatePaytable(currentHandRank);
+            renderDoubleUpCards(duDealerCard, true, null, { pending: true, noise: result.noise });
             setButtonStates();
-            return;
-        }
 
-        showMessage(e.message, 'lose');
-    }
+            const firstGuess = pendingDuGuess;
+            pendingDuGuess = null;
+            if (firstGuess) await doDoubleUp(firstGuess);
+            return true;
+        } catch (e) {
+            duSessionStarted = false;
+            pendingDuGuess = null;
+            gameState = 'win';
+            if ((e.message || '').toLowerCase().includes('not available')) {
+                roundDoubleUpAvailable = false;
+                showWinActionMessage();
+            } else {
+                showMessage(e.message, 'lose');
+            }
+            setButtonStates();
+            return false;
+        } finally {
+            duStartPromise = null;
+        }
+    })();
+    duStartPromise = startPromise;
+    return startPromise;
 }
 
 async function doDoubleUp(guess) {
@@ -2487,8 +2544,7 @@ async function doDoubleUp(guess) {
     // Snap shuffle frame to the card back BEFORE stopping so the loop
     // never freezes on a random intermediate card face.
     // Players only see the actual server-provided card result.
-    const shuffleImg = document.querySelector('#du-shuffle-frame img');
-    if (shuffleImg) shuffleImg.src = CARD_BACK_SRC;
+    setDoubleUpShuffleCard(document.getElementById('du-shuffle-frame'), null);
     stopShuffle();
 
     const myToken = {};
@@ -2499,14 +2555,15 @@ async function doDoubleUp(guess) {
         const challengerLabel = String(guess || '').trim().toUpperCase();
 
         // Reveal phase: show the challenger card and outcome.
-        CabinetClock.delayMs(T.duRevealDelayMs, () => {
+        CabinetClock.delayMs(getDoubleUpRevealDelay(result.noise), () => {
             if (duCallToken !== myToken) return;
 
             syncDoubleUpPanelState(result, { preserveMultiplier: true });
             duDealerCard = result.dealerCard;  // Update dealer card: challenger becomes new dealer on win
             renderDoubleUpCards(duDealerCard, false, result.challengerCard, {
                 challengerLabel,
-                outcome: result.status
+                outcome: result.status,
+                noise: result.noise
             });
 
             if (result.status === 'Win') {
@@ -2534,7 +2591,7 @@ async function doDoubleUp(guess) {
                         duCardTrail.push({ card: result.challengerCard, label: challengerLabel });
                         duDealerCard = result.dealerCard;
                         duCardTrail = syncDoubleUpTrailFromServer(result.cardTrail, duDealerCard, duCardTrail);
-                        renderDoubleUpCards(duDealerCard, true, null, { pending: true });
+                        renderDoubleUpCards(duDealerCard, true, null, { pending: true, noise: result.noise });
                         syncDoubleUpPanelState(result, { preserveMultiplier: true });
                         updatePaytable(currentHandRank);
                         setButtonStates();
@@ -2730,6 +2787,8 @@ function showBoardBonusPopup(handRank, bonusAmount, duWinAmount) {
 
 function exitDoubleUp() {
     duCallToken = null;
+    duStartPromise = null;
+    pendingDuGuess = null;
     _actionLock = false;
     jackpotDrainActive = false;
     if (window.CabinetState) CabinetState.setPresentationLocked(false);
@@ -4712,8 +4771,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     $('#btn-big').addEventListener('click', () => {
         const handler = () => {
-            if (gameState === 'win') {
-                startDoubleUpFlow();
+            if (gameState === 'win' || gameState === 'du-starting') {
+                startDoubleUpFlow('Big');
             } else if (gameState === 'doubleup') {
                 doDoubleUp('Big');
             }
@@ -4726,8 +4785,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     $('#btn-small').addEventListener('click', () => {
         const handler = () => {
-            if (gameState === 'win') {
-                startDoubleUpFlow();
+            if (gameState === 'win' || gameState === 'du-starting') {
+                startDoubleUpFlow('Small');
             } else if (gameState === 'doubleup') {
                 doDoubleUp('Small');
             }
@@ -4964,4 +5023,3 @@ window.addEventListener('offline', () => {
     isOnline = false;
     showOfflineBanner();
 });
-
