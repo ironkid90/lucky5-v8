@@ -669,18 +669,21 @@ public static class GameServiceRegressionTests
 		store.ActiveRounds[round.RoundId] = round;
 
 		var firstStart = await service.StartDoubleUpAsync(userId, round.RoundId, CancellationToken.None);
-		var firstSession = store.ActiveRounds[round.RoundId].DoubleUpSession;
+		var switched = await service.SwitchDealerAsync(userId, round.RoundId, CancellationToken.None);
+		var progressedSession = store.ActiveRounds[round.RoundId].DoubleUpSession;
 		var secondStart = await service.StartDoubleUpAsync(userId, round.RoundId, CancellationToken.None);
-		var secondSession = store.ActiveRounds[round.RoundId].DoubleUpSession;
+		var retriedSession = store.ActiveRounds[round.RoundId].DoubleUpSession;
 
 		Assert(
 			failures,
 			"Repeated double-up start requests must preserve the active session instead of replacing its authoritative deck or dealer.",
-			firstSession is not null
-			&& ReferenceEquals(firstSession, secondSession)
-			&& firstStart.CurrentAmount == secondStart.CurrentAmount
-			&& firstStart.DealerCard?.Code == secondStart.DealerCard?.Code
-			&& (firstStart.CardTrail ?? []).Select(card => card.Code).SequenceEqual((secondStart.CardTrail ?? []).Select(card => card.Code)));
+			progressedSession is not null
+			&& retriedSession is not null
+			&& progressedSession.DealerIndex > 0
+			&& progressedSession.DealerIndex == retriedSession.DealerIndex
+			&& switched.CurrentAmount == secondStart.CurrentAmount
+			&& switched.DealerCard?.Code == secondStart.DealerCard?.Code
+			&& firstStart.DealerCard?.Code != secondStart.DealerCard?.Code);
 	}
 
 	private static async Task ClosedMachineCashOutIsIdempotentAsync(List<string> failures)
