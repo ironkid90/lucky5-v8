@@ -23,11 +23,19 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 	private const int CabinetReplayMaxEvents = 128;
 	private static readonly EngineConfig EngineCfg = EngineConfig.Default;
 	private static readonly ConcurrentDictionary<string, SemaphoreSlim> CabinetCommandLocks = new(StringComparer.OrdinalIgnoreCase);
-	private static readonly ConcurrentDictionary<string, SemaphoreSlim> DoubleUpStartLocks = new(StringComparer.OrdinalIgnoreCase);
+	private static readonly ConcurrentDictionary<Guid, DoubleUpStartLock> DoubleUpStartLocks = new();
 	private static readonly JsonSerializerOptions CabinetJsonOptions = new(JsonSerializerDefaults.Web)
 	{
 		PropertyNameCaseInsensitive = true
 	};
+
+	private sealed class DoubleUpStartLock
+	{
+		public SemaphoreSlim Gate { get; } = new(1, 1);
+		public object SyncRoot { get; } = new();
+		public int ReferenceCount { get; set; }
+	}
+
 	private static readonly IReadOnlyList<OfferDto> DefaultOffers =
 	[
 		new(1, "Welcome Bonus", "First deposit bonus", 10),
@@ -624,8 +632,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 
 	public async Task<DoubleUpResultDto> StartDoubleUpAsync(Guid userId, Guid roundId, CancellationToken cancellationToken)
 	{
-		var startLock = DoubleUpStartLocks.GetOrAdd($"double-up-start:{roundId:N}", _ => new SemaphoreSlim(1, 1));
-		await startLock.WaitAsync(cancellationToken);
+		var startLock = await AcquireDoubleUpStartLockAsync(roundId, cancellationToken);
 
 		try
 		{
@@ -633,7 +640,65 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		}
 		finally
 		{
-			startLock.Release();
+			startLock.Gate.Release();
+			ReleaseDoubleUpStartLockReference(roundId, startLock);
+		}
+	}
+
+	private static async Task<DoubleUpStartLock> AcquireDoubleUpStartLockAsync(Guid roundId, CancellationToken cancellationToken)
+	{
+		while (true)
+		{
+			var startLock = DoubleUpStartLocks.GetOrAdd(roundId, _ => new DoubleUpStartLock());
+			if (!TryRetainDoubleUpStartLock(roundId, startLock))
+			{
+				continue;
+			}
+
+			try
+			{
+				await startLock.Gate.WaitAsync(cancellationToken);
+				return startLock;
+			}
+			catch
+			{
+				ReleaseDoubleUpStartLockReference(roundId, startLock);
+				throw;
+			}
+		}
+	}
+
+	private static bool TryRetainDoubleUpStartLock(Guid roundId, DoubleUpStartLock startLock)
+	{
+		lock (startLock.SyncRoot)
+		{
+			if (!DoubleUpStartLocks.TryGetValue(roundId, out var currentLock)
+				|| !ReferenceEquals(currentLock, startLock))
+			{
+				return false;
+			}
+
+			startLock.ReferenceCount++;
+			return true;
+		}
+	}
+
+	private static void ReleaseDoubleUpStartLockReference(Guid roundId, DoubleUpStartLock startLock)
+	{
+		var disposeLock = false;
+		lock (startLock.SyncRoot)
+		{
+			startLock.ReferenceCount--;
+			if (startLock.ReferenceCount == 0)
+			{
+				DoubleUpStartLocks.TryRemove(roundId, out _);
+				disposeLock = true;
+			}
+		}
+
+		if (disposeLock)
+		{
+			startLock.Gate.Dispose();
 		}
 	}
 
