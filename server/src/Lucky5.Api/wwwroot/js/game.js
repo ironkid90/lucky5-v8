@@ -2416,9 +2416,11 @@ function startShuffle(noise) {
         if (elapsedTicks >= swapIntervalTicks) {
             elapsedTicks = 0;
             if (shuffleFrame) {
+                const activeShuffleHandler = shuffleTickHandler;
                 shuffleFrame.classList.remove('du-flip-in');
                 shuffleFrame.classList.add('du-flip-out');
                 CabinetClock.delayTicks(4, () => {
+                    if (shuffleTickHandler !== activeShuffleHandler) return;
                     setDoubleUpShuffleCard(shuffleFrame, randomCardCode(nextRandom));
                     shuffleFrame.classList.remove('du-flip-out');
                     shuffleFrame.classList.add('du-flip-in');
@@ -2434,9 +2436,13 @@ function stopShuffle(freezeCard) {
         CabinetClock.unregisterHandler(shuffleTickHandler);
         shuffleTickHandler = null;
     }
+    const shuffleFrame = document.getElementById('du-shuffle-frame');
+    if (shuffleFrame) {
+        shuffleFrame.classList.remove('du-flip-in', 'du-flip-out');
+    }
     const cardToFreeze = freezeCard || duDealerCard;
     if (cardToFreeze) {
-        setDoubleUpShuffleCard(document.getElementById('du-shuffle-frame'), cardToFreeze);
+        setDoubleUpShuffleCard(shuffleFrame, cardToFreeze);
     }
 }
 

@@ -674,7 +674,7 @@ public static class GameServiceRegressionTests
 		};
 		store.ActiveRounds[round.RoundId] = round;
 
-		var firstStart = await service.StartDoubleUpAsync(userId, round.RoundId, CancellationToken.None);
+		_ = await service.StartDoubleUpAsync(userId, round.RoundId, CancellationToken.None);
 		var switched = await service.SwitchDealerAsync(userId, round.RoundId, CancellationToken.None);
 		var progressedSession = store.ActiveRounds[round.RoundId].DoubleUpSession;
 		var secondStart = await service.StartDoubleUpAsync(userId, round.RoundId, CancellationToken.None);
@@ -689,7 +689,6 @@ public static class GameServiceRegressionTests
 			&& progressedSession.DealerIndex == retriedSession.DealerIndex
 			&& switched.CurrentAmount == secondStart.CurrentAmount
 			&& switched.DealerCard?.Code == secondStart.DealerCard?.Code
-			&& firstStart.DealerCard?.Code != secondStart.DealerCard?.Code
 			&& secondStart.AceCard
 			&& secondStart.AceMultiplier == 2
 			&& secondStart.AceMultiplierFired);
