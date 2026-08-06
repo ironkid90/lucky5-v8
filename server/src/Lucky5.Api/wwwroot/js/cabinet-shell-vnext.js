@@ -97,13 +97,12 @@ window.CabinetShell = (function () {
         }
 
         const allCount = machines.length;
-        const busyCount = machines.filter(m => m.isOccupied && !m.isWatching).length;
-        const readyCount = machines.filter(m => m.isOpen && !m.isOccupied && !m.isWatching).length;
-        const watchingCount = machines.filter(m => m.isWatching).length;
-
+        const busyCount = machines.filter(m => m.isOccupied).length;
+        const readyCount = machines.filter(m => m.isOpen && !m.isOccupied).length;
+        
         const countsEl = document.getElementById('lobby-aggregate-counts');
         if (countsEl) {
-            countsEl.textContent = `(ALL ${allCount} / READY ${readyCount} / BUSY ${busyCount} / WATCH ${watchingCount})`;
+            countsEl.textContent = `(ALL ${allCount} / READY ${readyCount} / BUSY ${busyCount})`;
         }
 
         const fmt = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
@@ -121,15 +120,9 @@ window.CabinetShell = (function () {
             statusRow.className = 'lobby-machine-status-row';
 
             const statusEl = document.createElement('div');
-            statusEl.className = `lobby-machine-status ${machine.isOpen ? (machine.isWatching ? 'is-watching' : (machine.isOccupied ? 'is-occupied' : 'is-open')) : 'is-closed'}`;
+            statusEl.className = `lobby-machine-status ${machine.isOpen ? (machine.isOccupied ? 'is-occupied' : 'is-open') : 'is-closed'}`;
             if (machine.isOpen) {
-                if (machine.isWatching) {
-                    statusEl.textContent = 'WATCHING';
-                } else if (machine.isOccupied) {
-                    statusEl.textContent = 'PLAYING';
-                } else {
-                    statusEl.textContent = 'READY';
-                }
+                statusEl.textContent = machine.isOccupied ? 'PLAYING' : 'READY';
             } else {
                 statusEl.textContent = 'CLOSED';
             }
@@ -137,7 +130,7 @@ window.CabinetShell = (function () {
             const idEl = document.createElement('div');
             idEl.className = 'lobby-machine-id';
             idEl.textContent = `CAB #${machine.id}`;
-
+            
             const specEl = document.createElement('div');
             specEl.className = 'lobby-machine-spectators';
             specEl.style.cssText = 'font-size:8px; color:#888; text-align:right; flex-grow:1; display:flex; justify-content:flex-end; align-items:center; gap:4px; margin-right:4px;';
@@ -150,7 +143,7 @@ window.CabinetShell = (function () {
             nameEl.textContent = machine.name;
 
             // Occupied by info
-            if (machine.occupiedByUsername && !machine.isWatching) {
+            if (machine.occupiedByUsername) {
                 const occupantEl = document.createElement('div');
                 occupantEl.className = 'lobby-machine-occupant';
                 occupantEl.style.cssText = 'font-size:7px; color:#aaa;';
@@ -169,13 +162,7 @@ window.CabinetShell = (function () {
             const cta = document.createElement('div');
             cta.className = 'lobby-machine-cta';
             if (machine.isOpen) {
-                if (machine.isWatching) {
-                    cta.textContent = 'WATCHING';
-                } else if (machine.isOccupied) {
-                    cta.textContent = 'SPECTATE';
-                } else {
-                    cta.textContent = 'ENTER CABINET';
-                }
+                cta.textContent = machine.isOccupied ? 'SPECTATE' : 'ENTER CABINET';
             } else {
                 cta.textContent = 'UNAVAILABLE';
             }

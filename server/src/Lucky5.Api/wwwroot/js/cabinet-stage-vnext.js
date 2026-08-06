@@ -27,7 +27,7 @@ window.CabinetStage = (function () {
             drawOutFrames:        Number(timing.drawOutFrames)        || 1,
             drawDurationFrames:   Number(timing.drawDurationFrames || timing.dealDurationFrames) || 11,
             drawRevealStartFrames:Number(timing.drawRevealStartFrames !== undefined ? timing.drawRevealStartFrames : (timing.dealBaseFrames || 5)) || 5,
-            shuffleFrameMs: Number(timing.shuffleFrameMs) || 130,
+            shuffleFrameMs: Number(timing.shuffleFrameMs) || 100,
             lucky5ActiveMs: Number(timing.lucky5FlashDurationMs) || 1000
         };
 
@@ -238,7 +238,7 @@ window.CabinetStage = (function () {
         return fallback;
     }
 
-    function _pickShuffleCode(codes, previousCode, nextRandom = Math.random) {
+    function _pickShuffleCode(codes, previousCode) {
         if (!Array.isArray(codes) || codes.length === 0) {
             return '';
         }
@@ -247,15 +247,12 @@ window.CabinetStage = (function () {
             return codes[0];
         }
 
-        for (let attempt = 0; attempt < codes.length * 2; attempt++) {
-            const nextCode = codes[Math.floor(nextRandom() * codes.length)];
-            if (nextCode !== previousCode) {
-                return nextCode;
-            }
+        let nextCode = previousCode;
+        while (nextCode === previousCode) {
+            nextCode = codes[Math.floor(Math.random() * codes.length)];
         }
 
-        const previousIndex = codes.indexOf(previousCode);
-        return codes[(previousIndex + 1) % codes.length];
+        return nextCode;
     }
 
     function _slot(index) {
@@ -537,10 +534,9 @@ window.CabinetStage = (function () {
 
         slotEl.classList.add('du-shuffling');
 
-        const frameMs = Number(_config.shuffleFrameMs) || 130;
+        const frameMs = Number(_config.shuffleFrameMs) || 30;
         const frameTicks = window.CabinetClock.msToTicks(frameMs);
         const frameEl = _duFrame(slotEl);
-        const nextRandom = window.Lucky5PresentationNoise?.createRandom(options?.noise) ?? Math.random;
         let lastCode = '';
 
         const currentShuffleToken = {};
@@ -549,7 +545,7 @@ window.CabinetStage = (function () {
         function runShuffleStep() {
             if (_activeShuffleToken !== currentShuffleToken) return;
 
-            const code = _pickShuffleCode(codes, lastCode, nextRandom);
+            const code = _pickShuffleCode(codes, lastCode);
             lastCode = code;
 
             if (frameEl) {
@@ -950,7 +946,6 @@ window.CabinetStage = (function () {
         updateDoubleUpTrail,
         shuffleChallenger,
         exitDoubleUp,
-        createDomCard: _getCardTemplate,
         renderDomCard: _renderDomCard,
         showLucky5Active,
         isDoubleUpMode: function() { return _isDoubleUpMode; },
