@@ -1,8 +1,10 @@
 namespace Lucky5.Tests;
 
+using System.Reflection;
 using System.Threading;
 using Lucky5.Application.Contracts;
 using Lucky5.Application.Dtos;
+using Lucky5.Application.Interfaces;
 using Lucky5.Application.Requests;
 using Lucky5.Domain.Entities;
 using Lucky5.Domain.Game.CleanRoom;
@@ -29,6 +31,7 @@ public static class GameServiceRegressionTests
 		await AceWinningBasePayoutDoesNotApplyExtraMultiplierAsync(failures);
 		await StartDoubleUpUsesAlreadyAceMultipliedWinAmountAsync(failures);
 		await StartDoubleUpIsIdempotentForAnActiveSessionAsync(failures);
+		await ConcurrentDoubleUpStartsAreSerializedAsync(failures);
 		await ClosedMachineCashOutIsIdempotentAsync(failures);
 		await PlayerResetAfterClosePreservesClosedSessionUntilExplicitCashOutAsync(failures);
 		await PlayerResetAfterCloseKeepsCachedClosedSessionAsync(failures);
@@ -664,7 +667,10 @@ public static class GameServiceRegressionTests
 			IsPayoutSettled = false,
 			DoubleUpOffered = true,
 			CleanRoomState = drawn,
-			RoundEntropySeed = 0xD00DUL
+			RoundEntropySeed = 0xD00DUL,
+			AceCard = CleanRoomCard.FromCode("AS").ToLegacyPokerCard(),
+			AceMultiplier = 2,
+			AceMultiplierFired = true
 		};
 		store.ActiveRounds[round.RoundId] = round;
 
@@ -683,7 +689,78 @@ public static class GameServiceRegressionTests
 			&& progressedSession.DealerIndex == retriedSession.DealerIndex
 			&& switched.CurrentAmount == secondStart.CurrentAmount
 			&& switched.DealerCard?.Code == secondStart.DealerCard?.Code
-			&& firstStart.DealerCard?.Code != secondStart.DealerCard?.Code);
+			&& firstStart.DealerCard?.Code != secondStart.DealerCard?.Code
+			&& secondStart.AceCard
+			&& secondStart.AceMultiplier == 2
+			&& secondStart.AceMultiplierFired);
+	}
+
+	private static async Task ConcurrentDoubleUpStartsAreSerializedAsync(List<string> failures)
+	{
+		var store = new InMemoryDataStore();
+		var setupService = CreateService(store);
+		var userId = Guid.Parse("20000000-0000-0000-0000-000000000024");
+
+		SeedPlayer(store, userId, "concurrent-du-start", 2_000_000m);
+
+		var machineId = store.Machines.Values.First(machine => machine.IsOpen).Id;
+		await setupService.CashInAsync(userId, machineId, 200_000m, CancellationToken.None);
+
+		var drawn = CreateState(
+			RoundPhase.Drawn,
+			RoundState.Evaluate,
+			["AS", "AD", "8C", "8H", "2S"]);
+		var round = new GameRound
+		{
+			RoundId = Guid.Parse("30000000-0000-0000-0000-000000000024"),
+			UserId = userId,
+			MachineId = machineId,
+			BetAmount = 5_000m,
+			InitialCards = drawn.Hand.Select(card => card.ToLegacyPokerCard()).ToList(),
+			FinalCards = drawn.Hand.Select(card => card.ToLegacyPokerCard()).ToList(),
+			HandRank = "TwoPair",
+			WinAmount = 10_000m,
+			OriginalWinAmount = 10_000m,
+			IsCompleted = true,
+			IsPayoutSettled = false,
+			DoubleUpOffered = true,
+			CleanRoomState = drawn,
+			RoundEntropySeed = 0xBEEFUL
+		};
+		store.ActiveRounds[round.RoundId] = round;
+
+		var (gatedStore, readGate) = RoundReadGateDataStore.Create(new InMemoryDataStoreAdapter(store));
+		var firstService = new GameService(gatedStore, new DefaultEntropyGenerator(), new NullMachineStateCache(), new SpectatorTracker());
+		var secondService = new GameService(gatedStore, new DefaultEntropyGenerator(), new NullMachineStateCache(), new SpectatorTracker());
+		var firstStart = firstService.StartDoubleUpAsync(userId, round.RoundId, CancellationToken.None);
+
+		if (await Task.WhenAny(readGate.FirstRoundRead, Task.Delay(TimeSpan.FromSeconds(5))) != readGate.FirstRoundRead)
+		{
+			failures.Add("Regression test setup failed to pause the first concurrent double-up start.");
+			readGate.ReleaseFirstRoundRead();
+			await firstStart;
+			return;
+		}
+
+		var secondStart = secondService.StartDoubleUpAsync(userId, round.RoundId, CancellationToken.None);
+		var concurrentRead = await Task.WhenAny(readGate.SecondRoundRead, Task.Delay(TimeSpan.FromMilliseconds(250)));
+		if (concurrentRead == readGate.SecondRoundRead)
+		{
+			failures.Add("Concurrent double-up starts must wait before reading and creating a session for the same round.");
+		}
+
+		readGate.ReleaseFirstRoundRead();
+		var starts = await Task.WhenAll(firstStart, secondStart);
+		var saved = store.ActiveRounds[round.RoundId].DoubleUpSession;
+
+		Assert(
+			failures,
+			"Concurrent double-up starts must return the same persisted dealer and amount.",
+			saved is not null
+			&& starts[0].DealerCard?.Code == saved.DealerCard.Code
+			&& starts[1].DealerCard?.Code == saved.DealerCard.Code
+			&& starts[0].CurrentAmount == saved.CurrentAmount
+			&& starts[1].CurrentAmount == saved.CurrentAmount);
 	}
 
 	private static async Task ClosedMachineCashOutIsIdempotentAsync(List<string> failures)
@@ -1184,6 +1261,51 @@ public static class GameServiceRegressionTests
 
 	private static GameService CreateService(InMemoryDataStore store, IEntropyGenerator? entropy = null, IMachineStateCache? cache = null)
 		=> new(new InMemoryDataStoreAdapter(store), entropy ?? new DefaultEntropyGenerator(), cache ?? new NullMachineStateCache(), new SpectatorTracker());
+
+	private class RoundReadGateDataStore : DispatchProxy
+	{
+		private readonly TaskCompletionSource<bool> firstRoundRead = new(TaskCreationOptions.RunContinuationsAsynchronously);
+		private readonly TaskCompletionSource<bool> secondRoundRead = new(TaskCreationOptions.RunContinuationsAsynchronously);
+		private readonly TaskCompletionSource<bool> releaseFirstRoundRead = new(TaskCreationOptions.RunContinuationsAsynchronously);
+		private IDataStore? inner;
+		private int roundReadCount;
+
+		public Task FirstRoundRead => firstRoundRead.Task;
+		public Task SecondRoundRead => secondRoundRead.Task;
+
+		public static (IDataStore Store, RoundReadGateDataStore Gate) Create(IDataStore inner)
+		{
+			var store = DispatchProxy.Create<IDataStore, RoundReadGateDataStore>();
+			var gate = (RoundReadGateDataStore)(object)store;
+			gate.inner = inner;
+			return (store, gate);
+		}
+
+		public void ReleaseFirstRoundRead()
+			=> releaseFirstRoundRead.TrySetResult(true);
+
+		protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+		{
+			if (targetMethod?.Name == nameof(IDataStore.GetRoundAsync))
+			{
+				if (Interlocked.Increment(ref roundReadCount) == 1)
+				{
+					firstRoundRead.TrySetResult(true);
+					return GetRoundAfterReleaseAsync((Guid)args![0]!);
+				}
+
+				secondRoundRead.TrySetResult(true);
+			}
+
+			return targetMethod!.Invoke(inner, args);
+		}
+
+		private async Task<GameRound?> GetRoundAfterReleaseAsync(Guid roundId)
+		{
+			await releaseFirstRoundRead.Task;
+			return await inner!.GetRoundAsync(roundId);
+		}
+	}
 
 	private static AdminService CreateAdminService(InMemoryDataStore store)
 		=> new(

@@ -260,10 +260,21 @@ function preloadAllAssets() {
     });
 }
 
-function randomCardSrc(nextRandom = Math.random) {
+function randomCardCode(nextRandom = Math.random) {
     const random = typeof nextRandom === 'function' ? nextRandom : Math.random;
-    const code = ALL_CARD_CODES[Math.floor(random() * ALL_CARD_CODES.length)];
-    return `/assets/images/cards/${code}.png`;
+    return ALL_CARD_CODES[Math.floor(random() * ALL_CARD_CODES.length)];
+}
+
+function setDoubleUpShuffleCard(frame, card) {
+    if (!frame) return;
+    if (typeof window.CabinetStage?.renderDomCard === 'function') {
+        frame.innerHTML = CabinetStage.renderDomCard(card);
+        return;
+    }
+
+    const code = typeof card === 'string' ? card : card?.code;
+    frame.textContent = code || '🂠';
+    frame.setAttribute('aria-label', code ? `card ${code}` : 'card back');
 }
 
 function $(sel) { return document.querySelector(sel); }
@@ -1616,8 +1627,9 @@ function setButtonStates() {
     const betReady = minBet > 0 ? currentBet >= minBet : currentBet > 0;
     dealBtn.disabled = !(gameState === 'idle' && betReady || gameState === 'hold') || machineClosed;
     cancelBtn.disabled = gameState !== 'hold';
-    bigBtn.disabled = !(isDoubleUp || canStartDoubleUpFromWin());
-    smallBtn.disabled = !(isDoubleUp || canStartDoubleUpFromWin());
+    const canQueueDoubleUpGuess = canStartDoubleUpFromWin() || gameState === 'du-starting';
+    bigBtn.disabled = !(isDoubleUp || canQueueDoubleUpGuess);
+    smallBtn.disabled = !(isDoubleUp || canQueueDoubleUpGuess);
     takeScoreBtn.disabled = !(gameState === 'win' || isDoubleUp);
     takeHalfBtn.disabled = !GAME_RULES.doubleUpTakeHalfEnabled || !(gameState === 'win' || isDoubleUp) || takeHalfUsedThisRound;
 
@@ -2377,7 +2389,7 @@ function renderDoubleUpCards(dealerCard, showShuffle, challengerCard) {
         const challFrame = document.createElement('div');
         challFrame.className = 'du-card-frame';
         challFrame.id = 'du-shuffle-frame';
-        challFrame.innerHTML = `<img src="${CARD_BACK_SRC}" alt="card">`;
+        setDoubleUpShuffleCard(challFrame, null);
         challSlot.appendChild(challLabel);
         challSlot.appendChild(challFrame);
         area.appendChild(challSlot);
@@ -2392,8 +2404,8 @@ let shuffleTickHandler = null;
 
 function startShuffle(noise) {
     stopShuffle();
-    const frame = document.getElementById('du-shuffle-frame');
-    if (frame) frame.classList.add('du-flip-in');
+    const shuffleFrame = document.getElementById('du-shuffle-frame');
+    if (shuffleFrame) shuffleFrame.classList.add('du-flip-in');
 
     const swapIntervalTicks = CabinetClock.msToTicks(T.shuffleFrameMs || 130);
     const nextRandom = window.Lucky5PresentationNoise?.createRandom(noise) ?? Math.random;
@@ -2403,18 +2415,14 @@ function startShuffle(noise) {
         elapsedTicks++;
         if (elapsedTicks >= swapIntervalTicks) {
             elapsedTicks = 0;
-            const f = document.querySelector('#du-shuffle-frame img');
-            if (f) {
-                const frame = document.getElementById('du-shuffle-frame');
-                if (frame) {
-                    frame.classList.remove('du-flip-in');
-                    frame.classList.add('du-flip-out');
-                    CabinetClock.delayTicks(4, () => {
-                        f.src = randomCardSrc(nextRandom);
-                        frame.classList.remove('du-flip-out');
-                        frame.classList.add('du-flip-in');
-                    });
-                }
+            if (shuffleFrame) {
+                shuffleFrame.classList.remove('du-flip-in');
+                shuffleFrame.classList.add('du-flip-out');
+                CabinetClock.delayTicks(4, () => {
+                    setDoubleUpShuffleCard(shuffleFrame, randomCardCode(nextRandom));
+                    shuffleFrame.classList.remove('du-flip-out');
+                    shuffleFrame.classList.add('du-flip-in');
+                });
             }
         }
     };
@@ -2428,10 +2436,7 @@ function stopShuffle(freezeCard) {
     }
     const cardToFreeze = freezeCard || duDealerCard;
     if (cardToFreeze) {
-        const shuffleImg = document.querySelector('#du-shuffle-frame img');
-        if (shuffleImg) {
-            shuffleImg.src = resolveCardFaceSrc(cardToFreeze);
-        }
+        setDoubleUpShuffleCard(document.getElementById('du-shuffle-frame'), cardToFreeze);
     }
 }
 
@@ -2446,11 +2451,11 @@ async function startDoubleUpFlow(initialGuess = null) {
     const queuedGuess = initialGuess === 'Big' || initialGuess === 'Small'
         ? initialGuess
         : null;
+
+    if (_actionLock || jackpotDrainActive) return false;
     if (queuedGuess && (gameState === 'win' || gameState === 'du-starting')) {
         pendingDuGuess = queuedGuess;
     }
-
-    if (_actionLock || jackpotDrainActive) return false;
     if (gameState === 'doubleup') {
         if (queuedGuess) await doDoubleUp(queuedGuess);
         return true;
@@ -2533,8 +2538,7 @@ async function doDoubleUp(guess) {
     // Snap shuffle frame to the card back BEFORE stopping so the loop
     // never freezes on a random intermediate card face.
     // Players only see the actual server-provided card result.
-    const shuffleImg = document.querySelector('#du-shuffle-frame img');
-    if (shuffleImg) shuffleImg.src = CARD_BACK_SRC;
+    setDoubleUpShuffleCard(document.getElementById('du-shuffle-frame'), null);
     stopShuffle();
 
     const myToken = {};

@@ -23,6 +23,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 	private const int CabinetReplayMaxEvents = 128;
 	private static readonly EngineConfig EngineCfg = EngineConfig.Default;
 	private static readonly ConcurrentDictionary<string, SemaphoreSlim> CabinetCommandLocks = new(StringComparer.OrdinalIgnoreCase);
+	private static readonly ConcurrentDictionary<string, SemaphoreSlim> DoubleUpStartLocks = new(StringComparer.OrdinalIgnoreCase);
 	private static readonly JsonSerializerOptions CabinetJsonOptions = new(JsonSerializerDefaults.Web)
 	{
 		PropertyNameCaseInsensitive = true
@@ -623,6 +624,21 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 
 	public async Task<DoubleUpResultDto> StartDoubleUpAsync(Guid userId, Guid roundId, CancellationToken cancellationToken)
 	{
+		var startLock = DoubleUpStartLocks.GetOrAdd($"double-up-start:{roundId:N}", _ => new SemaphoreSlim(1, 1));
+		await startLock.WaitAsync(cancellationToken);
+
+		try
+		{
+			return await StartDoubleUpCoreAsync(userId, roundId, cancellationToken);
+		}
+		finally
+		{
+			startLock.Release();
+		}
+	}
+
+	private async Task<DoubleUpResultDto> StartDoubleUpCoreAsync(Guid userId, Guid roundId, CancellationToken cancellationToken)
+	{
 		var round = await store.GetRoundAsync(roundId);
 		if (round == null || round.UserId != userId)
 			throw new KeyNotFoundException("Round not found");
@@ -647,7 +663,10 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 				BoardBonusAmount: existingSession.LastBoardBonusAmount,
 				SlotIndex: existingSession.LastResolvedBoardSlotIndex,
 				IsLucky5Active: existingSession.IsNoLoseActive,
-				CurrentBonusAmount: existingSession.BoardBonusTotal);
+				CurrentBonusAmount: existingSession.BoardBonusTotal,
+				AceCard: round.AceCard != null,
+				AceMultiplier: round.AceMultiplier,
+				AceMultiplierFired: round.AceMultiplierFired);
 		}
 
 		var machine = await RequireMachineAsync(round.MachineId);
