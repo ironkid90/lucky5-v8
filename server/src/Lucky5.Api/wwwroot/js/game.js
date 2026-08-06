@@ -3229,12 +3229,10 @@ async function setupSignalR() {
                 } catch (err) {
                     console.error('ReconnectSync failed, falling back to JoinMachine:', err);
                     try {
-                        await invokeHub('JoinMachine', machineId);
                         if (isSpectatorMode) {
                             isSpectatorMode = false;
-                            machineJoined = true;
-                            setButtonStates();
                         }
+                        await joinMachine(machineId);
                         // After fallback JoinMachine, fetch active round to restore DU state
                         const activeRound = await fetchActiveRoundState();
                         if (activeRound) {
