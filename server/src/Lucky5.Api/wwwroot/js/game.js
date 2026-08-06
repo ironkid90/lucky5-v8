@@ -129,7 +129,10 @@ let pendingDuGuess = null;
 let clientStateVersion = 0;
 let clientSequenceNumber = 0;
 let isSpectatorMode = false;
+let lastHubError = null;
 let heartbeatInterval = null;
+let heartbeatFailures = 0;
+const MAX_HEARTBEAT_FAILURES = 3;
 let lastNetworkError = null;
 let isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
 
@@ -459,6 +462,7 @@ window.render_game_to_text = function renderGameToText() {
         currentBet,
         winAmount,
         machineJoined,
+        isSpectatorMode,
         machineSessionClosed,
         cards: Array.isArray(cards) ? cards.map(c => c?.code || null) : [],
         holds: Array.from(holdIndexes),
@@ -599,6 +603,12 @@ function resetGameRuntimeState({ clearSelection = false } = {}) {
     machineJoined = false;
     clientStateVersion = 0;
     clientSequenceNumber = 0;
+    lastStateVersion = 0;
+    lastSequenceNumber = 0;
+
+    if (typeof CabinetClientStores !== 'undefined') {
+        CabinetClientStores.resetGame(!clearSelection);
+    }
 
     if (clearSelection) {
         clearCurrentMachineSelection();
@@ -612,6 +622,11 @@ function syncMachineSessionState(session) {
     if (Number.isFinite(nextThreshold)) {
         machineCashOutThreshold = nextThreshold;
     }
+}
+
+function _syncGameStoreFromGlobals() {
+    if (typeof CabinetClientStores === 'undefined') return;
+    CabinetClientStores.initGameFromGlobals();
 }
 
 function readCabinetField(source, ...keys) {
@@ -699,8 +714,14 @@ function applyCabinetSnapshot(snapshot) {
 
     const version = readCabinetField(snapshot, 'stateVersion', 'state_version', 'version');
     const sequence = readCabinetField(snapshot, 'sequenceNumber', 'sequence_number', 'sequence');
-    if (version !== null && version !== undefined) clientStateVersion = Number(version) || 0;
-    if (sequence !== null && sequence !== undefined) clientSequenceNumber = Number(sequence) || 0;
+    if (version !== null && version !== undefined) {
+        clientStateVersion = Number(version) || 0;
+        lastStateVersion = clientStateVersion;
+    }
+    if (sequence !== null && sequence !== undefined) {
+        clientSequenceNumber = Number(sequence) || 0;
+        lastSequenceNumber = clientSequenceNumber;
+    }
 
     const nextStake = parseCabinetNumber(readCabinetField(credits, 'stake'), currentBet);
     if (nextStake > 0) {
@@ -728,6 +749,8 @@ function applyCabinetSnapshot(snapshot) {
         updateJackpotDisplay(normalizedJackpots);
     }
 
+    _applyGameStoreFromCabinetSnapshot(snapshot);
+
     return {
         gameState: String(readCabinetField(snapshot, 'gameState', 'game_state') || 'idle').toLowerCase(),
         pendingWinAmount: parseCabinetNumber(
@@ -739,6 +762,53 @@ function applyCabinetSnapshot(snapshot) {
                 ?? readCabinetField(evaluation, 'message')
                 ?? '').trim()
     };
+}
+
+function _applyGameStoreFromCabinetSnapshot(snapshot) {
+    if (typeof CabinetClientStores === 'undefined' || !snapshot) return;
+    const credits = readCabinetField(snapshot, 'credits') || {};
+    const evaluation = readCabinetField(snapshot, 'evaluation') || {};
+    const sessionState = readCabinetField(snapshot, 'session') || {};
+    const doubleUp = readCabinetField(snapshot, 'doubleUp', 'double_up') || {};
+    const hand = readCabinetField(snapshot, 'hand') || {};
+
+    CabinetClientStores.setGameVersion(
+        readCabinetField(snapshot, 'stateVersion', 'state_version', 'version'),
+        readCabinetField(snapshot, 'sequenceNumber', 'sequence_number', 'sequence')
+    );
+    CabinetClientStores.setGameBet(parseCabinetNumber(readCabinetField(credits, 'stake'), currentBet));
+    CabinetClientStores.setAuthBalance(parseCabinetNumber(readCabinetField(credits, 'machineCredits', 'machine_credits'), balance));
+    CabinetClientStores.setAuthWalletBalance(parseCabinetNumber(readCabinetField(credits, 'walletBalance', 'wallet_balance'), walletBalance));
+    CabinetClientStores.setGameWinMeter(parseCabinetNumber(
+        readCabinetField(credits, 'pendingWinAmount', 'pending_win_amount')
+            ?? readCabinetField(evaluation, 'winAmount', 'win_amount'),
+        0
+    ));
+
+    const cabinetGameState = String(readCabinetField(snapshot, 'gameState', 'game_state') || 'idle').toLowerCase();
+    CabinetClientStores.setGamePhase(cabinetGameState);
+
+    const rawCards = (cabinetGameState === 'win' || cabinetGameState === 'double_up')
+        ? readCabinetField(hand, 'resultCards', 'result_cards') || readCabinetField(hand, 'cards')
+        : readCabinetField(hand, 'cards');
+    const cardsForStore = Array.isArray(rawCards)
+        ? rawCards.map(parseCabinetCard).filter(Boolean)
+        : [];
+    CabinetClientStores.setGameCards(cardsForStore);
+
+    const heldIndexes = Array.isArray(readCabinetField(hand, 'heldIndexes', 'held_indexes'))
+        ? readCabinetField(hand, 'heldIndexes', 'held_indexes').map((index) => parseInt(index, 10)).filter((index) => Number.isFinite(index))
+        : [];
+    CabinetClientStores.setGameHolds(heldIndexes);
+
+    CabinetClientStores.setGameDoubleUpState({
+        dealerCard: parseCabinetCard(readCabinetField(doubleUp, 'dealerCard', 'dealer_card')),
+        currentAmount: parseCabinetNumber(readCabinetField(doubleUp, 'currentAmount', 'current_amount'), 0),
+        switchesRemaining: parseCabinetNumber(readCabinetField(doubleUp, 'switchesRemaining', 'switches_remaining'), 0),
+        isNoLoseActive: Boolean(readCabinetField(doubleUp, 'isNoLoseActive', 'is_no_lose_active')),
+        luckyMultiplier: parseCabinetNumber(readCabinetField(doubleUp, 'luckyMultiplier', 'lucky_multiplier'), 1),
+        started: cabinetGameState === 'double_up'
+    });
 }
 
 function buildRoundSnapshotFromCabinetSnapshot(snapshot) {
@@ -896,6 +966,9 @@ function syncMachineCreditsFromResponse(source) {
         balance = nextBalance;
     }
     updateCredits();
+    if (typeof CabinetClientStores !== 'undefined') {
+        CabinetClientStores.setAuthBalance(balance);
+    }
     return balance;
 }
 
@@ -924,6 +997,10 @@ function refreshIdleMachineState(messageText = null, type = 'win') {
     updateWinIndicator(0);
     updateWinAmountDisplay(0);
     setButtonStates();
+
+    if (typeof CabinetClientStores !== 'undefined') {
+        _syncGameStoreFromGlobals();
+    }
 
     if (messageText) {
         showMessage(messageText, type);
@@ -984,6 +1061,59 @@ function showMessage(text, type) {
     msg.className = type || '';
 }
 
+function _registerStoreDomSubscriptions() {
+    if (typeof CabinetClientStores === 'undefined') return;
+
+    CabinetClientStores.auth.subscribe((state) => {
+        updateMenuVisibility();
+        updateLobbyUsername();
+        const lobbyBal = document.getElementById('lobby-balance');
+        const lobbyWalBal = document.getElementById('lobby-wallet-bal');
+        const walletBal = document.getElementById('wallet-balance');
+        const fmt = formatNum(state.walletBalance);
+        if (lobbyBal) lobbyBal.textContent = fmt;
+        if (lobbyWalBal) lobbyWalBal.textContent = fmt;
+        if (walletBal) walletBal.textContent = fmt;
+    });
+
+    CabinetClientStores.game.subscribe((state, prev) => {
+        if (!prev) return;
+        if (state.bet !== prev.bet) {
+            updateStakeDisplay();
+            updatePaytable();
+        }
+        if (state.winMeter !== prev.winMeter) {
+            updateWinIndicator(state.winMeter);
+            updateWinAmountDisplay(state.winMeter, getFourOfAKindSlotTag());
+        }
+        if (state.phase !== prev.phase) {
+            setButtonStates();
+        }
+        if (state.cards !== prev.cards && Array.isArray(state.cards)) {
+            // Card rendering is handled by action functions (deal/draw/restore)
+            // which use animated stages. Skip subscription re-render to avoid
+            // interrupting in-flight animations.
+        }
+        if (state.holds !== prev.holds) {
+            const slots = $$('.card-slot');
+            const holdBtns = $$('.cab-hold');
+            slots.forEach((slot, i) => {
+                slot.classList.toggle('held', state.holds.includes(i));
+            });
+            holdBtns.forEach((btn, i) => {
+                btn.classList.toggle('active', state.holds.includes(i));
+            });
+            if (window.CabinetStage) {
+                for (let i = 0; i < 5; i++) CabinetStage.setHold(i, state.holds.includes(i));
+            }
+            updateIdleOverlayVisibility();
+        }
+        if (state.doubleUpState !== prev.doubleUpState) {
+            updateDoubleUpInfoPanel();
+        }
+    });
+}
+
 let _autoRetryTimer = null;
 let _autoRetryCount = 0;
 
@@ -1007,8 +1137,10 @@ function showNetworkErrorBanner(message, retryFn) {
     _autoRetryCount = 0;
     const doRetry = async () => {
         _autoRetryCount++;
-        const delay = Math.min(2000 * Math.pow(2, _autoRetryCount - 1), 30000);
-        console.log(`[AutoSync] Retry attempt ${_autoRetryCount}, next in ${delay}ms`);
+        const baseDelay = Math.min(2000 * Math.pow(2, _autoRetryCount - 1), 30000);
+        const jitter = baseDelay * 0.15 * Math.random();
+        const delay = baseDelay + jitter;
+        console.log(`[AutoSync] Retry attempt ${_autoRetryCount}, next in ${Math.round(delay)}ms`);
         try {
             if (typeof retryFn === 'function') {
                 await retryFn();
@@ -1053,9 +1185,15 @@ function hideOfflineBanner() {
 
 function startHeartbeat() {
     stopHeartbeat();
+    heartbeatFailures = 0;
     heartbeatInterval = setInterval(() => {
         if (isHubConnected() && machineId > 0) {
-            invokeHub('Heartbeat', machineId).catch(() => {});
+            invokeHub('Heartbeat', machineId).catch(() => {
+                heartbeatFailures++;
+                if (heartbeatFailures >= MAX_HEARTBEAT_FAILURES) {
+                    console.warn('[Heartbeat] Connection appears degraded after', heartbeatFailures, 'consecutive failures');
+                }
+            });
         }
     }, (window.GAME_CONFIG?.timing?.heartbeatMs || 15000));
 }
@@ -1065,6 +1203,7 @@ function stopHeartbeat() {
         clearInterval(heartbeatInterval);
         heartbeatInterval = null;
     }
+    heartbeatFailures = 0;
 }
 
 function normalizeLuckyMultiplier(value, fallback = 1) {
@@ -1653,6 +1792,7 @@ let betResetPending = false;
 let betRampRunning = false;
 
 async function doBet() {
+    if (isSpectatorMode) return;
     if (gameState === 'doubleup') {
         await doSwitchDealer();
         return;
@@ -1966,6 +2106,36 @@ function restoreRoundFromSnapshot(snapshot) {
     updatePaytable(currentHandRank);
     updateBonusBar(currentHandRank);
 
+    if (typeof CabinetClientStores !== 'undefined') {
+        CabinetClientStores.setGamePhase(phase === 'Dealt' ? 'hold' : phase === 'DoubleUp' ? 'doubleup' : phase === 'Drawn' ? 'win' : 'idle');
+        CabinetClientStores.setGameBet(currentBet);
+        CabinetClientStores.setGameCards(cards);
+        CabinetClientStores.setGameHolds(Array.from(holdIndexes));
+        CabinetClientStores.setGameWinMeter(phase === 'Dealt' ? 0 : snapshot.pendingWinAmount || 0);
+        if (snapshot.doubleUpSession) {
+            const du = snapshot.doubleUpSession;
+            CabinetClientStores.setGameDoubleUpState({
+                dealerCard: du.dealerCard,
+                currentAmount: du.currentAmount,
+                switchesRemaining: du.switchesRemaining,
+                isNoLoseActive: du.isNoLoseActive,
+                luckyMultiplier: du.luckyMultiplier,
+                cardTrail: du.cardTrail,
+                started: true
+            });
+        } else {
+            CabinetClientStores.setGameDoubleUpState({
+                dealerCard: null,
+                currentAmount: 0,
+                switchesRemaining: 0,
+                isNoLoseActive: false,
+                luckyMultiplier: 1,
+                cardTrail: [],
+                started: false
+            });
+        }
+    }
+
     if (phase === 'Dealt') {
         winAmount = 0;
         duSessionStarted = false;
@@ -2050,6 +2220,13 @@ async function doDeal() {
             if (!machineJoined) {
                 console.warn('Machine join unavailable; continuing without realtime sync.');
             }
+        }
+        // If joinMachine auto-fell back to spectate mode, the machine is
+        // occupied by another player — refuse gameplay input entirely.
+        if (isSpectatorMode) {
+            showMessage('SPECTATOR MODE — WATCH ONLY', 'win');
+            setButtonStates();
+            return;
         }
         if (balance < currentBet * 2) {
             showMessage('NEED ENOUGH CREDITS FOR DEAL + DRAW', 'lose');
@@ -2532,6 +2709,7 @@ async function startDoubleUpFlow(initialGuess = null) {
 }
 
 async function doDoubleUp(guess) {
+    if (isSpectatorMode) return;
     if (_actionLock || jackpotDrainActive) return;
     if (gameState !== 'doubleup') return;
     _actionLock = true;
@@ -2976,6 +3154,7 @@ function animateDrainToCredits(amount, startBalance, handRank = null) {
 /// Base CREDITS meter remains UNCHANGED — only the WIN display counts down.
 /// Used for DU loss siphon — the player watches their winnings disappear.
 async function mainTakeScore() {
+    if (isSpectatorMode) return;
     if (!(gameState === 'win' || gameState === 'doubleup') || takeScoreAnimating) return;
     takeScoreAnimating = true;
     if (window.CabinetState) CabinetState.setPresentationLocked(true);
@@ -3037,6 +3216,7 @@ async function mainTakeScore() {
 }
 
 async function mainTakeHalf() {
+    if (isSpectatorMode) return;
     if (!(gameState === 'win' || gameState === 'doubleup') || takeScoreAnimating) return;
     takeScoreAnimating = true;
     if (window.CabinetState) CabinetState.setPresentationLocked(true);
@@ -3132,6 +3312,10 @@ function storeToken(t) {
     token = t;
     sessionStorage.setItem('lucky5_token', t);
     updateMenuVisibility();
+    if (typeof CabinetClientStores !== 'undefined') {
+        CabinetClientStores.setAuthToken(t);
+        CabinetClientStores.setAuthStatus('authenticated');
+    }
 }
 
 function storeUserInfo(username, role) {
@@ -3140,6 +3324,9 @@ function storeUserInfo(username, role) {
     sessionStorage.setItem('lucky5_username', currentUsername);
     sessionStorage.setItem('lucky5_role', currentRole);
     updateLobbyUsername();
+    if (typeof CabinetClientStores !== 'undefined') {
+        CabinetClientStores.setAuthUser({ username, role: currentRole });
+    }
 }
 
 function clearToken() {
@@ -3152,6 +3339,9 @@ function clearToken() {
     sessionStorage.removeItem('lucky5_machineId');
     updateMenuVisibility();
     updateLobbyUsername();
+    if (typeof CabinetClientStores !== 'undefined') {
+        CabinetClientStores.resetAuth();
+    }
 }
 
 async function setupSignalR() {
@@ -3179,8 +3369,17 @@ async function setupSignalR() {
 
     hubConnection.on('MachineStateUpdated', (state) => {
         if (state) {
-            if (state.state_version !== undefined) clientStateVersion = state.state_version;
-            if (state.sequence_number !== undefined) clientSequenceNumber = state.sequence_number;
+            if (state.state_version !== undefined) {
+                clientStateVersion = state.state_version;
+                lastStateVersion = state.state_version;
+            }
+            if (state.sequence_number !== undefined) {
+                clientSequenceNumber = state.sequence_number;
+                lastSequenceNumber = state.sequence_number;
+            }
+            if (typeof CabinetClientStores !== 'undefined') {
+                CabinetClientStores.setGameVersion(state.state_version, state.sequence_number);
+            }
             if (state.jackpots || state.Jackpot) {
                 updateJackpotDisplay(state.jackpots || state.Jackpot);
             }
@@ -3190,64 +3389,123 @@ async function setupSignalR() {
                     restoreRoundFromSnapshot(roundSnapshot);
                 } else {
                     resetGameRuntimeState({ clearSelection: false });
+                    if (gameState === 'idle') {
+                        showIdleTitle();
+                    }
+                }
+                // Mirror the live spectator count reported by the server, if present.
+                if (state.spectatorCount !== undefined || state.spectator_count !== undefined) {
+                    spectatorCountCache = parseCabinetNumber(readCabinetField(state, 'spectatorCount', 'spectator_count'), spectatorCountCache);
+                    updateSpectatorCountOverlay(spectatorCountCache);
+                } else {
+                    updateSpectatorCountOverlay(spectatorCountCache);
                 }
             }
         }
     });
 
-    hubConnection.on('SpectatorsChanged', (data) => {
+     hubConnection.on('SpectatorsChanged', (data) => {
         if (data && data.machineId === machineId) {
-            const spectatorCountEl = document.getElementById('spectator-count') || (() => {
-                const el = document.createElement('div');
-                el.id = 'spectator-count';
-                el.style.position = 'absolute';
-                el.style.top = '10px';
-                el.style.right = '10px';
-                el.style.color = '#fff';
-                el.style.fontFamily = 'VT323, monospace';
-                el.style.fontSize = '24px';
-                el.style.zIndex = '1000';
-                document.body.appendChild(el);
-                return el;
-            })();
-            spectatorCountEl.textContent = `SPECTATORS: ${data.count}`;
-            spectatorCountEl.style.display = data.count > 0 ? 'block' : 'none';
+            spectatorCountCache = Number(data.count) || 0;
+            updateSpectatorCountOverlay(spectatorCountCache);
         }
     });
 
     hubConnection.on('CabinetSnapshotEvent', (snapshot) => {
         if (snapshot) {
-            if (snapshot.state_version !== undefined) clientStateVersion = snapshot.state_version;
-            if (snapshot.sequence_number !== undefined) clientSequenceNumber = snapshot.sequence_number;
+            if (snapshot.state_version !== undefined) {
+                clientStateVersion = snapshot.state_version;
+                lastStateVersion = snapshot.state_version;
+            }
+            if (snapshot.sequence_number !== undefined) {
+                clientSequenceNumber = snapshot.sequence_number;
+                lastSequenceNumber = snapshot.sequence_number;
+            }
+            _applyGameStoreFromCabinetSnapshot(snapshot);
             const roundSnapshot = buildRoundSnapshotFromCabinetSnapshot(snapshot);
             if (roundSnapshot) restoreRoundFromSnapshot(roundSnapshot);
         }
     });
 
     hubConnection.on('CabinetReplayEvent', (replay) => {
-        if (replay && replay.Snapshot) {
+        if (!replay) return;
+
+        if (replay.state_version !== undefined) {
+            clientStateVersion = replay.state_version;
+            lastStateVersion = replay.state_version;
+        }
+        if (replay.sequence_number !== undefined) {
+            clientSequenceNumber = replay.sequence_number;
+            lastSequenceNumber = replay.sequence_number;
+        }
+
+        if (replay.Snapshot) {
             const snapshot = replay.Snapshot;
-            if (snapshot.state_version !== undefined) clientStateVersion = snapshot.state_version;
-            if (snapshot.sequence_number !== undefined) clientSequenceNumber = snapshot.sequence_number;
+            if (snapshot.state_version !== undefined) {
+                clientStateVersion = snapshot.state_version;
+                lastStateVersion = snapshot.state_version;
+            }
+            if (snapshot.sequence_number !== undefined) {
+                clientSequenceNumber = snapshot.sequence_number;
+                lastSequenceNumber = snapshot.sequence_number;
+            }
+            _applyGameStoreFromCabinetSnapshot(snapshot);
             const roundSnapshot = buildRoundSnapshotFromCabinetSnapshot(snapshot);
             if (roundSnapshot) restoreRoundFromSnapshot(roundSnapshot);
+            return;
+        }
+
+        if (Array.isArray(replay.Events) && replay.Events.length > 0) {
+            let latestSnapshot = null;
+            for (const event of replay.Events) {
+                if (event && event.Payload && event.Payload.snapshot) {
+                    latestSnapshot = event.Payload.snapshot;
+                }
+            }
+            if (latestSnapshot) {
+                if (latestSnapshot.state_version !== undefined) {
+                    clientStateVersion = latestSnapshot.state_version;
+                    lastStateVersion = latestSnapshot.state_version;
+                }
+                if (latestSnapshot.sequence_number !== undefined) {
+                    clientSequenceNumber = latestSnapshot.sequence_number;
+                    lastSequenceNumber = latestSnapshot.sequence_number;
+                }
+                _applyGameStoreFromCabinetSnapshot(latestSnapshot);
+                const roundSnapshot = buildRoundSnapshotFromCabinetSnapshot(latestSnapshot);
+                if (roundSnapshot) restoreRoundFromSnapshot(roundSnapshot);
+            }
         }
     });
 
-    hubConnection.on('Error', (err) => {
+     hubConnection.on('Error', (err) => {
+        // Capture the most recent hub error so callers (e.g. JoinMachine) can
+        // inspect the structured code (e.g. MACHINE_OCCUPIED) that the
+        // HubException rejection on its own does not carry.
+        if (err && typeof err === 'object') {
+            lastHubError = { code: err.code || err.Code || '', message: err.message || err.Message || '' };
+        } else if (typeof err === 'string') {
+            lastHubError = { code: '', message: err };
+        } else {
+            lastHubError = { code: '', message: err?.message || String(err) };
+        }
         console.error('SignalR error:', err);
     });
 
     hubConnection.on('LobbyMachinesUpdated', (machines) => {
         if (!Array.isArray(machines)) return;
+        const prevWatching = new Map(AVAILABLE_GAMES.map(g => [g.machineId, g.isWatching]));
         AVAILABLE_GAMES = machines.map(machine => {
             const minBet = window.SERVER_RULES && window.SERVER_RULES.minStake !== undefined ? window.SERVER_RULES.minStake : machine.minBet;
             const maxBet = window.SERVER_RULES && window.SERVER_RULES.maxStake !== undefined ? window.SERVER_RULES.maxStake : machine.maxBet;
             const isOccupied = Boolean(machine.isOccupied);
             const spectatorCount = Number(machine.spectatorCount) || 0;
+            const isWatching = prevWatching.get(machine.id) || false;
             let status = 'playable';
             if (!machine.isOpen) {
                 status = 'unavailable';
+            } else if (isWatching) {
+                status = 'watching';
             } else if (isOccupied) {
                 status = 'playing';
             }
@@ -3263,6 +3521,7 @@ async function setupSignalR() {
                 isOccupied: isOccupied,
                 occupiedByUsername: machine.occupiedByUsername,
                 activeSpectatorCount: spectatorCount,
+                isWatching: isWatching,
                 idleSecondsRemaining: machine.idleSecondsRemaining || 0,
                 reservedUntilUtc: machine.reservedUntilUtc || null
             };
@@ -3275,15 +3534,21 @@ async function setupSignalR() {
         showMessage('RECONNECTING...');
     });
 
-    hubConnection.onreconnected(async () => {
+     hubConnection.onreconnected(async () => {
             console.log('[SignalR] Reconnected successfully.');
+            heartbeatFailures = 0;
             hideNetworkErrorBanner();
             if (machineId > 0) {
                 try { 
                     if (isSpectatorMode) {
-                        await invokeHub('JoinMachineAsSpectator', machineId);
+                        await joinMachineAsSpectator(machineId);
+                        // Reassert the read-only spectator overlay after the
+                        // transport was torn down and rebuilt.
+                        setButtonStates();
+                        showSpectatorUi();
+                        showMessage('SPECTATOR MODE — LIVE WATCH', 'win');
                     } else {
-                        await invokeHub('ReconnectSync', machineId, clientStateVersion, clientSequenceNumber);
+                        await invokeHub('ReconnectSync', machineId, lastStateVersion, lastSequenceNumber);
                     }
                 } catch (err) {
                     console.error('ReconnectSync failed, falling back to JoinMachine:', err);
@@ -3311,6 +3576,10 @@ async function setupSignalR() {
             console.error('[SignalR] Connection closed permanently:', error ? error.message : 'unknown');
             hubConnection = null;
             machineJoined = false;
+            if (isSpectatorMode) {
+                isSpectatorMode = false;
+                hideSpectatorUi();
+            }
             stopHeartbeat();
             showNetworkErrorBanner('CONNECTION LOST — Click RETRY to reconnect', setupSignalR);
         });
@@ -3340,12 +3609,124 @@ function invokeHub(method, ...args) {
     return hubConnection.invoke(method, ...args);
 }
 
+// ── SPECTATOR HELPERS ──────────────────────────────────────────────────────
+// These coordinate the read-only spectator (live watch) experience: auto-
+// fallback from an occupied-machine JoinMachine error into spectate mode,
+// the live spectator count overlay, and the SPECTATING badge overlay.
+
+function clearLastHubError() {
+    lastHubError = null;
+}
+
+function isMachineOccupiedError(error) {
+    if (!error) return false;
+    if (error.code && String(error.code).toUpperCase() === 'MACHINE_OCCUPIED') return true;
+    if (lastHubError && lastHubError.code && String(lastHubError.code).toUpperCase() === 'MACHINE_OCCUPIED') {
+        return true;
+    }
+    const msg = (error?.message || error?.toString() || '').toLowerCase();
+    if (msg && (msg.includes('occupied') || msg.includes('already occupied'))) return true;
+    return false;
+}
+
+function updateSpectatorCountOverlay(count) {
+    const viewport = document.getElementById('cabinet-viewport');
+    if (!viewport) return;
+    let el = document.getElementById('spectator-count');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'spectator-count';
+        el.className = 'spectator-count-overlay';
+        el.style.position = 'absolute';
+        el.style.top = '10px';
+        el.style.right = '10px';
+        el.style.zIndex = '1000';
+        el.style.color = '#fff';
+        el.style.fontFamily = 'VT323, monospace';
+        el.style.fontSize = '24px';
+        el.style.fontWeight = 'bold';
+        viewport.appendChild(el);
+    }
+    el.textContent = `\u2623 ${count} SPECTATOR${count !== 1 ? 'S' : ''}`;
+    el.style.display = count > 0 ? 'flex' : 'none';
+}
+
+function showSpectatorUi() {
+    const viewport = document.getElementById('cabinet-viewport');
+    if (!viewport) return;
+
+    let badge = document.getElementById('spectator-badge');
+    if (!badge) {
+        badge = document.createElement('div');
+        badge.id = 'spectator-badge';
+        badge.className = 'spectator-badge';
+        badge.style.position = 'absolute';
+        badge.style.top = '10px';
+        badge.style.left = '10px';
+        badge.style.zIndex = '1000';
+        badge.style.color = '#ff0';
+        badge.style.fontFamily = 'VT323, monospace';
+        badge.style.fontSize = '24px';
+        badge.style.fontWeight = 'bold';
+        badge.style.textShadow = '0 0 6px #0ff';
+        badge.style.padding = '2px 8px';
+        badge.style.border = '1px solid #0ff';
+        badge.style.borderRadius = '4px';
+        badge.style.background = 'rgba(0,0,0,0.6)';
+        badge.innerHTML = 'SPECTATING';
+        viewport.appendChild(badge);
+    }
+    badge.style.display = 'block';
+
+    // Visually mute the control deck to reinforce the read-only watch state.
+    const controls = document.getElementById('controls');
+    if (controls) controls.classList.add('is-spectator');
+
+    // Keep the spectator count overlay seeded (real-time updates arrive via
+    // the SpectatorsChanged hub event).
+    updateSpectatorCountOverlay(spectatorCountCache);
+}
+
+function hideSpectatorUi() {
+    const badge = document.getElementById('spectator-badge');
+    if (badge) badge.style.display = 'none';
+    const countEl = document.getElementById('spectator-count');
+    if (countEl) countEl.style.display = 'none';
+    const controls = document.getElementById('controls');
+    if (controls) controls.classList.remove('is-spectator');
+}
+
+let spectatorCountCache = 0;
+
+async function enterSpectatorMode(id) {
+    isSpectatorMode = true;
+    await joinMachineAsSpectator(id);
+    if (machineJoined) {
+        setButtonStates();
+        showSpectatorUi();
+        showMessage('SPECTATOR MODE — LIVE WATCH', 'win');
+    } else {
+        // Spectator join failed — roll back local state so the player can retry.
+        isSpectatorMode = false;
+        hideSpectatorUi();
+        showMessage('UNABLE TO JOIN AS SPECTATOR — MACHINE UNAVAILABLE', 'lose');
+    }
+}
+
+async function exitSpectatorMode(targetMachineId = machineId) {
+    isSpectatorMode = false;
+    spectatorCountCache = 0;
+    hideSpectatorUi();
+    if (machineJoined && targetMachineId > 0 && isHubConnected()) {
+        await leaveMachineAsSpectator(targetMachineId);
+    }
+    machineJoined = false;
+}
+
 async function joinMachine(id) {
     if (!isHubConnected()) return;
+    if (isSpectatorMode) return;
     try {
-        // Always reset to idle when joining — the server will send a snapshot
-        // if there's an active round/DU to restore. This prevents getting stuck
-        // in a stale DU state from a previous session.
         if (gameState !== 'idle') {
             exitDoubleUp();
             refreshIdleMachineState();
@@ -3355,11 +3736,22 @@ async function joinMachine(id) {
         betRampRunning = false;
         await invokeHub('JoinMachine', id);
         machineJoined = true;
+        const game = AVAILABLE_GAMES.find(g => g.machineId === id);
+        if (game) game.isWatching = false;
         updateStakeDisplay();
         setButtonStates();
     } catch (e) {
         console.error('JoinMachine failed:', e);
         machineJoined = false;
+        const wasOccupied = isMachineOccupiedError(e);
+        clearLastHubError();
+        if (wasOccupied) {
+            // The machine is already claimed by another player. Automatically
+            // fall back to spectate mode so the connection can watch the live
+            // hand without blocking the active player.
+            console.log('[Spectator] Machine occupied — auto-connecting as spectator.');
+            await enterSpectatorMode(id);
+        }
     }
 }
 
@@ -3368,6 +3760,8 @@ async function joinMachineAsSpectator(id) {
     try {
         await invokeHub('JoinMachineAsSpectator', id);
         machineJoined = true;
+        const game = AVAILABLE_GAMES.find(g => g.machineId === id);
+        if (game) game.isWatching = true;
     } catch (e) {
         console.error('JoinMachineAsSpectator failed:', e);
         machineJoined = false;
@@ -3387,6 +3781,8 @@ async function leaveMachineAsSpectator(id) {
     try {
         await invokeHub('LeaveMachineAsSpectator', id);
         machineJoined = false;
+        const game = AVAILABLE_GAMES.find(g => g.machineId === id);
+        if (game) game.isWatching = false;
     } catch (_) {}
 }
 
@@ -3405,13 +3801,22 @@ async function doLogout() {
     setMenuPanelOpen(false);
     clearToken();
     resetGameRuntimeState({ clearSelection: true });
+    if (isSpectatorMode) {
+        isSpectatorMode = false;
+        hideSpectatorUi();
+    }
+    machineJoined = false;
     balance = 0;
     walletBalance = 0;
+    if (typeof CabinetClientStores !== 'undefined') {
+        CabinetClientStores.resetAuth();
+    }
     setActiveScreen(null);
     $('#auth-screen').style.display = '';
     $('#auth-error').textContent = '';
-    
-    // Reset admin/modal UI states on logout
+
+    AVAILABLE_GAMES.forEach(g => { g.isWatching = false; });
+
     updateLobbyUsername();
     const adminModal = document.getElementById('admin-modal-container');
     if (adminModal) adminModal.style.display = 'none';
@@ -3428,14 +3833,18 @@ let AVAILABLE_GAMES = [];
 async function loadAvailableMachines() {
     try {
         const machineData = await apiCall('GET', GAME_CONFIG.api.lobbyMachines);
+        const prevWatching = new Map(AVAILABLE_GAMES.map(g => [g.machineId, g.isWatching]));
         AVAILABLE_GAMES = machineData.map(machine => {
             const minBet = window.SERVER_RULES && window.SERVER_RULES.minStake !== undefined ? window.SERVER_RULES.minStake : machine.minBet;
             const maxBet = window.SERVER_RULES && window.SERVER_RULES.maxStake !== undefined ? window.SERVER_RULES.maxStake : machine.maxBet;
             const isOccupied = Boolean(machine.isOccupied);
             const spectatorCount = Number(machine.spectatorCount) || 0;
+            const isWatching = prevWatching.get(machine.id) || false;
             let status = 'playable';
             if (!machine.isOpen) {
                 status = 'unavailable';
+            } else if (isWatching) {
+                status = 'watching';
             } else if (isOccupied) {
                 status = 'playing';
             }
@@ -3451,6 +3860,7 @@ async function loadAvailableMachines() {
                 isOccupied: isOccupied,
                 occupiedByUsername: machine.occupiedByUsername,
                 activeSpectatorCount: spectatorCount,
+                isWatching: isWatching,
                 idleSecondsRemaining: machine.idleSecondsRemaining || 0,
                 reservedUntilUtc: machine.reservedUntilUtc || null
             };
@@ -3463,7 +3873,8 @@ async function loadAvailableMachines() {
             machineId: 1,
             name: 'LUCKY 5',
             icon: '/assets/images/lucky5.png',
-            status: 'playable'
+            status: 'playable',
+            isWatching: false
         }];
         return AVAILABLE_GAMES;
     }
@@ -3508,6 +3919,7 @@ function renderGameGrid() {
             isOccupied: g.isOccupied,
             occupiedByUsername: g.occupiedByUsername,
             activeSpectatorCount: g.activeSpectatorCount,
+            isWatching: g.isWatching,
             status: g.status
         }));
         CabinetShell.renderLobbyMachineCards(rawMachines, machine => {
@@ -3523,7 +3935,7 @@ function renderGameGrid() {
 
     AVAILABLE_GAMES.forEach(game => {
         const card = document.createElement('div');
-        card.className = 'game-card' + (game.status !== 'playable' ? ' unavailable' : '');
+        card.className = 'game-card' + (game.status !== 'playable' && game.status !== 'watching' ? ' unavailable' : '');
 
         const iconDiv = document.createElement('div');
         iconDiv.className = 'game-card-icon';
@@ -3537,7 +3949,7 @@ function renderGameGrid() {
         nameDiv.className = 'game-card-name';
         nameDiv.textContent = game.name;
 
-        // Status badge: READY / PLAYING / CLOSED
+        // Status badge: READY / PLAYING / WATCHING / CLOSED
         const badge = document.createElement('div');
         badge.className = 'game-card-badge ';
         let badgeText = '';
@@ -3547,6 +3959,9 @@ function renderGameGrid() {
         } else if (game.status === 'playing') {
             badge.classList.add('playing');
             badgeText = 'PLAYING';
+        } else if (game.status === 'watching') {
+            badge.classList.add('watching');
+            badgeText = 'WATCHING';
         } else {
             badge.classList.add('coming-soon');
             badgeText = 'CLOSED';
@@ -3595,7 +4010,7 @@ function renderGameGrid() {
         card.appendChild(specDiv);
         card.appendChild(badge);
 
-        if (game.status === 'playable') {
+        if (game.status === 'playable' || game.status === 'watching' || game.status === 'playing') {
             card.addEventListener('click', () => {
                 const options = game.isOccupied ? { isSpectator: true } : {};
                 openGame(game.id, game.machineId, options);
@@ -3625,7 +4040,9 @@ async function showLobby() {
     updateLobbyBalance();
     updateLobbyUsername();
     if (window.CabinetBonus) CabinetBonus.checkAndShowBanner();
-    // Load machines from backend before rendering
+    if (!isHubConnected() && token) {
+        await setupSignalR().catch(() => {});
+    }
     await loadAvailableMachines();
     renderGameGrid();
 }
@@ -4466,13 +4883,19 @@ async function loadAdminMachines() {
 }
 
 async function backToLobbyFromGame() {
-    if (gameState !== 'idle' && gameState !== 'win') {
+    // Spectators never own a round, so they can always leave without the
+    // confirm prompt that active players see.
+    if (!isSpectatorMode && gameState !== 'idle' && gameState !== 'win') {
         const yes = await customConfirm('LEAVE GAME', 'Leave the game? Any current round may be affected.');
         if (!yes) return;
     }
     const previousMachineId = machineId;
     setMenuPanelOpen(false);
-    if (machineJoined && previousMachineId > 0) {
+    if (isSpectatorMode) {
+        // Spectators never own a round — leave without the confirm prompt and
+        // tear down the read-only overlay via the shared exit helper.
+        await exitSpectatorMode(previousMachineId);
+    } else if (machineJoined && previousMachineId > 0) {
         await leaveMachine(previousMachineId);
     }
     resetGameRuntimeState({ clearSelection: true });
@@ -4482,6 +4905,9 @@ async function backToLobbyFromGame() {
 async function enterLobbyAfterLogin(profileData) {
     walletBalance = profileData.walletBalance;
     storeUserInfo(profileData.username, profileData.role);
+    if (typeof CabinetClientStores !== 'undefined') {
+        CabinetClientStores.setAuthWalletBalance(walletBalance);
+    }
     $('#auth-screen').style.display = 'none';
     if (window.CabinetFirebase) {
         try {
@@ -4538,6 +4964,11 @@ async function initGame(options = {}) {
 
         const profile = await apiCall('GET', GAME_CONFIG.api.profile);
         walletBalance = profile.walletBalance;
+        if (typeof CabinetClientStores !== 'undefined') {
+            CabinetClientStores.initAuthFromStorage();
+            CabinetClientStores.setAuthWalletBalance(walletBalance);
+            CabinetClientStores.setGameMachineId(machineId);
+        }
         const session = await fetchMachineSession();
         updateCredits();
         updateStakeDisplay();
@@ -4579,11 +5010,10 @@ async function initGame(options = {}) {
         }
 
         await setupSignalR();
-        isSpectatorMode = !!options.isSpectator;
-        if (isSpectatorMode) {
-            await joinMachineAsSpectator(machineId);
-            setButtonStates();
-            showMessage('SPECTATOR MODE', 'win');
+        // isSpectatorMode is set inside enterSpectatorMode so all UI helpers
+        // stay in sync regardless of entry path (lobby click vs. auto-fallback).
+        if (options.isSpectator) {
+            await enterSpectatorMode(machineId);
         } else {
             await joinMachine(machineId);
         }
@@ -4615,6 +5045,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     debugLog('boot', { apiBase: API, userAgent: navigator.userAgent });
     updateMenuVisibility();
     updateLobbyUsername();
+
+    if (typeof CabinetClientStores !== 'undefined') {
+        CabinetClientStores.initAuthFromStorage();
+        CabinetClientStores.initGameFromGlobals();
+        _registerStoreDomSubscriptions();
+    }
     
     // Auto-enable wake lock on any user interaction gesture (touch, click, key)
     const enableWakeLock = () => {
@@ -4873,7 +5309,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     window.addEventListener('beforeunload', () => {
         if (machineJoined && isHubConnected() && machineId > 0) {
-            invokeHub('LeaveMachine', machineId).catch(() => {});
+            if (isSpectatorMode) {
+                invokeHub('LeaveMachineAsSpectator', machineId).catch(() => {});
+            } else {
+                invokeHub('LeaveMachine', machineId).catch(() => {});
+            }
         }
     });
 
@@ -4967,10 +5407,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             try {
                 const profile = await apiCall('GET', GAME_CONFIG.api.profile);
                 walletBalance = profile.walletBalance;
+                if (typeof CabinetClientStores !== 'undefined') {
+                    CabinetClientStores.initAuthFromStorage();
+                    CabinetClientStores.setAuthWalletBalance(walletBalance);
+                }
                 storeUserInfo(profile.username, profile.role);
                 const savedMachine = sessionStorage.getItem('lucky5_machineId');
                 if (savedMachine) {
                     machineId = parseInt(savedMachine, 10);
+                    if (typeof CabinetClientStores !== 'undefined') {
+                        CabinetClientStores.setGameMachineId(machineId);
+                    }
                     activateShellScreen('game', null);
                     await initGame({ allowLobbyFallback: true });
                 } else {

@@ -217,6 +217,11 @@
     color: #ffaa00;
 }
 
+.lobby-machine-status.is-watching {
+    color: #44aaff;
+    text-shadow: 0 0 6px rgba(68,170,255,0.5);
+}
+
 .lobby-machine-status.is-closed {
     color: #ff7565;
 }
