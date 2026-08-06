@@ -3383,7 +3383,7 @@ async function setupSignalR() {
             if (state.jackpots || state.Jackpot) {
                 updateJackpotDisplay(state.jackpots || state.Jackpot);
             }
-            if (isSpectatorMode) {
+            if (isSpectatorMode && (state.gameState || state.game_state)) {
                 const roundSnapshot = buildRoundSnapshotFromCabinetSnapshot(state);
                 if (roundSnapshot) {
                     restoreRoundFromSnapshot(roundSnapshot);
@@ -3553,7 +3553,10 @@ async function setupSignalR() {
                 } catch (err) {
                     console.error('ReconnectSync failed, falling back to JoinMachine:', err);
                     try {
-                        await invokeHub('JoinMachine', machineId);
+                        if (isSpectatorMode) {
+                            isSpectatorMode = false;
+                        }
+                        await joinMachine(machineId);
                         // After fallback JoinMachine, fetch active round to restore DU state
                         const activeRound = await fetchActiveRoundState();
                         if (activeRound) {
