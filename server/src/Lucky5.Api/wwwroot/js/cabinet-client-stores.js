@@ -147,7 +147,9 @@
             started: false
         },
         stateVersion: 0,
-        sequenceNumber: 0
+        sequenceNumber: 0,
+        pendingCommands: {},
+        pendingTimestamp: 0
     });
 
     function setGameMachineId(machineId) {
@@ -187,6 +189,127 @@
         });
     }
 
+    function _nextLocalSeq() {
+        return (gameStore.getState().sequenceNumber || 0) + 1;
+    }
+
+    function _arraysEqual(a, b) {
+        if (!Array.isArray(a) || !Array.isArray(b)) return false;
+        if (a.length !== b.length) return false;
+        for (let i = 0; i < a.length; i++) {
+            if (a[i] !== b[i]) return false;
+        }
+        return true;
+    }
+
+    function holdCard(index) {
+        if (typeof index !== 'number' || index < 0 || index > 4) return null;
+        const state = gameStore.getState();
+        if (state.phase !== 'hold') return null;
+
+        const currentHolds = [...state.holds];
+        const isHeld = currentHolds.includes(index);
+        const newHolds = isHeld
+            ? currentHolds.filter(i => i !== index)
+            : [...currentHolds, index].sort((a, b) => a - b);
+
+        if (_arraysEqual(currentHolds, newHolds)) return null;
+
+        const localSeq = _nextLocalSeq();
+        const timestamp = Date.now();
+        const pending = { ...state.pendingCommands };
+        pending[localSeq] = { type: 'hold', index, oldValue: currentHolds, value: newHolds, timestamp };
+
+        gameStore.setState({ holds: newHolds, pendingCommands: pending, pendingTimestamp: timestamp });
+
+        return { localSeq, newHolds, oldHolds: currentHolds };
+    }
+
+    function setBet(amount) {
+        if (typeof amount !== 'number' || amount < 0) return null;
+        const state = gameStore.getState();
+        if (state.phase !== 'idle') return null;
+
+        const currentBet = state.bet;
+        if (currentBet === amount) return null;
+
+        const localSeq = _nextLocalSeq();
+        const timestamp = Date.now();
+        const pending = { ...state.pendingCommands };
+        pending[localSeq] = { type: 'bet', oldValue: currentBet, value: amount, timestamp };
+
+        gameStore.setState({ bet: amount, pendingCommands: pending, pendingTimestamp: timestamp });
+
+        return { localSeq, newBet: amount, oldBet: currentBet };
+    }
+
+    function rollbackPending(localSeq) {
+        const state = gameStore.getState();
+        const pending = state.pendingCommands[localSeq];
+        if (!pending) return;
+
+        const newPending = { ...state.pendingCommands };
+        delete newPending[localSeq];
+
+        if (pending.type === 'hold') {
+            gameStore.setState({ holds: pending.oldValue, pendingCommands: newPending });
+        } else if (pending.type === 'bet') {
+            gameStore.setState({ bet: pending.oldValue, pendingCommands: newPending });
+        }
+    }
+
+    function reconcileBet(stateVersion, sequenceNumber, serverBet) {
+        const state = gameStore.getState();
+        const pending = state.pendingCommands;
+        const pendingBets = Object.entries(pending).filter(([, cmd]) => cmd.type === 'bet');
+
+        if (pendingBets.length === 0) {
+            if (state.bet !== serverBet) {
+                gameStore.setState({ bet: serverBet, stateVersion, sequenceNumber });
+            }
+            return;
+        }
+
+        const matched = pendingBets.find(([, cmd]) => cmd.value === serverBet);
+        if (matched) {
+            const newPending = { ...pending };
+            delete newPending[matched[0]];
+            gameStore.setState({ bet: serverBet, stateVersion, sequenceNumber, pendingCommands: newPending });
+        } else {
+            gameStore.setState({ bet: serverBet, stateVersion, sequenceNumber, pendingCommands: {} });
+        }
+    }
+
+    function reconcileHolds(stateVersion, sequenceNumber, serverHolds) {
+        const state = gameStore.getState();
+        const pending = state.pendingCommands;
+        const pendingHolds = Object.entries(pending).filter(([, cmd]) => cmd.type === 'hold');
+
+        if (pendingHolds.length === 0) {
+            if (!_arraysEqual(state.holds, serverHolds)) {
+                gameStore.setState({ holds: serverHolds, stateVersion, sequenceNumber });
+            }
+            return;
+        }
+
+        const matched = pendingHolds.find(([, cmd]) => _arraysEqual(cmd.value, serverHolds));
+        if (matched) {
+            const newPending = { ...pending };
+            delete newPending[matched[0]];
+            gameStore.setState({ holds: serverHolds, stateVersion, sequenceNumber, pendingCommands: newPending });
+        } else {
+            gameStore.setState({ holds: serverHolds, stateVersion, sequenceNumber, pendingCommands: {} });
+        }
+    }
+
+    function getPendingCount() {
+        return Object.keys(gameStore.getState().pendingCommands).length;
+    }
+
+    function clearPendingCommands() {
+        gameStore.setState({ pendingCommands: {}, pendingTimestamp: 0 });
+    }
+
     function resetGame(keepMachineId) {
         const current = gameStore.getState();
         return gameStore.reset({
@@ -205,7 +328,9 @@
                 started: false
             },
             stateVersion: 0,
-            sequenceNumber: 0
+            sequenceNumber: 0,
+            pendingCommands: {},
+            pendingTimestamp: 0
         });
     }
 
@@ -227,7 +352,9 @@
                 started: Boolean(w.duSessionStarted)
             },
             stateVersion: _safeNumber(w.clientStateVersion, 0),
-            sequenceNumber: _safeNumber(w.clientSequenceNumber, 0)
+            sequenceNumber: _safeNumber(w.clientSequenceNumber, 0),
+            pendingCommands: {},
+            pendingTimestamp: 0
         }, true);
         return gameStore.getState();
     }
@@ -250,6 +377,12 @@
         if (snapshot.stateVersion !== undefined || snapshot.sequenceNumber !== undefined) {
             updates.stateVersion = _safeNumber(snapshot.stateVersion, gameStore.getState().stateVersion);
             updates.sequenceNumber = _safeNumber(snapshot.sequenceNumber, gameStore.getState().sequenceNumber);
+        }
+        if (snapshot.pendingCommands !== undefined) {
+            updates.pendingCommands = snapshot.pendingCommands;
+        }
+        if (snapshot.pendingTimestamp !== undefined) {
+            updates.pendingTimestamp = snapshot.pendingTimestamp;
         }
         if (Object.keys(updates).length > 0) {
             gameStore.setState(updates);
@@ -276,6 +409,13 @@
         setGameVersion,
         resetGame,
         initGameFromGlobals,
-        syncGameFromSnapshot
+        syncGameFromSnapshot,
+        holdCard,
+        setBet,
+        rollbackPending,
+        reconcileBet,
+        reconcileHolds,
+        getPendingCount,
+        clearPendingCommands
     });
 })(window);
