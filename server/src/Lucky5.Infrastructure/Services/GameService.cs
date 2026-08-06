@@ -632,6 +632,24 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 			throw new InvalidOperationException("No win to double up");
 		round.DoubleUpOffered = true;
 
+		if (round.DoubleUpSession is { IsTerminal: false } existingSession)
+		{
+			var existingSessionBank = await RequireMachineSessionAsync(userId, round.MachineId, createIfMissing: false);
+			var existingNoise = GenerateNoise(round.RoundEntropySeed, existingSession.CurrentRoundIndex);
+			return new DoubleUpResultDto(roundId, "Started", existingSession.CurrentAmount, existingSessionBank.MachineCredits,
+				DealerCard: ToCleanRoomDto(existingSession.DealerCard),
+				SwitchesRemaining: existingSession.Options.MaxSwitchesPerRound - existingSession.SwitchCountInRound,
+				IsNoLoseActive: existingSession.IsNoLoseActive,
+				CurrentRoundIndex: existingSession.CurrentRoundIndex,
+				Noise: existingNoise,
+				CardTrail: BuildCardTrail(existingSession),
+				BoardHandRank: existingSession.BoardHandRank?.ToString(),
+				BoardBonusAmount: existingSession.LastBoardBonusAmount,
+				SlotIndex: existingSession.LastResolvedBoardSlotIndex,
+				IsLucky5Active: existingSession.IsNoLoseActive,
+				CurrentBonusAmount: existingSession.BoardBonusTotal);
+		}
+
 		var machine = await RequireMachineAsync(round.MachineId);
 		var sessionBank = await RequireMachineSessionAsync(userId, round.MachineId, createIfMissing: false);
 		if (sessionBank.IsMachineClosed || sessionBank.MachineCredits >= machine.CloseThreshold)
@@ -2824,4 +2842,3 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		};
 	}
 }
-

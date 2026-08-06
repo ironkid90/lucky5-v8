@@ -28,6 +28,7 @@ public static class GameServiceRegressionTests
 		await GetActiveRoundRestoresActiveDoubleUpPhaseAsync(failures);
 		await AceWinningBasePayoutDoesNotApplyExtraMultiplierAsync(failures);
 		await StartDoubleUpUsesAlreadyAceMultipliedWinAmountAsync(failures);
+		await StartDoubleUpIsIdempotentForAnActiveSessionAsync(failures);
 		await ClosedMachineCashOutIsIdempotentAsync(failures);
 		await PlayerResetAfterClosePreservesClosedSessionUntilExplicitCashOutAsync(failures);
 		await PlayerResetAfterCloseKeepsCachedClosedSessionAsync(failures);
@@ -631,6 +632,55 @@ public static class GameServiceRegressionTests
 			started.CurrentAmount == aceMultipliedWin
 			&& saved.DoubleUpSession is not null
 			&& saved.DoubleUpSession.CurrentAmount == aceMultipliedWin);
+	}
+
+	private static async Task StartDoubleUpIsIdempotentForAnActiveSessionAsync(List<string> failures)
+	{
+		var store = new InMemoryDataStore();
+		var service = CreateService(store);
+		var userId = Guid.Parse("20000000-0000-0000-0000-000000000023");
+
+		SeedPlayer(store, userId, "idempotent-du-start", 2_000_000m);
+
+		var machineId = store.Machines.Values.First(machine => machine.IsOpen).Id;
+		await service.CashInAsync(userId, machineId, 200_000m, CancellationToken.None);
+
+		var drawn = CreateState(
+			RoundPhase.Drawn,
+			RoundState.Evaluate,
+			["AS", "AD", "8C", "8H", "2S"]);
+		var round = new GameRound
+		{
+			RoundId = Guid.Parse("30000000-0000-0000-0000-000000000023"),
+			UserId = userId,
+			MachineId = machineId,
+			BetAmount = 5_000m,
+			InitialCards = drawn.Hand.Select(card => card.ToLegacyPokerCard()).ToList(),
+			FinalCards = drawn.Hand.Select(card => card.ToLegacyPokerCard()).ToList(),
+			HandRank = "TwoPair",
+			WinAmount = 10_000m,
+			OriginalWinAmount = 10_000m,
+			IsCompleted = true,
+			IsPayoutSettled = false,
+			DoubleUpOffered = true,
+			CleanRoomState = drawn,
+			RoundEntropySeed = 0xD00DUL
+		};
+		store.ActiveRounds[round.RoundId] = round;
+
+		var firstStart = await service.StartDoubleUpAsync(userId, round.RoundId, CancellationToken.None);
+		var firstSession = store.ActiveRounds[round.RoundId].DoubleUpSession;
+		var secondStart = await service.StartDoubleUpAsync(userId, round.RoundId, CancellationToken.None);
+		var secondSession = store.ActiveRounds[round.RoundId].DoubleUpSession;
+
+		Assert(
+			failures,
+			"Repeated double-up start requests must preserve the active session instead of replacing its authoritative deck or dealer.",
+			firstSession is not null
+			&& ReferenceEquals(firstSession, secondSession)
+			&& firstStart.CurrentAmount == secondStart.CurrentAmount
+			&& firstStart.DealerCard?.Code == secondStart.DealerCard?.Code
+			&& (firstStart.CardTrail ?? []).Select(card => card.Code).SequenceEqual((secondStart.CardTrail ?? []).Select(card => card.Code)));
 	}
 
 	private static async Task ClosedMachineCashOutIsIdempotentAsync(List<string> failures)
