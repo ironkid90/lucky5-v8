@@ -149,8 +149,8 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
             }
             else
             {
-            await EmitErrorAsync("MACHINE_OCCUPIED", "Machine is already occupied by another player.");
-            throw new HubException("Machine is already occupied by another player.");
+                await EmitErrorAsync("MACHINE_OCCUPIED", "Machine is already occupied by another player.");
+                throw new HubException("Machine is already occupied by another player.");
             }
         }
         else
@@ -170,7 +170,7 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
         await Groups.AddToGroupAsync(Context.ConnectionId, GroupName(machineId));
 
         // Emit MachineStatusChanged for lobby presence
-        if (TryGetUserId(out var userId))
+        if (hasUserId)
         {
             await Clients.All.SendAsync(MachineStatusChangedEvent,
                 new { machineId, isOccupied = true, playerId = GetMemberId(userId), gameId = 0 },

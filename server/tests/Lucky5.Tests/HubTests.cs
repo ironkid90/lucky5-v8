@@ -516,8 +516,6 @@ public static class HubTests
         var gameServiceMock = new Mock<IGameService>();
         gameServiceMock.Setup(x => x.GetLobbyMachinesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<MachineListingDto>());
-        gameServiceMock.Setup(x => x.GetMachineStateAsync(It.IsAny<int>(), It.IsAny<CancellationToken>(), It.IsAny<Guid?>()))
-            .ReturnsAsync((MachineStateDto)null!);
 
         var registry = new ConnectionRegistry();
         var hub = new CarrePokerGameHub(gameServiceMock.Object, registry, new Mock<ISpectatorTracker>().Object);
@@ -584,8 +582,6 @@ public static class HubTests
         var gameServiceMock = new Mock<IGameService>();
         gameServiceMock.Setup(x => x.GetLobbyMachinesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<MachineListingDto>());
-        gameServiceMock.Setup(x => x.GetMachineStateAsync(It.IsAny<int>(), It.IsAny<CancellationToken>(), It.IsAny<Guid?>()))
-            .ReturnsAsync((MachineStateDto)null!);
 
         var registry = new ConnectionRegistry();
         var hub = new CarrePokerGameHub(gameServiceMock.Object, registry, new Mock<ISpectatorTracker>().Object);
@@ -626,6 +622,7 @@ public static class HubTests
         pendingDisconnects[machineId] = (ownerUserId, timer);
 
         var blocked = false;
+        Exception? unexpected = null;
         try
         {
             await hub.JoinMachine(machineId);
@@ -634,10 +631,14 @@ public static class HubTests
         {
             blocked = true;
         }
+        catch (Exception ex)
+        {
+            unexpected = ex;
+        }
         finally
         {
             var pendingPreserved = pendingDisconnects.TryGetValue(machineId, out var pending) && pending.UserId == ownerUserId;
-            Assert(failures, "JoinMachine should keep pending disconnect for original owner when another user attempts join", blocked && pendingPreserved);
+            Assert(failures, "JoinMachine should keep pending disconnect for original owner when another user attempts join", blocked && pendingPreserved && unexpected is null);
             occupancy.TryRemove(machineId, out _);
             if (pendingDisconnects.TryRemove(machineId, out var leftover))
             {
