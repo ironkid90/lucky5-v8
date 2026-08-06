@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata below."
+title: "Lucky5 v8"
+type: software
+version: "1.0.0"
+authors:
+  - alias: "ironkid90"
+abstract: "Web-native Lucky 5 cabinet built around the existing .NET backend and CleanRoom game logic."
+repository-code: "https://github.com/ironkid90/lucky5-v8"
+url: "https://github.com/ironkid90/lucky5-v8"
+license: "GPL-3.0-only"
