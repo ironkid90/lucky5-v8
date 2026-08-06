@@ -129,6 +129,8 @@ let clientSequenceNumber = 0;
 let isSpectatorMode = false;
 let lastHubError = null;
 let heartbeatInterval = null;
+let heartbeatFailures = 0;
+const MAX_HEARTBEAT_FAILURES = 3;
 let lastNetworkError = null;
 let isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
 
@@ -585,6 +587,8 @@ function resetGameRuntimeState({ clearSelection = false } = {}) {
     machineJoined = false;
     clientStateVersion = 0;
     clientSequenceNumber = 0;
+    lastStateVersion = 0;
+    lastSequenceNumber = 0;
 
     if (typeof CabinetClientStores !== 'undefined') {
         CabinetClientStores.resetGame(!clearSelection);
@@ -694,8 +698,14 @@ function applyCabinetSnapshot(snapshot) {
 
     const version = readCabinetField(snapshot, 'stateVersion', 'state_version', 'version');
     const sequence = readCabinetField(snapshot, 'sequenceNumber', 'sequence_number', 'sequence');
-    if (version !== null && version !== undefined) clientStateVersion = Number(version) || 0;
-    if (sequence !== null && sequence !== undefined) clientSequenceNumber = Number(sequence) || 0;
+    if (version !== null && version !== undefined) {
+        clientStateVersion = Number(version) || 0;
+        lastStateVersion = clientStateVersion;
+    }
+    if (sequence !== null && sequence !== undefined) {
+        clientSequenceNumber = Number(sequence) || 0;
+        lastSequenceNumber = clientSequenceNumber;
+    }
 
     const nextStake = parseCabinetNumber(readCabinetField(credits, 'stake'), currentBet);
     if (nextStake > 0) {
@@ -1111,8 +1121,10 @@ function showNetworkErrorBanner(message, retryFn) {
     _autoRetryCount = 0;
     const doRetry = async () => {
         _autoRetryCount++;
-        const delay = Math.min(2000 * Math.pow(2, _autoRetryCount - 1), 30000);
-        console.log(`[AutoSync] Retry attempt ${_autoRetryCount}, next in ${delay}ms`);
+        const baseDelay = Math.min(2000 * Math.pow(2, _autoRetryCount - 1), 30000);
+        const jitter = baseDelay * 0.15 * Math.random();
+        const delay = baseDelay + jitter;
+        console.log(`[AutoSync] Retry attempt ${_autoRetryCount}, next in ${Math.round(delay)}ms`);
         try {
             if (typeof retryFn === 'function') {
                 await retryFn();
@@ -1157,9 +1169,15 @@ function hideOfflineBanner() {
 
 function startHeartbeat() {
     stopHeartbeat();
+    heartbeatFailures = 0;
     heartbeatInterval = setInterval(() => {
         if (isHubConnected() && machineId > 0) {
-            invokeHub('Heartbeat', machineId).catch(() => {});
+            invokeHub('Heartbeat', machineId).catch(() => {
+                heartbeatFailures++;
+                if (heartbeatFailures >= MAX_HEARTBEAT_FAILURES) {
+                    console.warn('[Heartbeat] Connection appears degraded after', heartbeatFailures, 'consecutive failures');
+                }
+            });
         }
     }, (window.GAME_CONFIG?.timing?.heartbeatMs || 15000));
 }
@@ -1169,6 +1187,7 @@ function stopHeartbeat() {
         clearInterval(heartbeatInterval);
         heartbeatInterval = null;
     }
+    heartbeatFailures = 0;
 }
 
 function normalizeLuckyMultiplier(value, fallback = 1) {
@@ -3291,8 +3310,14 @@ async function setupSignalR() {
 
     hubConnection.on('MachineStateUpdated', (state) => {
         if (state) {
-            if (state.state_version !== undefined) clientStateVersion = state.state_version;
-            if (state.sequence_number !== undefined) clientSequenceNumber = state.sequence_number;
+            if (state.state_version !== undefined) {
+                clientStateVersion = state.state_version;
+                lastStateVersion = state.state_version;
+            }
+            if (state.sequence_number !== undefined) {
+                clientSequenceNumber = state.sequence_number;
+                lastSequenceNumber = state.sequence_number;
+            }
             if (typeof CabinetClientStores !== 'undefined') {
                 CabinetClientStores.setGameVersion(state.state_version, state.sequence_number);
             }
@@ -3329,8 +3354,14 @@ async function setupSignalR() {
 
     hubConnection.on('CabinetSnapshotEvent', (snapshot) => {
         if (snapshot) {
-            if (snapshot.state_version !== undefined) clientStateVersion = snapshot.state_version;
-            if (snapshot.sequence_number !== undefined) clientSequenceNumber = snapshot.sequence_number;
+            if (snapshot.state_version !== undefined) {
+                clientStateVersion = snapshot.state_version;
+                lastStateVersion = snapshot.state_version;
+            }
+            if (snapshot.sequence_number !== undefined) {
+                clientSequenceNumber = snapshot.sequence_number;
+                lastSequenceNumber = snapshot.sequence_number;
+            }
             _applyGameStoreFromCabinetSnapshot(snapshot);
             const roundSnapshot = buildRoundSnapshotFromCabinetSnapshot(snapshot);
             if (roundSnapshot) restoreRoundFromSnapshot(roundSnapshot);
@@ -3338,13 +3369,53 @@ async function setupSignalR() {
     });
 
     hubConnection.on('CabinetReplayEvent', (replay) => {
-        if (replay && replay.Snapshot) {
+        if (!replay) return;
+
+        if (replay.state_version !== undefined) {
+            clientStateVersion = replay.state_version;
+            lastStateVersion = replay.state_version;
+        }
+        if (replay.sequence_number !== undefined) {
+            clientSequenceNumber = replay.sequence_number;
+            lastSequenceNumber = replay.sequence_number;
+        }
+
+        if (replay.Snapshot) {
             const snapshot = replay.Snapshot;
-            if (snapshot.state_version !== undefined) clientStateVersion = snapshot.state_version;
-            if (snapshot.sequence_number !== undefined) clientSequenceNumber = snapshot.sequence_number;
+            if (snapshot.state_version !== undefined) {
+                clientStateVersion = snapshot.state_version;
+                lastStateVersion = snapshot.state_version;
+            }
+            if (snapshot.sequence_number !== undefined) {
+                clientSequenceNumber = snapshot.sequence_number;
+                lastSequenceNumber = snapshot.sequence_number;
+            }
             _applyGameStoreFromCabinetSnapshot(snapshot);
             const roundSnapshot = buildRoundSnapshotFromCabinetSnapshot(snapshot);
             if (roundSnapshot) restoreRoundFromSnapshot(roundSnapshot);
+            return;
+        }
+
+        if (Array.isArray(replay.Events) && replay.Events.length > 0) {
+            let latestSnapshot = null;
+            for (const event of replay.Events) {
+                if (event && event.Payload && event.Payload.snapshot) {
+                    latestSnapshot = event.Payload.snapshot;
+                }
+            }
+            if (latestSnapshot) {
+                if (latestSnapshot.state_version !== undefined) {
+                    clientStateVersion = latestSnapshot.state_version;
+                    lastStateVersion = latestSnapshot.state_version;
+                }
+                if (latestSnapshot.sequence_number !== undefined) {
+                    clientSequenceNumber = latestSnapshot.sequence_number;
+                    lastSequenceNumber = latestSnapshot.sequence_number;
+                }
+                _applyGameStoreFromCabinetSnapshot(latestSnapshot);
+                const roundSnapshot = buildRoundSnapshotFromCabinetSnapshot(latestSnapshot);
+                if (roundSnapshot) restoreRoundFromSnapshot(roundSnapshot);
+            }
         }
     });
 
@@ -3406,6 +3477,7 @@ async function setupSignalR() {
 
      hubConnection.onreconnected(async () => {
             console.log('[SignalR] Reconnected successfully.');
+            heartbeatFailures = 0;
             hideNetworkErrorBanner();
             if (machineId > 0) {
                 try { 
@@ -3417,7 +3489,7 @@ async function setupSignalR() {
                         showSpectatorUi();
                         showMessage('SPECTATOR MODE — LIVE WATCH', 'win');
                     } else {
-                        await invokeHub('ReconnectSync', machineId, clientStateVersion, clientSequenceNumber);
+                        await invokeHub('ReconnectSync', machineId, lastStateVersion, lastSequenceNumber);
                     }
                 } catch (err) {
                     console.error('ReconnectSync failed, falling back to JoinMachine:', err);
