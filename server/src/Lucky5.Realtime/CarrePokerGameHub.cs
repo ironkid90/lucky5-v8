@@ -125,19 +125,38 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
             throw new HubException("Machine id must be positive.");
         }
 
-        // If this machine has a pending disconnect (same user reconnecting within
-        // the grace period), cancel the timer — the player is back.
-        if (PendingDisconnects.TryRemove(machineId, out var pending))
+        var hasUserId = TryGetUserId(out var userId);
+        var isReclaimingPendingSeat = false;
+
+        // If this machine has a pending disconnect for the same user, cancel
+        // the timer — the player is back.
+        if (hasUserId &&
+            PendingDisconnects.TryGetValue(machineId, out var pending) &&
+            pending.UserId == userId &&
+            PendingDisconnects.TryRemove(machineId, out var removedPending))
         {
-            pending.Timer.Dispose();
+            removedPending.Timer.Dispose();
+            isReclaimingPendingSeat = true;
         }
 
         // Seat-occupancy lock: check if machine is already occupied
         if (MachineOccupancy.TryGetValue(machineId, out var occupyingConnectionId) &&
             occupyingConnectionId != Context.ConnectionId)
         {
-            await EmitErrorAsync("MACHINE_OCCUPIED", "Machine is already occupied by another player.");
-            throw new HubException("Machine is already occupied by another player.");
+            if (isReclaimingPendingSeat)
+            {
+                MachineOccupancy[machineId] = Context.ConnectionId;
+            }
+            else
+            {
+                await EmitErrorAsync("MACHINE_OCCUPIED", "Machine is already occupied by another player.");
+                throw new HubException("Machine is already occupied by another player.");
+            }
+        }
+        else
+        {
+            // Acquire lock on new machine when not currently occupied.
+            MachineOccupancy[machineId] = Context.ConnectionId;
         }
 
         // Release previous machine lock if switching machines
@@ -147,13 +166,11 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, GroupName(previousMachineId));
         }
 
-        // Acquire lock on new machine
-        MachineOccupancy.TryAdd(machineId, Context.ConnectionId);
         Context.Items[CurrentMachineContextKey] = machineId;
         await Groups.AddToGroupAsync(Context.ConnectionId, GroupName(machineId));
 
         // Emit MachineStatusChanged for lobby presence
-        if (TryGetUserId(out var userId))
+        if (hasUserId)
         {
             await Clients.All.SendAsync(MachineStatusChangedEvent,
                 new { machineId, isOccupied = true, playerId = GetMemberId(userId), gameId = 0 },
@@ -382,24 +399,8 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
 
     private async Task BroadcastLobbyMachinesUpdatedAsync(CancellationToken cancellationToken)
     {
-        var machines = await gameService.GetMachinesAsync(cancellationToken);
-        var spectatorSnapshot = spectatorTracker.GetLobbySnapshot();
-        var spectatorMap = spectatorSnapshot.ToDictionary(x => x.MachineId, x => x.SpectatorCount);
-
-        var result = new List<LobbyMachineInfo>();
-        foreach (var machine in machines)
-        {
-            int? occupantUserId = null;
-            var isOccupied = MachineOccupancy.ContainsKey(machine.Id);
-            if (isOccupied && MachineOccupancy.TryGetValue(machine.Id, out var connectionId)
-                && registry.TryGetUserId(connectionId, out var occUserId))
-            {
-                occupantUserId = GetMemberId(occUserId);
-            }
-            result.Add(new LobbyMachineInfo(machine.Id, isOccupied, occupantUserId, spectatorMap.GetValueOrDefault(machine.Id, 0)));
-        }
-
-        await Clients.All.SendAsync(LobbyMachinesUpdatedEvent, result, cancellationToken);
+        var machines = await gameService.GetLobbyMachinesAsync(Guid.Empty, cancellationToken);
+        await Clients.All.SendAsync(LobbyMachinesUpdatedEvent, machines, cancellationToken);
     }
 
     private Task EmitErrorAsync(string code, string message)
