@@ -238,27 +238,6 @@ window.CabinetStage = (function () {
         return fallback;
     }
 
-    function _createPresentationRandom(noise) {
-        const values = [
-            Number(noise?.suspenseMs),
-            Number(noise?.revealMs),
-            Number(noise?.flipFrames),
-            Number(noise?.pulseFrames)
-        ];
-        if (!values.some(Number.isFinite)) return Math.random;
-
-        let state = 2166136261;
-        values.forEach(value => {
-            state ^= (Number.isFinite(value) ? Math.trunc(value) : 0) >>> 0;
-            state = Math.imul(state, 16777619) >>> 0;
-        });
-
-        return () => {
-            state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
-            return state / 4294967296;
-        };
-    }
-
     function _pickShuffleCode(codes, previousCode, nextRandom = Math.random) {
         if (!Array.isArray(codes) || codes.length === 0) {
             return '';
@@ -561,7 +540,7 @@ window.CabinetStage = (function () {
         const frameMs = Number(_config.shuffleFrameMs) || 130;
         const frameTicks = window.CabinetClock.msToTicks(frameMs);
         const frameEl = _duFrame(slotEl);
-        const nextRandom = _createPresentationRandom(options?.noise);
+        const nextRandom = window.Lucky5PresentationNoise?.createRandom(options?.noise) ?? Math.random;
         let lastCode = '';
 
         const currentShuffleToken = {};
