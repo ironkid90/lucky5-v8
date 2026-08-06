@@ -267,8 +267,8 @@ function randomCardCode(nextRandom = Math.random) {
 
 function setDoubleUpShuffleCard(frame, card) {
     if (!frame) return;
-    if (typeof window.CabinetStage?.renderDomCard === 'function') {
-        frame.innerHTML = CabinetStage.renderDomCard(card);
+    if (typeof window.CabinetStage?.createDomCard === 'function') {
+        frame.replaceChildren(CabinetStage.createDomCard(card));
         return;
     }
 

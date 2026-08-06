@@ -950,6 +950,7 @@ window.CabinetStage = (function () {
         updateDoubleUpTrail,
         shuffleChallenger,
         exitDoubleUp,
+        createDomCard: _getCardTemplate,
         renderDomCard: _renderDomCard,
         showLucky5Active,
         isDoubleUpMode: function() { return _isDoubleUpMode; },
