@@ -127,6 +127,7 @@ let duCallToken = null;
 let clientStateVersion = 0;
 let clientSequenceNumber = 0;
 let isSpectatorMode = false;
+let lastHubError = null;
 let heartbeatInterval = null;
 let lastNetworkError = null;
 let isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
@@ -445,6 +446,7 @@ window.render_game_to_text = function renderGameToText() {
         currentBet,
         winAmount,
         machineJoined,
+        isSpectatorMode,
         machineSessionClosed,
         cards: Array.isArray(cards) ? cards.map(c => c?.code || null) : [],
         holds: Array.from(holdIndexes),
@@ -1754,6 +1756,7 @@ let betResetPending = false;
 let betRampRunning = false;
 
 async function doBet() {
+    if (isSpectatorMode) return;
     if (gameState === 'doubleup') {
         await doSwitchDealer();
         return;
@@ -2181,6 +2184,13 @@ async function doDeal() {
             if (!machineJoined) {
                 console.warn('Machine join unavailable; continuing without realtime sync.');
             }
+        }
+        // If joinMachine auto-fell back to spectate mode, the machine is
+        // occupied by another player — refuse gameplay input entirely.
+        if (isSpectatorMode) {
+            showMessage('SPECTATOR MODE — WATCH ONLY', 'win');
+            setButtonStates();
+            return;
         }
         if (balance < currentBet * 2) {
             showMessage('NEED ENOUGH CREDITS FOR DEAL + DRAW', 'lose');
@@ -2623,6 +2633,7 @@ async function startDoubleUpFlow() {
 }
 
 async function doDoubleUp(guess) {
+    if (isSpectatorMode) return;
     if (_actionLock || jackpotDrainActive) return;
     if (gameState !== 'doubleup') return;
     _actionLock = true;
@@ -3065,6 +3076,7 @@ function animateDrainToCredits(amount, startBalance, handRank = null) {
 /// Base CREDITS meter remains UNCHANGED — only the WIN display counts down.
 /// Used for DU loss siphon — the player watches their winnings disappear.
 async function mainTakeScore() {
+    if (isSpectatorMode) return;
     if (!(gameState === 'win' || gameState === 'doubleup') || takeScoreAnimating) return;
     takeScoreAnimating = true;
     if (window.CabinetState) CabinetState.setPresentationLocked(true);
@@ -3126,6 +3138,7 @@ async function mainTakeScore() {
 }
 
 async function mainTakeHalf() {
+    if (isSpectatorMode) return;
     if (!(gameState === 'win' || gameState === 'doubleup') || takeScoreAnimating) return;
     takeScoreAnimating = true;
     if (window.CabinetState) CabinetState.setPresentationLocked(true);
@@ -3292,28 +3305,25 @@ async function setupSignalR() {
                     restoreRoundFromSnapshot(roundSnapshot);
                 } else {
                     resetGameRuntimeState({ clearSelection: false });
+                    if (gameState === 'idle') {
+                        showIdleTitle();
+                    }
+                }
+                // Mirror the live spectator count reported by the server, if present.
+                if (state.spectatorCount !== undefined || state.spectator_count !== undefined) {
+                    spectatorCountCache = parseCabinetNumber(readCabinetField(state, 'spectatorCount', 'spectator_count'), spectatorCountCache);
+                    updateSpectatorCountOverlay(spectatorCountCache);
+                } else {
+                    updateSpectatorCountOverlay(spectatorCountCache);
                 }
             }
         }
     });
 
-    hubConnection.on('SpectatorsChanged', (data) => {
+     hubConnection.on('SpectatorsChanged', (data) => {
         if (data && data.machineId === machineId) {
-            const spectatorCountEl = document.getElementById('spectator-count') || (() => {
-                const el = document.createElement('div');
-                el.id = 'spectator-count';
-                el.style.position = 'absolute';
-                el.style.top = '10px';
-                el.style.right = '10px';
-                el.style.color = '#fff';
-                el.style.fontFamily = 'VT323, monospace';
-                el.style.fontSize = '24px';
-                el.style.zIndex = '1000';
-                document.body.appendChild(el);
-                return el;
-            })();
-            spectatorCountEl.textContent = `SPECTATORS: ${data.count}`;
-            spectatorCountEl.style.display = data.count > 0 ? 'block' : 'none';
+            spectatorCountCache = Number(data.count) || 0;
+            updateSpectatorCountOverlay(spectatorCountCache);
         }
     });
 
@@ -3338,7 +3348,17 @@ async function setupSignalR() {
         }
     });
 
-    hubConnection.on('Error', (err) => {
+     hubConnection.on('Error', (err) => {
+        // Capture the most recent hub error so callers (e.g. JoinMachine) can
+        // inspect the structured code (e.g. MACHINE_OCCUPIED) that the
+        // HubException rejection on its own does not carry.
+        if (err && typeof err === 'object') {
+            lastHubError = { code: err.code || err.Code || '', message: err.message || err.Message || '' };
+        } else if (typeof err === 'string') {
+            lastHubError = { code: '', message: err };
+        } else {
+            lastHubError = { code: '', message: err?.message || String(err) };
+        }
         console.error('SignalR error:', err);
     });
 
@@ -3384,13 +3404,18 @@ async function setupSignalR() {
         showMessage('RECONNECTING...');
     });
 
-    hubConnection.onreconnected(async () => {
+     hubConnection.onreconnected(async () => {
             console.log('[SignalR] Reconnected successfully.');
             hideNetworkErrorBanner();
             if (machineId > 0) {
                 try { 
                     if (isSpectatorMode) {
-                        await invokeHub('JoinMachineAsSpectator', machineId);
+                        await joinMachineAsSpectator(machineId);
+                        // Reassert the read-only spectator overlay after the
+                        // transport was torn down and rebuilt.
+                        setButtonStates();
+                        showSpectatorUi();
+                        showMessage('SPECTATOR MODE — LIVE WATCH', 'win');
                     } else {
                         await invokeHub('ReconnectSync', machineId, clientStateVersion, clientSequenceNumber);
                     }
@@ -3420,6 +3445,10 @@ async function setupSignalR() {
             console.error('[SignalR] Connection closed permanently:', error ? error.message : 'unknown');
             hubConnection = null;
             machineJoined = false;
+            if (isSpectatorMode) {
+                isSpectatorMode = false;
+                hideSpectatorUi();
+            }
             stopHeartbeat();
             showNetworkErrorBanner('CONNECTION LOST — Click RETRY to reconnect', setupSignalR);
         });
@@ -3449,8 +3478,123 @@ function invokeHub(method, ...args) {
     return hubConnection.invoke(method, ...args);
 }
 
+// ── SPECTATOR HELPERS ──────────────────────────────────────────────────────
+// These coordinate the read-only spectator (live watch) experience: auto-
+// fallback from an occupied-machine JoinMachine error into spectate mode,
+// the live spectator count overlay, and the SPECTATING badge overlay.
+
+function clearLastHubError() {
+    lastHubError = null;
+}
+
+function isMachineOccupiedError(error) {
+    if (!error) return false;
+    if (error.code && String(error.code).toUpperCase() === 'MACHINE_OCCUPIED') return true;
+    if (lastHubError && lastHubError.code && String(lastHubError.code).toUpperCase() === 'MACHINE_OCCUPIED') {
+        return true;
+    }
+    const msg = (error?.message || error?.toString() || '').toLowerCase();
+    if (msg && (msg.includes('occupied') || msg.includes('already occupied'))) return true;
+    return false;
+}
+
+function updateSpectatorCountOverlay(count) {
+    const viewport = document.getElementById('cabinet-viewport');
+    if (!viewport) return;
+    let el = document.getElementById('spectator-count');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'spectator-count';
+        el.className = 'spectator-count-overlay';
+        el.style.position = 'absolute';
+        el.style.top = '10px';
+        el.style.right = '10px';
+        el.style.zIndex = '1000';
+        el.style.color = '#fff';
+        el.style.fontFamily = 'VT323, monospace';
+        el.style.fontSize = '24px';
+        el.style.fontWeight = 'bold';
+        viewport.appendChild(el);
+    }
+    el.textContent = `\u2623 ${count} SPECTATOR${count !== 1 ? 'S' : ''}`;
+    el.style.display = count > 0 ? 'flex' : 'none';
+}
+
+function showSpectatorUi() {
+    const viewport = document.getElementById('cabinet-viewport');
+    if (!viewport) return;
+
+    let badge = document.getElementById('spectator-badge');
+    if (!badge) {
+        badge = document.createElement('div');
+        badge.id = 'spectator-badge';
+        badge.className = 'spectator-badge';
+        badge.style.position = 'absolute';
+        badge.style.top = '10px';
+        badge.style.left = '10px';
+        badge.style.zIndex = '1000';
+        badge.style.color = '#ff0';
+        badge.style.fontFamily = 'VT323, monospace';
+        badge.style.fontSize = '24px';
+        badge.style.fontWeight = 'bold';
+        badge.style.textShadow = '0 0 6px #0ff';
+        badge.style.padding = '2px 8px';
+        badge.style.border = '1px solid #0ff';
+        badge.style.borderRadius = '4px';
+        badge.style.background = 'rgba(0,0,0,0.6)';
+        badge.innerHTML = 'SPECTATING';
+        viewport.appendChild(badge);
+    }
+    badge.style.display = 'block';
+
+    // Visually mute the control deck to reinforce the read-only watch state.
+    const controls = document.getElementById('controls');
+    if (controls) controls.classList.add('is-spectator');
+
+    // Keep the spectator count overlay seeded (real-time updates arrive via
+    // the SpectatorsChanged hub event).
+    updateSpectatorCountOverlay(spectatorCountCache);
+}
+
+function hideSpectatorUi() {
+    const badge = document.getElementById('spectator-badge');
+    if (badge) badge.style.display = 'none';
+    const countEl = document.getElementById('spectator-count');
+    if (countEl) countEl.style.display = 'none';
+    const controls = document.getElementById('controls');
+    if (controls) controls.classList.remove('is-spectator');
+}
+
+let spectatorCountCache = 0;
+
+async function enterSpectatorMode(id) {
+    isSpectatorMode = true;
+    await joinMachineAsSpectator(id);
+    if (machineJoined) {
+        setButtonStates();
+        showSpectatorUi();
+        showMessage('SPECTATOR MODE — LIVE WATCH', 'win');
+    } else {
+        // Spectator join failed — roll back local state so the player can retry.
+        isSpectatorMode = false;
+        hideSpectatorUi();
+        showMessage('UNABLE TO JOIN AS SPECTATOR — MACHINE UNAVAILABLE', 'lose');
+    }
+}
+
+async function exitSpectatorMode(targetMachineId = machineId) {
+    isSpectatorMode = false;
+    spectatorCountCache = 0;
+    hideSpectatorUi();
+    if (machineJoined && targetMachineId > 0 && isHubConnected()) {
+        await leaveMachineAsSpectator(targetMachineId);
+    }
+    machineJoined = false;
+}
+
 async function joinMachine(id) {
     if (!isHubConnected()) return;
+    if (isSpectatorMode) return;
     try {
         if (gameState !== 'idle') {
             exitDoubleUp();
@@ -3468,6 +3612,15 @@ async function joinMachine(id) {
     } catch (e) {
         console.error('JoinMachine failed:', e);
         machineJoined = false;
+        const wasOccupied = isMachineOccupiedError(e);
+        clearLastHubError();
+        if (wasOccupied) {
+            // The machine is already claimed by another player. Automatically
+            // fall back to spectate mode so the connection can watch the live
+            // hand without blocking the active player.
+            console.log('[Spectator] Machine occupied — auto-connecting as spectator.');
+            await enterSpectatorMode(id);
+        }
     }
 }
 
@@ -3517,6 +3670,11 @@ async function doLogout() {
     setMenuPanelOpen(false);
     clearToken();
     resetGameRuntimeState({ clearSelection: true });
+    if (isSpectatorMode) {
+        isSpectatorMode = false;
+        hideSpectatorUi();
+    }
+    machineJoined = false;
     balance = 0;
     walletBalance = 0;
     if (typeof CabinetClientStores !== 'undefined') {
@@ -4594,13 +4752,19 @@ async function loadAdminMachines() {
 }
 
 async function backToLobbyFromGame() {
-    if (gameState !== 'idle' && gameState !== 'win') {
+    // Spectators never own a round, so they can always leave without the
+    // confirm prompt that active players see.
+    if (!isSpectatorMode && gameState !== 'idle' && gameState !== 'win') {
         const yes = await customConfirm('LEAVE GAME', 'Leave the game? Any current round may be affected.');
         if (!yes) return;
     }
     const previousMachineId = machineId;
     setMenuPanelOpen(false);
-    if (machineJoined && previousMachineId > 0) {
+    if (isSpectatorMode) {
+        // Spectators never own a round — leave without the confirm prompt and
+        // tear down the read-only overlay via the shared exit helper.
+        await exitSpectatorMode(previousMachineId);
+    } else if (machineJoined && previousMachineId > 0) {
         await leaveMachine(previousMachineId);
     }
     resetGameRuntimeState({ clearSelection: true });
@@ -4715,11 +4879,10 @@ async function initGame(options = {}) {
         }
 
         await setupSignalR();
-        isSpectatorMode = !!options.isSpectator;
-        if (isSpectatorMode) {
-            await joinMachineAsSpectator(machineId);
-            setButtonStates();
-            showMessage('SPECTATOR MODE', 'win');
+        // isSpectatorMode is set inside enterSpectatorMode so all UI helpers
+        // stay in sync regardless of entry path (lobby click vs. auto-fallback).
+        if (options.isSpectator) {
+            await enterSpectatorMode(machineId);
         } else {
             await joinMachine(machineId);
         }
@@ -5015,7 +5178,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     window.addEventListener('beforeunload', () => {
         if (machineJoined && isHubConnected() && machineId > 0) {
-            invokeHub('LeaveMachine', machineId).catch(() => {});
+            if (isSpectatorMode) {
+                invokeHub('LeaveMachineAsSpectator', machineId).catch(() => {});
+            } else {
+                invokeHub('LeaveMachine', machineId).catch(() => {});
+            }
         }
     });
 
