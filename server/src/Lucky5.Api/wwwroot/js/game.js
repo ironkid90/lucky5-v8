@@ -3496,8 +3496,8 @@ async function setupSignalR() {
         if (!Array.isArray(machines)) return;
         const prevWatching = new Map(AVAILABLE_GAMES.map(g => [g.machineId, g.isWatching]));
         AVAILABLE_GAMES = machines.map(machine => {
-            const minBet = window.SERVER_RULES && window.SERVER_RULES.minStake !== undefined ? window.SERVER_RULES.minStake : machine.minBet;
-            const maxBet = window.SERVER_RULES && window.SERVER_RULES.maxStake !== undefined ? window.SERVER_RULES.maxStake : machine.maxBet;
+            const minBet = Number(machine.minBet) || 0;
+            const maxBet = Number(machine.maxBet) || 0;
             const isOccupied = Boolean(machine.isOccupied);
             const spectatorCount = Number(machine.spectatorCount) || 0;
             const isWatching = prevWatching.get(machine.id) || false;
@@ -3835,8 +3835,8 @@ async function loadAvailableMachines() {
         const machineData = await apiCall('GET', GAME_CONFIG.api.lobbyMachines);
         const prevWatching = new Map(AVAILABLE_GAMES.map(g => [g.machineId, g.isWatching]));
         AVAILABLE_GAMES = machineData.map(machine => {
-            const minBet = window.SERVER_RULES && window.SERVER_RULES.minStake !== undefined ? window.SERVER_RULES.minStake : machine.minBet;
-            const maxBet = window.SERVER_RULES && window.SERVER_RULES.maxStake !== undefined ? window.SERVER_RULES.maxStake : machine.maxBet;
+            const minBet = Number(machine.minBet) || 0;
+            const maxBet = Number(machine.maxBet) || 0;
             const isOccupied = Boolean(machine.isOccupied);
             const spectatorCount = Number(machine.spectatorCount) || 0;
             const isWatching = prevWatching.get(machine.id) || false;
@@ -3923,7 +3923,7 @@ function renderGameGrid() {
             status: g.status
         }));
         CabinetShell.renderLobbyMachineCards(rawMachines, machine => {
-            const options = machine.isOccupied ? { isSpectator: true } : {};
+            const options = machine.isWatching ? { isSpectator: true } : {};
             openGame(`machine-${machine.id}`, machine.id, options);
         });
         return;
@@ -4012,7 +4012,7 @@ function renderGameGrid() {
 
         if (game.status === 'playable' || game.status === 'watching' || game.status === 'playing') {
             card.addEventListener('click', () => {
-                const options = game.isOccupied ? { isSpectator: true } : {};
+                const options = game.isWatching ? { isSpectator: true } : {};
                 openGame(game.id, game.machineId, options);
             });
         }
@@ -4933,10 +4933,7 @@ async function initGame(options = {}) {
         paytable = rulesData.payoutMultipliers;
         if (configRulesResponse && configRulesResponse.configured) {
             window.SERVER_RULES = configRulesResponse.rules;
-            machines.forEach(m => {
-                if (window.SERVER_RULES.minStake !== undefined) m.minBet = window.SERVER_RULES.minStake;
-                if (window.SERVER_RULES.maxStake !== undefined) m.maxBet = window.SERVER_RULES.maxStake;
-            });
+            // Keep per-machine min/max stakes from backend machine definitions.
         } else {
             window.SERVER_RULES = null;
         }

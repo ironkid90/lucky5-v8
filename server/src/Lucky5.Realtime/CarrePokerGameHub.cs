@@ -125,19 +125,38 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
             throw new HubException("Machine id must be positive.");
         }
 
-        // If this machine has a pending disconnect (same user reconnecting within
-        // the grace period), cancel the timer — the player is back.
-        if (PendingDisconnects.TryRemove(machineId, out var pending))
+        var hasUserId = TryGetUserId(out var userId);
+        var isReclaimingPendingSeat = false;
+
+        // If this machine has a pending disconnect for the same user, cancel
+        // the timer — the player is back.
+        if (hasUserId &&
+            PendingDisconnects.TryGetValue(machineId, out var pending) &&
+            pending.UserId == userId &&
+            PendingDisconnects.TryRemove(machineId, out var removedPending))
         {
-            pending.Timer.Dispose();
+            removedPending.Timer.Dispose();
+            isReclaimingPendingSeat = true;
         }
 
         // Seat-occupancy lock: check if machine is already occupied
         if (MachineOccupancy.TryGetValue(machineId, out var occupyingConnectionId) &&
             occupyingConnectionId != Context.ConnectionId)
         {
+            if (isReclaimingPendingSeat)
+            {
+                MachineOccupancy[machineId] = Context.ConnectionId;
+            }
+            else
+            {
             await EmitErrorAsync("MACHINE_OCCUPIED", "Machine is already occupied by another player.");
             throw new HubException("Machine is already occupied by another player.");
+            }
+        }
+        else
+        {
+            // Acquire lock on new machine when not currently occupied.
+            MachineOccupancy[machineId] = Context.ConnectionId;
         }
 
         // Release previous machine lock if switching machines
@@ -147,8 +166,6 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, GroupName(previousMachineId));
         }
 
-        // Acquire lock on new machine
-        MachineOccupancy.TryAdd(machineId, Context.ConnectionId);
         Context.Items[CurrentMachineContextKey] = machineId;
         await Groups.AddToGroupAsync(Context.ConnectionId, GroupName(machineId));
 
