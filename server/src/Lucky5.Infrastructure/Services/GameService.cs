@@ -618,11 +618,13 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		await store.UpdateMachineSessionAsync(session);
 		await store.SaveRoundAsync(round);
 
+		var cursor = await store.AdvanceCabinetStateCursorAsync(userId, round.MachineId);
+
 		var jackpots = SnapshotJackpots(ledger);
 
 		stateCache.InvalidateActiveRound(userId, round.MachineId);
 		stateCache.InvalidateMachineSession(userId, round.MachineId);
-		return new DrawResultDto(round.RoundId, finalCards.Select(ToDto).ToArray(), handRankName, payout, session.MachineCredits, jackpotWon, jackpots, doubleUpAvailable);
+		return new DrawResultDto(round.RoundId, finalCards.Select(ToDto).ToArray(), handRankName, payout, session.MachineCredits, jackpotWon, jackpots, doubleUpAvailable, cursor.StateVersion, cursor.SequenceNumber);
 	}
 
 	public async Task<DoubleUpResultDto> StartDoubleUpAsync(Guid userId, Guid roundId, CancellationToken cancellationToken)
