@@ -262,7 +262,7 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
             new DealRequest(machineId, betAmount),
             Context.ConnectionAborted);
 
-        await Clients.Caller.SendAsync(CardsDealtEvent, result with { StateVersion = cursor.StateVersion, SequenceNumber = cursor.SequenceNumber }, Context.ConnectionAborted);
+        await Clients.Caller.SendAsync(CardsDealtEvent, result, Context.ConnectionAborted);
         await BroadcastMachineStateAsync(machineId, Clients.Groups(GroupName(machineId), SpectatorGroupName(machineId)), Context.ConnectionAborted, userId);
     }
 

@@ -395,6 +395,8 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 
 		await store.SaveRoundAsync(round);
 
+		var cursor = await store.AdvanceCabinetStateCursorAsync(userId, request.MachineId);
+
 		var profile = await RequireProfileAsync(userId);
 		await store.AddWalletLedgerEntryAsync(new WalletLedgerEntry
 		{
@@ -413,7 +415,9 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		stateCache.InvalidateMachineSession(userId, request.MachineId);
 		return new DealResultDto(round.RoundId, cards.Select(ToDto).ToArray(), request.BetAmount, session.MachineCredits, jackpots, advisedHolds,
 			AceCard: false,
-			AceMultiplier: 0);
+			AceMultiplier: 0,
+			StateVersion: cursor.StateVersion,
+			SequenceNumber: cursor.SequenceNumber);
 	}
 
 	public async Task<DrawResultDto> DrawAsync(Guid userId, DrawRequest request, CancellationToken cancellationToken)
