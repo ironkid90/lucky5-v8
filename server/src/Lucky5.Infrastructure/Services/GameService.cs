@@ -23,10 +23,19 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 	private const int CabinetReplayMaxEvents = 128;
 	private static readonly EngineConfig EngineCfg = EngineConfig.Default;
 	private static readonly ConcurrentDictionary<string, SemaphoreSlim> CabinetCommandLocks = new(StringComparer.OrdinalIgnoreCase);
+	private static readonly ConcurrentDictionary<Guid, DoubleUpStartLock> DoubleUpStartLocks = new();
 	private static readonly JsonSerializerOptions CabinetJsonOptions = new(JsonSerializerDefaults.Web)
 	{
 		PropertyNameCaseInsensitive = true
 	};
+
+	private sealed class DoubleUpStartLock
+	{
+		public SemaphoreSlim Gate { get; } = new(1, 1);
+		public object SyncRoot { get; } = new();
+		public int ReferenceCount { get; set; }
+	}
+
 	private static readonly IReadOnlyList<OfferDto> DefaultOffers =
 	[
 		new(1, "Welcome Bonus", "First deposit bonus", 10),
@@ -629,6 +638,78 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 
 	public async Task<DoubleUpResultDto> StartDoubleUpAsync(Guid userId, Guid roundId, CancellationToken cancellationToken)
 	{
+		var startLock = await AcquireDoubleUpStartLockAsync(roundId, cancellationToken);
+
+		try
+		{
+			return await StartDoubleUpCoreAsync(userId, roundId, cancellationToken);
+		}
+		finally
+		{
+			startLock.Gate.Release();
+			ReleaseDoubleUpStartLockReference(roundId, startLock);
+		}
+	}
+
+	private static async Task<DoubleUpStartLock> AcquireDoubleUpStartLockAsync(Guid roundId, CancellationToken cancellationToken)
+	{
+		while (true)
+		{
+			var startLock = DoubleUpStartLocks.GetOrAdd(roundId, _ => new DoubleUpStartLock());
+			if (!TryRetainDoubleUpStartLock(roundId, startLock))
+			{
+				continue;
+			}
+
+			try
+			{
+				await startLock.Gate.WaitAsync(cancellationToken);
+				return startLock;
+			}
+			catch
+			{
+				ReleaseDoubleUpStartLockReference(roundId, startLock);
+				throw;
+			}
+		}
+	}
+
+	private static bool TryRetainDoubleUpStartLock(Guid roundId, DoubleUpStartLock startLock)
+	{
+		lock (startLock.SyncRoot)
+		{
+			if (!DoubleUpStartLocks.TryGetValue(roundId, out var currentLock)
+				|| !ReferenceEquals(currentLock, startLock))
+			{
+				return false;
+			}
+
+			startLock.ReferenceCount++;
+			return true;
+		}
+	}
+
+	private static void ReleaseDoubleUpStartLockReference(Guid roundId, DoubleUpStartLock startLock)
+	{
+		var disposeLock = false;
+		lock (startLock.SyncRoot)
+		{
+			startLock.ReferenceCount--;
+			if (startLock.ReferenceCount == 0)
+			{
+				DoubleUpStartLocks.TryRemove(roundId, out _);
+				disposeLock = true;
+			}
+		}
+
+		if (disposeLock)
+		{
+			startLock.Gate.Dispose();
+		}
+	}
+
+	private async Task<DoubleUpResultDto> StartDoubleUpCoreAsync(Guid userId, Guid roundId, CancellationToken cancellationToken)
+	{
 		var round = await store.GetRoundAsync(roundId);
 		if (round == null || round.UserId != userId)
 			throw new KeyNotFoundException("Round not found");
@@ -637,6 +718,27 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		if (!round.IsCompleted || round.WinAmount <= 0)
 			throw new InvalidOperationException("No win to double up");
 		round.DoubleUpOffered = true;
+
+		if (round.DoubleUpSession is { IsTerminal: false } existingSession)
+		{
+			var existingSessionBank = await RequireMachineSessionAsync(userId, round.MachineId, createIfMissing: false);
+			var existingNoise = GenerateNoise(round.RoundEntropySeed, existingSession.CurrentRoundIndex);
+			return new DoubleUpResultDto(roundId, "Started", existingSession.CurrentAmount, existingSessionBank.MachineCredits,
+				DealerCard: ToCleanRoomDto(existingSession.DealerCard),
+				SwitchesRemaining: existingSession.Options.MaxSwitchesPerRound - existingSession.SwitchCountInRound,
+				IsNoLoseActive: existingSession.IsNoLoseActive,
+				CurrentRoundIndex: existingSession.CurrentRoundIndex,
+				Noise: existingNoise,
+				CardTrail: BuildCardTrail(existingSession),
+				BoardHandRank: existingSession.BoardHandRank?.ToString(),
+				BoardBonusAmount: existingSession.LastBoardBonusAmount,
+				SlotIndex: existingSession.LastResolvedBoardSlotIndex,
+				IsLucky5Active: existingSession.IsNoLoseActive,
+				CurrentBonusAmount: existingSession.BoardBonusTotal,
+				AceCard: round.AceCard != null,
+				AceMultiplier: round.AceMultiplier,
+				AceMultiplierFired: round.AceMultiplierFired);
+		}
 
 		var machine = await RequireMachineAsync(round.MachineId);
 		var sessionBank = await RequireMachineSessionAsync(userId, round.MachineId, createIfMissing: false);
@@ -2831,4 +2933,3 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		};
 	}
 }
-

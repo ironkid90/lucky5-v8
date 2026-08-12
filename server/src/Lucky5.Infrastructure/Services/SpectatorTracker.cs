@@ -42,7 +42,7 @@ public class SpectatorTracker : ISpectatorTracker
             var set = kvp.Value;
             lock (set)
             {
-                result.Add(new LobbyMachineInfo(machineId, isOccupied: false, occupantUserId: null, set.Count));
+                result.Add(new LobbyMachineInfo(machineId, IsOccupied: false, OccupantUserId: null, SpectatorCount: set.Count));
             }
         }
         return result;

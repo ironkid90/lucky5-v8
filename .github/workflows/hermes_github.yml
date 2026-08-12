@@ -73,6 +73,7 @@ jobs:
           git add -f .hermes/curate
       - uses: peter-evans/create-pull-request@v8
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           base: hermes/curate-${{ env.SHORT_SHA }}
           branch: hermes/curate-result-${{ env.SHORT_SHA }}
           title: Metadata Curation for Commit ${{ env.SHORT_SHA }}
@@ -131,6 +132,7 @@ jobs:
       - run: echo "TARGET_BRANCH=$(cat .hermes/curate/target_branch)" >> "$GITHUB_ENV"
       - uses: peter-evans/create-pull-request@v8
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           branch: hermes/post-${{ github.run_id }}
           base: ${{ env.TARGET_BRANCH }}
           title: Review hermes post-processing results
