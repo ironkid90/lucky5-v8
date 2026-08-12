@@ -107,7 +107,7 @@ public static class HubTests
         groupsProperty?.SetValue(hub, groupManagerMock.Object);
 
         gameServiceMock
-            .Setup(x => x.GetMachinesAsync(It.IsAny<CancellationToken>()))
+            .Setup(x => x.GetLobbyMachinesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<MachineListingDto>());
 
         await hub.JoinMachine(1);
@@ -149,7 +149,7 @@ public static class HubTests
         groupsProperty?.SetValue(hub, groupManagerMock.Object);
 
         gameServiceMock
-            .Setup(x => x.GetMachinesAsync(It.IsAny<CancellationToken>()))
+            .Setup(x => x.GetLobbyMachinesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<MachineListingDto>());
 
         await hub.LeaveMachine(1);
@@ -405,7 +405,7 @@ public static class HubTests
         groupsProperty?.SetValue(hub, groupManagerMock.Object);
 
         gameServiceMock
-            .Setup(x => x.GetMachinesAsync(It.IsAny<CancellationToken>()))
+            .Setup(x => x.GetLobbyMachinesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<MachineListingDto>());
 
         await hub.JoinMachine(1);
@@ -447,7 +447,7 @@ public static class HubTests
         groupsProperty?.SetValue(hub, groupManagerMock.Object);
 
         gameServiceMock
-            .Setup(x => x.GetMachinesAsync(It.IsAny<CancellationToken>()))
+            .Setup(x => x.GetLobbyMachinesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<MachineListingDto>());
 
         await hub.LeaveMachine(1);
@@ -491,7 +491,7 @@ public static class HubTests
         groupsProperty?.SetValue(hub, groupManagerMock.Object);
 
         gameServiceMock
-            .Setup(x => x.GetMachinesAsync(It.IsAny<CancellationToken>()))
+            .Setup(x => x.GetLobbyMachinesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<MachineListingDto>());
 
         await hub.JoinMachineAsSpectator(1);

@@ -279,7 +279,7 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
             new DealRequest(machineId, betAmount),
             Context.ConnectionAborted);
 
-        await Clients.Caller.SendAsync(CardsDealtEvent, result with { StateVersion = cursor.StateVersion, SequenceNumber = cursor.SequenceNumber }, Context.ConnectionAborted);
+        await Clients.Caller.SendAsync(CardsDealtEvent, result, Context.ConnectionAborted);
         await BroadcastMachineStateAsync(machineId, Clients.Groups(GroupName(machineId), SpectatorGroupName(machineId)), Context.ConnectionAborted, userId);
     }
 
@@ -399,8 +399,22 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
 
     private async Task BroadcastLobbyMachinesUpdatedAsync(CancellationToken cancellationToken)
     {
-        var machines = await gameService.GetLobbyMachinesAsync(Guid.Empty, cancellationToken);
-        await Clients.All.SendAsync(LobbyMachinesUpdatedEvent, machines, cancellationToken);
+        var lobbyMachines = await gameService.GetLobbyMachinesAsync(Guid.Empty, cancellationToken);
+
+        var result = new List<LobbyMachineInfo>();
+        foreach (var machine in lobbyMachines)
+        {
+            int? occupantUserId = null;
+            var isOccupied = MachineOccupancy.ContainsKey(machine.Id);
+            if (isOccupied && MachineOccupancy.TryGetValue(machine.Id, out var connectionId)
+                && registry.TryGetUserId(connectionId, out var occUserId))
+            {
+                occupantUserId = GetMemberId(occUserId);
+            }
+            result.Add(new LobbyMachineInfo(machine.Id, isOccupied, occupantUserId, machine.SpectatorCount, machine.OccupiedByUsername, machine.IdleSecondsRemaining, machine.ReservedUntilUtc));
+        }
+
+        await Clients.All.SendAsync(LobbyMachinesUpdatedEvent, result, cancellationToken);
     }
 
     private Task EmitErrorAsync(string code, string message)
