@@ -1902,22 +1902,22 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 			stateVersion = cursor.StateVersion;
 			sequenceNumber = cursor.SequenceNumber;
 		}
-		return new
+		var result = new Dictionary<string, object>
 		{
-			machineId,
-			activeRounds,
-			activeSessions,
-			observedRtp = ledger.ObservedRtp,
-			targetRtp = ledger.TargetRtp,
-			baseRtp = ledger.CapitalIn > 0 ? Math.Round(ledger.BaseCapitalOut / ledger.CapitalIn, 4) : 0m,
-			phase = ledger.LastDistributionMode.ToString(),
-			lastPayoutScale = ledger.LastPayoutScale,
-			consecutiveLosses = ledger.ConsecutiveLosses,
-			roundsSinceMediumWin = ledger.RoundsSinceMediumWin,
-			cooldownRemaining = ledger.CooldownRoundsRemaining,
-			netSinceLastClose = ledger.NetSinceLastClose,
-			roundsSinceLucky5Hit = ledger.RoundsSinceLucky5Hit,
-			jackpots = new
+			["machineId"] = machineId,
+			["activeRounds"] = activeRounds,
+			["activeSessions"] = activeSessions,
+			["observedRtp"] = ledger.ObservedRtp,
+			["targetRtp"] = ledger.TargetRtp,
+			["baseRtp"] = ledger.CapitalIn > 0 ? Math.Round(ledger.BaseCapitalOut / ledger.CapitalIn, 4) : 0m,
+			["phase"] = ledger.LastDistributionMode.ToString(),
+			["lastPayoutScale"] = ledger.LastPayoutScale,
+			["consecutiveLosses"] = ledger.ConsecutiveLosses,
+			["roundsSinceMediumWin"] = ledger.RoundsSinceMediumWin,
+			["cooldownRemaining"] = ledger.CooldownRoundsRemaining,
+			["netSinceLastClose"] = ledger.NetSinceLastClose,
+			["roundsSinceLucky5Hit"] = ledger.RoundsSinceLucky5Hit,
+			["jackpots"] = new
 			{
 				fullHouse = ledger.JackpotFullHouse,
 				fullHouseRank = ledger.JackpotFullHouseRank,
@@ -1929,10 +1929,11 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 				machineSerie = ledger.MachineSerie,
 				machineKent = ledger.MachineKent
 			},
-			timestampUtc = DateTime.UtcNow,
-			stateVersion,
-			sequenceNumber
+			["timestampUtc"] = DateTime.UtcNow,
+			["state_version"] = stateVersion,
+			["sequence_number"] = sequenceNumber
 		};
+		return result;
 	}
 
 	public async Task<(long StateVersion, long SequenceNumber)> GetCabinetStateCursorAsync(Guid userId, int machineId, CancellationToken cancellationToken)
