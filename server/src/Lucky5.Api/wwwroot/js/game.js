@@ -644,8 +644,20 @@ function parseCabinetCard(cardLike) {
     };
 }
 
-function normalizeCabinetJackpots(snapshotJackpot) {
+function normalizeCabinetJackpots(snapshotJackpot, snapshotMachine) {
     if (!snapshotJackpot) return null;
+
+    // machine_serial / machine_serie / machine_kent live on the snapshot's
+    // "machine" sub-object (CabinetMachineStateDto), not on "jackpot"
+    // (CabinetJackpotDto). Prefer the machine object, but keep the legacy
+    // lookup on snapshotJackpot as a fallback in case an older/alternate
+    // snapshot shape ever nests them there.
+    const machineSerialValue = readCabinetField(snapshotMachine, 'machineSerial', 'machine_serial')
+        ?? readCabinetField(snapshotJackpot, 'machineSerial', 'machine_serial');
+    const machineSerieValue = readCabinetField(snapshotMachine, 'machineSerie', 'machine_serie')
+        ?? readCabinetField(snapshotJackpot, 'machineSerie', 'machine_serie');
+    const machineKentValue = readCabinetField(snapshotMachine, 'machineKent', 'machine_kent')
+        ?? readCabinetField(snapshotJackpot, 'machineKent', 'machine_kent');
 
     const activeSlot = String(readCabinetField(snapshotJackpot, 'activeFourOfAKindSlot', 'active_four_of_a_kind_slot') || 'A').toUpperCase();
     return {
@@ -655,9 +667,9 @@ function normalizeCabinetJackpots(snapshotJackpot) {
         fourOfAKindB: parseCabinetNumber(readCabinetField(snapshotJackpot, 'fourOfAKindB', 'four_of_a_kind_b')),
         activeFourOfAKindSlot: activeSlot === 'B' ? 1 : 0,
         straightFlush: parseCabinetNumber(readCabinetField(snapshotJackpot, 'straightFlush', 'straight_flush')),
-        machineSerial: String(readCabinetField(snapshotJackpot, 'machineSerial', 'machine_serial') || machineSerial || ''),
-        machineSerie: String(readCabinetField(snapshotJackpot, 'machineSerie', 'machine_serie') || machineSerie || ''),
-        machineKent: String(readCabinetField(snapshotJackpot, 'machineKent', 'machine_kent') || machineKent || '')
+        machineSerial: String(machineSerialValue ?? machineSerial ?? ''),
+        machineSerie: String(machineSerieValue ?? machineSerie ?? ''),
+        machineKent: String(machineKentValue ?? machineKent ?? '')
     };
 }
 
@@ -679,7 +691,7 @@ function applyCabinetSnapshot(snapshot) {
     const presentation = readCabinetField(snapshot, 'presentation') || {};
     const evaluation = readCabinetField(snapshot, 'evaluation') || {};
     const sessionState = readCabinetField(snapshot, 'session') || {};
-    const normalizedJackpots = normalizeCabinetJackpots(readCabinetField(snapshot, 'jackpot'));
+    const normalizedJackpots = normalizeCabinetJackpots(readCabinetField(snapshot, 'jackpot'), readCabinetField(snapshot, 'machine'));
 
     const version = readCabinetField(snapshot, 'stateVersion', 'state_version', 'version');
     const sequence = readCabinetField(snapshot, 'sequenceNumber', 'sequence_number', 'sequence');
