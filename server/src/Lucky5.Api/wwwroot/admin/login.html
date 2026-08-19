@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Lucky5 Admin - Sign In</title>
+    <link rel="stylesheet" href="css/admin.css" />
+</head>
+<body>
+    <div class="admin-login-page">
+        <form class="admin-login-card" id="admin-login-form" novalidate>
+            <div class="admin-login-brand">
+                <span class="admin-login-brand-mark">L5</span>
+                <h1 class="admin-login-title">Lucky5 Admin</h1>
+            </div>
+            <p class="admin-login-subtitle">Back-office dashboard &mdash; sign in with your admin account.</p>
+
+            <div class="admin-login-error" id="admin-login-error" role="alert"></div>
+
+            <div class="admin-form-group">
+                <label class="admin-label" for="admin-login-username">Username</label>
+                <input
+                    class="admin-input"
+                    type="text"
+                    id="admin-login-username"
+                    name="username"
+                    autocomplete="username"
+                    autocapitalize="none"
+                    autocorrect="off"
+                    spellcheck="false"
+                    required
+                />
+            </div>
+
+            <div class="admin-form-group">
+                <label class="admin-label" for="admin-login-password">Password</label>
+                <input
+                    class="admin-input"
+                    type="password"
+                    id="admin-login-password"
+                    name="password"
+                    autocomplete="current-password"
+                    required
+                />
+            </div>
+
+            <div class="admin-form-actions" style="margin-top: 22px;">
+                <button class="admin-btn admin-btn-primary admin-btn-block" type="submit" id="admin-login-submit">
+                    Sign in
+                </button>
+            </div>
+
+            <p class="admin-login-footnote">Lucky5 back-office &middot; authorized personnel only</p>
+        </form>
+    </div>
+
+    <script src="js/admin-api.js"></script>
+    <script>
+        (function () {
+            'use strict';
+
+            if (window.AdminSession && window.AdminSession.isValid()) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            var form = document.getElementById('admin-login-form');
+            var errorEl = document.getElementById('admin-login-error');
+            var submitBtn = document.getElementById('admin-login-submit');
+
+            function setError(message) {
+                if (!message) {
+                    errorEl.textContent = '';
+                    errorEl.classList.remove('is-visible');
+                    return;
+                }
+                errorEl.textContent = message;
+                errorEl.classList.add('is-visible');
+            }
+
+            form.addEventListener('submit', function onSubmit(event) {
+                event.preventDefault();
+                setError('');
+
+                var username = document.getElementById('admin-login-username').value.trim();
+                var password = document.getElementById('admin-login-password').value;
+
+                if (!username || !password) {
+                    setError('Please enter both username and password.');
+                    return;
+                }
+
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Signing in...';
+
+                window.AdminApi.login(username, password)
+                    .then(function (result) {
+                        var profile = result && result.profile;
+                        var tokens = result && result.tokens;
+                        var role = profile && profile.role;
+
+                        if (!tokens || !tokens.accessToken) {
+                            throw new Error('Login response was missing tokens.');
+                        }
+
+                        if (!role || String(role).toLowerCase() !== 'admin') {
+                            throw new Error('This account does not have admin access.');
+                        }
+
+                        window.AdminSession.set({
+                            accessToken: tokens.accessToken,
+                            refreshToken: tokens.refreshToken,
+                            expiresAtUtc: tokens.expiresAtUtc,
+                            profile: profile
+                        });
+
+                        window.location.href = 'index.html';
+                    })
+                    .catch(function (error) {
+                        setError((error && error.message) || 'Login failed. Please try again.');
+                    })
+                    .finally(function () {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Sign in';
+                    });
+            });
+        })();
+    </script>
+</body>
+</html>
