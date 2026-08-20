@@ -121,26 +121,9 @@ public class EfCoreDataStore : IDataStore
 
     public async Task<Offer> CreateOfferAsync(Offer offer)
     {
-        if (offer.Id <= 0)
-        {
-            _context.Offers.Add(offer);
-        }
-        else
-        {
-            var existing = await _context.Offers.FindAsync(offer.Id);
-            if (existing != null)
-            {
-                existing.Title = offer.Title;
-                existing.Description = offer.Description;
-                existing.BonusAmount = offer.BonusAmount;
-                await _context.SaveChangesAsync();
-                return existing;
-            }
-            else
-            {
-                _context.Offers.Add(offer);
-            }
-        }
+        if (offer.Id <= 0) _context.Offers.Add(offer);
+        else _context.Offers.Update(offer);
+
         await _context.SaveChangesAsync();
         return offer;
     }
