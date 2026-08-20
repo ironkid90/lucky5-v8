@@ -23,11 +23,11 @@ public sealed class GeneralService(IDataStore store, InMemoryDataStore inMemoryS
         return Task.FromResult<IReadOnlyList<OfferDto>>(offers);
     }
 
-    public Task<OfferDto> CreateOfferAsync(string title, string description, decimal bonusAmount, CancellationToken cancellationToken)
+    public async Task<OfferDto> CreateOfferAsync(string title, string description, decimal bonusAmount, CancellationToken cancellationToken)
     {
         var offer = new Offer { Title = title, Description = description, BonusAmount = bonusAmount };
-        var created = store.CreateOfferAsync(offer).GetAwaiter().GetResult();
-        return Task.FromResult(new OfferDto(created.Id, created.Title, created.Description, created.BonusAmount));
+        var created = await store.CreateOfferAsync(offer);
+        return new OfferDto(created.Id, created.Title, created.Description, created.BonusAmount);
     }
 
     public Task<OfferDto> UpdateOfferAsync(int id, string title, string description, decimal bonusAmount, CancellationToken cancellationToken)
