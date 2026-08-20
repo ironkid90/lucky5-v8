@@ -71,10 +71,11 @@ public sealed class GeneralService(IDataStore store, InMemoryDataStore inMemoryS
         return Task.FromResult(new TermsResponseDto(terms.Version, terms.BodyMarkdown, terms.UpdatedUtc));
     }
 
-    public Task<TermsResponseDto> UpsertTermsAsync(string version, string bodyMarkdown, CancellationToken cancellationToken)
+    public async Task<TermsResponseDto> UpsertTermsAsync(string version, string bodyMarkdown, CancellationToken cancellationToken)
     {
-        store.UpdateTermsAsync(new TermsDocument { Version = version, BodyMarkdown = bodyMarkdown, UpdatedUtc = DateTime.UtcNow }).GetAwaiter().GetResult();
-        return Task.FromResult(new TermsResponseDto(version, bodyMarkdown, DateTime.UtcNow));
+        var now = DateTime.UtcNow;
+        await store.UpdateTermsAsync(new TermsDocument { Version = version, BodyMarkdown = bodyMarkdown, UpdatedUtc = now });
+        return new TermsResponseDto(version, bodyMarkdown, now);
     }
 
     public Task DeleteTermsAsync(CancellationToken cancellationToken)
