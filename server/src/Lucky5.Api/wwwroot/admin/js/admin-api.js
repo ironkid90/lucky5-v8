@@ -255,6 +255,30 @@
         return this.get('/api/admin/agents/summary');
     };
 
+    AdminApiClient.prototype.getAgents = function getAgents() {
+        return this.get('/api/agent');
+    };
+
+    AdminApiClient.prototype.createAgent = function createAgent(payload) {
+        return this.post('/api/agent', payload);
+    };
+
+    AdminApiClient.prototype.loadCredit = function loadCredit(agentId, amount) {
+        return this.post('/api/agent/' + encodeURIComponent(agentId) + '/load-credit', { amount: amount });
+    };
+
+    AdminApiClient.prototype.assignUser = function assignUser(agentId, userId) {
+        return this.post('/api/agent/' + encodeURIComponent(agentId) + '/assign-user/' + encodeURIComponent(userId), undefined);
+    };
+
+    AdminApiClient.prototype.getAgentUsers = function getAgentUsers(agentId) {
+        return this.get('/api/agent/' + encodeURIComponent(agentId) + '/users');
+    };
+
+    AdminApiClient.prototype.createUserUnderAgent = function createUserUnderAgent(payload) {
+        return this.post('/api/agent/create-user', payload);
+    };
+
     /* ---------------------------------------------------------- */
     /* Machines                                                     */
     /* ---------------------------------------------------------- */
