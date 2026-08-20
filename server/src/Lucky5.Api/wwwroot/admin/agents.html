@@ -345,7 +345,7 @@
                 body.querySelectorAll('.admin-load-credit-btn').forEach(function (btn) {
                     btn.addEventListener('click', function () {
                         var userId = btn.getAttribute('data-user-id');
-                        var input = body.querySelector('.admin-load-credit-amount[data-user-id="' + userId + '"]');
+                        var input = btn.previousElementSibling;
                         var amount = input ? parseFloat(input.value) : NaN;
                         if (Number.isNaN(amount) || amount <= 0) {
                             window.AdminShell.showToast('Enter a valid credit amount.', 'error');
