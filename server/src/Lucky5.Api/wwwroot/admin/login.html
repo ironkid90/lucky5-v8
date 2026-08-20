@@ -60,7 +60,10 @@
         (function () {
             'use strict';
 
-            if (window.AdminSession && window.AdminSession.isValid()) {
+            var existingSession = window.AdminSession && window.AdminSession.isValid() ? window.AdminSession.get() : null;
+            var existingRole = existingSession && existingSession.profile && existingSession.profile.role
+                ? String(existingSession.profile.role).toLowerCase() : '';
+            if (existingSession && existingRole === 'admin') {
                 window.location.href = 'index.html';
                 return;
             }
@@ -104,7 +107,10 @@
                             throw new Error('Login response was missing tokens.');
                         }
 
-                        var roleLower = role ? String(role).toLowerCase() : '';\n                        if (roleLower !== 'admin' && roleLower !== 'agent') {\n                            throw new Error('This account does not have access.');\n                        }
+                        var roleLower = role ? String(role).toLowerCase() : '';
+                        if (roleLower !== 'admin') {
+                            throw new Error('This account does not have admin access.');
+                        }
 
                         window.AdminSession.set({
                             accessToken: tokens.accessToken,

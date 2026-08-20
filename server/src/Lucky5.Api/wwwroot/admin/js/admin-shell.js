@@ -16,7 +16,8 @@
         var path = global.location.pathname || '';
         var segments = path.split('/').filter(Boolean);
         var last = segments.length ? segments[segments.length - 1] : '';
-        return last || 'index.html';
+        if (!last || last.indexOf('.') === -1) return 'index.html';
+        return last;
     }
 
     function guardSession() {

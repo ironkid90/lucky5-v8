@@ -138,6 +138,16 @@
             var session = window.AdminShell ? window.AdminShell.guardSession() : null;
             if (!session) return;
 
+            function escapeHtml(str) {
+                if (str === null || str === undefined) return '';
+                return String(str)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+            }
+
             var dashboardLoading = document.getElementById('dashboard-loading');
             var dashboardError = document.getElementById('dashboard-error');
             var dashboardCards = document.getElementById('dashboard-cards');
@@ -201,17 +211,17 @@
                     { label: 'Cabinet Devices', value: formatNumber(data.cabinetDeviceCount), hint: (data.activeCabinetDeviceSessions || 0) + ' active / ' + (data.revokedCabinetDeviceCount || 0) + ' revoked' },
                     { label: 'Capital In', value: formatCurrency(data.totalCapitalIn) },
                     { label: 'Capital Out', value: formatCurrency(data.totalCapitalOut) },
-                    { label: 'Observed RTP', value: (data.observedRtp !== null && data.observedRtp !== undefined ? Number(data.observedRtp).toFixed(1) + '%' : '—') }
+                    { label: 'Observed RTP', value: (data.observedRtp !== null && data.observedRtp !== undefined ? (Number(data.observedRtp) * 100).toFixed(1) + '%' : '—') }
                 ];
 
                 var html = '';
                 for (var i = 0; i < cards.length; i++) {
                     var c = cards[i];
                     html += '<div class="admin-card">' +
-                        '<p class="admin-card-label">' + c.label + '</p>' +
-                        '<p class="admin-card-value">' + c.value + '</p>';
+                        '<p class="admin-card-label">' + escapeHtml(c.label) + '</p>' +
+                        '<p class="admin-card-value">' + escapeHtml(c.value) + '</p>';
                     if (c.hint) {
-                        html += '<p class="admin-card-hint">' + c.hint + '</p>';
+                        html += '<p class="admin-card-hint">' + escapeHtml(c.hint) + '</p>';
                     }
                     html += '</div>';
                 }
@@ -240,7 +250,19 @@
             }
 
             function renderAuditRows() {
-                var html = '';
+                auditTbody.innerHTML = '';
+                if (!currentAuditData.length) {
+                    var emptyRow = document.createElement('tr');
+                    var emptyCell = document.createElement('td');
+                    emptyCell.setAttribute('colspan', '6');
+                    emptyCell.style.textAlign = 'center';
+                    emptyCell.style.color = 'var(--admin-text-muted)';
+                    emptyCell.style.padding = '24px';
+                    emptyCell.textContent = 'No audit entries found.';
+                    emptyRow.appendChild(emptyCell);
+                    auditTbody.appendChild(emptyRow);
+                    return;
+                }
                 for (var i = 0; i < currentAuditData.length; i++) {
                     var e = currentAuditData[i];
                     var target = '';
@@ -262,19 +284,48 @@
                             outcomeClass = 'admin-badge-danger';
                         }
                     }
-                    html += '<tr>' +
-                        '<td>' + formatDateTime(e.createdUtc) + '</td>' +
-                        '<td>' + (e.actorRole || '—') + '<br><span class="admin-text-muted">' + shortId(e.actorUserId) + '</span></td>' +
-                        '<td>' + (e.action || '—') + '</td>' +
-                        '<td>' + target + '</td>' +
-                        '<td>' + (e.outcome ? '<span class="admin-badge ' + outcomeClass + '">' + e.outcome + '</span>' : '—') + '</td>' +
-                        '<td>' + (e.reason || '—') + '</td>' +
-                        '</tr>';
+
+                    var row = document.createElement('tr');
+
+                    var tdTime = document.createElement('td');
+                    tdTime.textContent = formatDateTime(e.createdUtc);
+                    row.appendChild(tdTime);
+
+                    var tdActor = document.createElement('td');
+                    tdActor.textContent = e.actorRole || '—';
+                    var br = document.createElement('br');
+                    tdActor.appendChild(br);
+                    var actorSpan = document.createElement('span');
+                    actorSpan.className = 'admin-text-muted';
+                    actorSpan.textContent = shortId(e.actorUserId);
+                    tdActor.appendChild(actorSpan);
+                    row.appendChild(tdActor);
+
+                    var tdAction = document.createElement('td');
+                    tdAction.textContent = e.action || '—';
+                    row.appendChild(tdAction);
+
+                    var tdTarget = document.createElement('td');
+                    tdTarget.textContent = target;
+                    row.appendChild(tdTarget);
+
+                    var tdOutcome = document.createElement('td');
+                    if (e.outcome) {
+                        var badge = document.createElement('span');
+                        badge.className = 'admin-badge ' + outcomeClass;
+                        badge.textContent = e.outcome;
+                        tdOutcome.appendChild(badge);
+                    } else {
+                        tdOutcome.textContent = '—';
+                    }
+                    row.appendChild(tdOutcome);
+
+                    var tdReason = document.createElement('td');
+                    tdReason.textContent = e.reason || '—';
+                    row.appendChild(tdReason);
+
+                    auditTbody.appendChild(row);
                 }
-                if (!html) {
-                    html = '<tr><td colspan="6" style="text-align:center;color:var(--admin-text-muted);padding:24px;">No audit entries found.</td></tr>';
-                }
-                auditTbody.innerHTML = html;
             }
 
             function renderAudit(entries) {
