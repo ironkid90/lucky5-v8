@@ -152,18 +152,15 @@ public sealed class InMemoryDataStore
         {
             offer = new Offer { Id = Interlocked.Increment(ref _nextOfferId), Title = offer.Title, Description = offer.Description, BonusAmount = offer.BonusAmount };
         }
-        var existing = Offers.FirstOrDefault(o => o.Id == offer.Id);
-        if (existing != null)
+        var index = Offers.FindIndex(o => o.Id == offer.Id);
+        if (index >= 0)
         {
-            existing.Title = offer.Title;
-            existing.Description = offer.Description;
-            existing.BonusAmount = offer.BonusAmount;
-            return Task.FromResult(existing);
+            Offers[index] = offer;
+            return Task.FromResult(offer);
         }
 
         Offers.Add(offer);
         return Task.FromResult(offer);
-    }
 
     public Task UpdateOfferAsync(Offer offer)
     {
