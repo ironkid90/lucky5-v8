@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Machines - Lucky5 Admin</title>
+    <link rel="stylesheet" href="css/admin.css" />
+</head>
+<body>
+    <div class="admin-shell">
+        <aside class="admin-sidebar">
+            <div class="admin-sidebar-brand">
+                <span class="admin-sidebar-brand-mark">L5</span>
+                <span class="admin-sidebar-brand-text">
+                    Lucky5 Admin
+                    <small>Back office</small>
+                </span>
+            </div>
+
+            <ul class="admin-nav">
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="overview.html">
+                        <span class="admin-nav-icon">&#9632;</span>
+                        Overview
+                    </a>
+                </li>
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="users.html">
+                        <span class="admin-nav-icon">&#9670;</span>
+                        Users
+                    </a>
+                </li>
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="machines.html">
+                        <span class="admin-nav-icon">&#9636;</span>
+                        Machines
+                    </a>
+                </li>
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="agents.html">
+                        <span class="admin-nav-icon">&#9679;</span>
+                        Agents
+                    </a>
+                </li>
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="devices.html">
+                        <span class="admin-nav-icon">&#9673;</span>
+                        Cabinet Devices
+                    </a>
+                </li>
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="content.html">
+                        <span class="admin-nav-icon">&#9998;</span>
+                        Content
+                    </a>
+                </li>
+            </ul>
+
+            <div class="admin-sidebar-footer">Lucky5 v8 &middot; Admin Dashboard</div>
+        </aside>
+
+        <div class="admin-main">
+            <header class="admin-topbar">
+                <div class="admin-topbar-title">Machines</div>
+                <div class="admin-topbar-right">
+                    <div class="admin-user-chip">
+                        <span class="admin-user-avatar" id="admin-user-avatar">A</span>
+                        <span id="admin-username">admin</span>
+                    </div>
+                    <button class="admin-btn admin-btn-sm" id="admin-logout-btn" type="button">Log out</button>
+                </div>
+            </header>
+
+            <main class="admin-content">
+                <div class="admin-page-header">
+                    <div>
+                        <h1>Machines</h1>
+                        <p>Manage cabinet machine configuration, state, and operational controls.</p>
+                    </div>
+                </div>
+
+                <div id="admin-machines-loading" class="admin-loading-state">
+                    <span class="admin-spinner"></span>
+                    <span>Loading machines&hellip;</span>
+                </div>
+
+                <div id="admin-machines-error" class="admin-error-state" style="display:none;"></div>
+
+                <div id="admin-machines-empty" class="admin-empty-state" style="display:none;">
+                    <h3>No machines found</h3>
+                    <p>Configure a machine to get started.</p>
+                </div>
+
+                <div id="admin-machines-table-wrap" class="admin-table-wrap" style="display:none;">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Status</th>
+                                <th>Min Bet</th>
+                                <th>Max Bet</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-machines-tbody">
+                        </tbody>
+                    </table>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <div class="admin-modal-overlay" id="admin-detail-modal">
+        <div class="admin-modal admin-modal-lg">
+            <div class="admin-modal-header">
+                <h2 id="admin-detail-title">Machine Detail</h2>
+                <button class="admin-modal-close" id="admin-detail-modal-close" type="button">&times;</button>
+            </div>
+            <div id="admin-detail-body">
+            </div>
+        </div>
+    </div>
+
+    <div class="admin-modal-overlay" id="admin-force-reset-modal">
+        <div class="admin-modal">
+            <div class="admin-modal-header">
+                <h2>Force Reset Machine</h2>
+                <button class="admin-modal-close" id="admin-force-reset-modal-close" type="button">&times;</button>
+            </div>
+            <p style="margin:0 0 14px;color:var(--admin-text-muted);font-size:13px;">
+                You are about to force reset machine <strong id="admin-force-reset-label"></strong>. This will terminate any active sessions immediately and cannot be undone.
+            </p>
+            <div class="admin-form-actions">
+                <button class="admin-btn" id="admin-force-reset-cancel" type="button">Cancel</button>
+                <button class="admin-btn admin-btn-danger" id="admin-force-reset-submit" type="button">Force Reset</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/admin-api.js"></script>
+    <script src="js/admin-shell.js"></script>
+    <script>
+        (function () {
+            'use strict';
+
+            var loadingEl = document.getElementById('admin-machines-loading');
+            var errorEl = document.getElementById('admin-machines-error');
+            var emptyEl = document.getElementById('admin-machines-empty');
+            var tableWrapEl = document.getElementById('admin-machines-table-wrap');
+            var tbodyEl = document.getElementById('admin-machines-tbody');
+
+            var detailModal = document.getElementById('admin-detail-modal');
+            var detailTitleEl = document.getElementById('admin-detail-title');
+            var detailBodyEl = document.getElementById('admin-detail-body');
+            var detailModalClose = document.getElementById('admin-detail-modal-close');
+
+            var forceResetModal = document.getElementById('admin-force-reset-modal');
+            var forceResetLabelEl = document.getElementById('admin-force-reset-label');
+            var forceResetCancelBtn = document.getElementById('admin-force-reset-cancel');
+            var forceResetSubmitBtn = document.getElementById('admin-force-reset-submit');
+            var forceResetModalClose = document.getElementById('admin-force-reset-modal-close');
+
+            var currentDetailMachineId = null;
+            var currentForceResetMachineId = null;
+            var machinesCache = [];
+
+            function showModal(el) { if (el) el.classList.add('is-open'); }
+            function hideModal(el) { if (el) el.classList.remove('is-open'); }
+            function showBlock(el) { if (el) el.style.display = ''; }
+            function hideBlock(el) { if (el) el.style.display = 'none'; }
+
+            function formatNumber(value) {
+                if (value === null || value === undefined) return '—';
+                return String(value);
+            }
+
+            function formatDecimal(value) {
+                if (value === null || value === undefined) return '—';
+                return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+
+            function formatDate(value) {
+                if (!value) return '—';
+                var d = new Date(value);
+                if (isNaN(d.getTime())) return '—';
+                return d.toLocaleString();
+            }
+
+            function escapeHtml(str) {
+                return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            }
+
+            function badgeForState(isOpen) {
+                return isOpen
+                    ? '<span class="admin-badge admin-badge-success">Open</span>'
+                    : '<span class="admin-badge admin-badge-danger">Closed</span>';
+            }
+
+            function doorStateLabel(state) {
+                if (state === 'Open') return 'Open';
+                if (state === 'Closed') return 'Closed';
+                return escapeHtml(state || '—');
+            }
+
+            function showError(message) {
+                if (errorEl) {
+                    errorEl.textContent = message || 'An unexpected error occurred.';
+                    showBlock(errorEl);
+                }
+            }
+
+            function hideError() {
+                hideBlock(errorEl);
+            }
+
+            function renderMachines(machines) {
+                tbodyEl.innerHTML = '';
+                machines.forEach(function (machine) {
+                    var tr = document.createElement('tr');
+
+                    var actionsHtml =
+                        '<button class="admin-btn admin-btn-sm js-admin-view-detail" type="button" data-id="' + machine.machineId + '">View Detail</button>';
+
+                    tr.innerHTML =
+                        '<td style="font-family:monospace;font-size:12px;">' + formatNumber(machine.machineId) + '</td>' +
+                        '<td>' + escapeHtml(machine.name) + '</td>' +
+                        '<td>' + badgeForState(machine.isOpen) + '</td>' +
+                        '<td>' + formatDecimal(machine.minBet) + '</td>' +
+                        '<td>' + formatDecimal(machine.maxBet) + '</td>' +
+                        '<td class="admin-table-actions">' + actionsHtml + '</td>';
+
+                    tbodyEl.appendChild(tr);
+                });
+
+                document.querySelectorAll('.js-admin-view-detail').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        openDetailModal(btn.getAttribute('data-id'));
+                    });
+                });
+            }
+
+            function renderDetail(detail) {
+                var machine = detail && detail.machine ? detail.machine : null;
+                if (!machine) {
+                    detailBodyEl.innerHTML = '<p style="color:var(--admin-text-muted);">No machine data available.</p>';
+                    return;
+                }
+
+                var sessionsHtml = '';
+                if (machine.sessions && machine.sessions.length > 0) {
+                    var rows = machine.sessions.map(function (s) {
+                        return '<tr>' +
+                            '<td style="font-family:monospace;font-size:12px;">' + escapeHtml(String(s.sessionId)) + '</td>' +
+                            '<td>' + escapeHtml(s.username || '—') + '</td>' +
+                            '<td>' + formatDecimal(s.machineCredits) + '</td>' +
+                            '<td>' + formatDecimal(s.totalCashIn) + '</td>' +
+                            '<td>' + (s.isMachineClosed ? '<span class="admin-badge admin-badge-danger">Closed</span>' : '<span class="admin-badge admin-badge-success">Open</span>') + '</td>' +
+                            '<td>' + formatDate(s.lastUpdatedUtc) + '</td>' +
+                            '</tr>';
+                    }).join('');
+
+                    sessionsHtml =
+                        '<div class="admin-card" style="margin-top:18px;">' +
+                        '<p class="admin-card-label">Active Sessions (' + machine.sessions.length + ')</p>' +
+                        '<div style="overflow-x:auto;">' +
+                        '<table class="admin-table">' +
+                        '<thead><tr><th>Session ID</th><th>Player</th><th>Credits</th><th>Cash In</th><th>Machine State</th><th>Last Updated</th></tr></thead>' +
+                        '<tbody>' + rows + '</tbody>' +
+                        '</table>' +
+                        '</div>' +
+                        '</div>';
+                } else {
+                    sessionsHtml =
+                        '<div class="admin-card" style="margin-top:18px;">' +
+                        '<p class="admin-card-label">Active Sessions</p>' +
+                        '<p style="color:var(--admin-text-muted);font-size:13px;">No active sessions.</p>' +
+                        '</div>';
+                }
+
+                var doorState = detail.doorState || 'Closed';
+                var doorStateOptions = '<option value="Closed"' + (doorState === 'Closed' ? ' selected' : '') + '>Closed</option>' +
+                    '<option value="Open"' + (doorState === 'Open' ? ' selected' : '') + '>Open</option>';
+
+                var activeRoundsHtml = '';
+                if (detail.activeRounds && detail.activeRounds.length > 0) {
+                    var roundRows = detail.activeRounds.map(function (r) {
+                        return '<tr>' +
+                            '<td style="font-family:monospace;font-size:12px;">' + escapeHtml(String(r.roundId)) + '</td>' +
+                            '<td>' + escapeHtml(r.username || '—') + '</td>' +
+                            '<td>' + escapeHtml(r.phase) + '</td>' +
+                            '<td>' + escapeHtml(r.handRank || '—') + '</td>' +
+                            '<td>' + formatDecimal(r.betAmount) + '</td>' +
+                            '<td>' + formatDecimal(r.winAmount) + '</td>' +
+                            '<td>' + (r.isCompleted ? 'Yes' : 'No') + '</td>' +
+                            '<td>' + r.ageSeconds + 's</td>' +
+                            '</tr>';
+                    }).join('');
+
+                    activeRoundsHtml =
+                        '<div class="admin-card" style="margin-top:18px;">' +
+                        '<p class="admin-card-label">Active Rounds (' + detail.activeRounds.length + ')</p>' +
+                        '<div style="overflow-x:auto;">' +
+                        '<table class="admin-table">' +
+                        '<thead><tr><th>Round ID</th><th>Player</th><th>Phase</th><th>Hand Rank</th><th>Bet</th><th>Win</th><th>Completed</th><th>Age</th></tr></thead>' +
+                        '<tbody>' + roundRows + '</tbody>' +
+                        '</table>' +
+                        '</div>' +
+                        '</div>';
+                }
+
+                var cabinetDevicesHtml = '';
+                if (detail.cabinetDevices && detail.cabinetDevices.length > 0) {
+                    var deviceRows = detail.cabinetDevices.map(function (d) {
+                        return '<tr>' +
+                            '<td style="font-family:monospace;font-size:12px;">' + escapeHtml(String(d.deviceId)) + '</td>' +
+                            '<td>' + escapeHtml(d.displayName || '—') + '</td>' +
+                            '<td style="font-family:monospace;font-size:12px;">' + escapeHtml(d.serialNumber || '—') + '</td>' +
+                            '<td>' + escapeHtml(d.status || '—') + '</td>' +
+                            '<td>' + formatDate(d.lastSeenUtc) + '</td>' +
+                            '</tr>';
+                    }).join('');
+
+                    cabinetDevicesHtml =
+                        '<div class="admin-card" style="margin-top:18px;">' +
+                        '<p class="admin-card-label">Linked Cabinet Devices (' + detail.cabinetDevices.length + ')</p>' +
+                        '<div style="overflow-x:auto;">' +
+                        '<table class="admin-table">' +
+                        '<thead><tr><th>Device ID</th><th>Display Name</th><th>Serial</th><th>Status</th><th>Last Seen</th></tr></thead>' +
+                        '<tbody>' + deviceRows + '</tbody>' +
+                        '</table>' +
+                        '</div>' +
+                        '</div>';
+                }
+
+                detailBodyEl.innerHTML =
+                    '<div class="admin-card-grid">' +
+                        '<div class="admin-card">' +
+                            '<p class="admin-card-label">Machine</p>' +
+                            '<p class="admin-card-value" style="font-size:16px;">' + escapeHtml(machine.name) + '</p>' +
+                            '<p class="admin-card-hint">ID ' + machine.machineId + '</p>' +
+                        '</div>' +
+                        '<div class="admin-card">' +
+                            '<p class="admin-card-label">Status</p>' +
+                            '<p class="admin-card-value" style="font-size:16px;">' + badgeForState(machine.isOpen) + '</p>' +
+                        '</div>' +
+                        '<div class="admin-card">' +
+                            '<p class="admin-card-label">Active / Ready</p>' +
+                            '<p class="admin-card-value" style="font-size:16px;">' + (detail.active ? '<span class="admin-badge admin-badge-success">Active</span>' : '<span class="admin-badge admin-badge-danger">Inactive</span>') + ' ' + (detail.ready ? '<span class="admin-badge admin-badge-success">Ready</span>' : '<span class="admin-badge admin-badge-warning">Not Ready</span>') + '</p>' +
+                        '</div>' +
+                        '<div class="admin-card">' +
+                            '<p class="admin-card-label">Door State</p>' +
+                            '<p class="admin-card-value" style="font-size:16px;">' + doorStateLabel(doorState) + '</p>' +
+                        '</div>' +
+                        '<div class="admin-card">' +
+                            '<p class="admin-card-label">Players / Rounds</p>' +
+                            '<p class="admin-card-value" style="font-size:16px;">' + machine.activePlayers + ' / ' + machine.activeRounds + '</p>' +
+                        '</div>' +
+                        '<div class="admin-card">' +
+                            '<p class="admin-card-label">Bet Range</p>' +
+                            '<p class="admin-card-value" style="font-size:16px;">' + formatDecimal(machine.minBet) + ' &ndash; ' + formatDecimal(machine.maxBet) + '</p>' +
+                        '</div>' +
+                        '<div class="admin-card">' +
+                            '<p class="admin-card-label">Observed RTP</p>' +
+                            '<p class="admin-card-value" style="font-size:16px;">' + formatDecimal(machine.observedRtp) + '</p>' +
+                            '<p class="admin-card-hint">Target: ' + formatDecimal(machine.targetRtp) + ' | Base: ' + formatDecimal(machine.baseRtp) + '</p>' +
+                        '</div>' +
+                        '<div class="admin-card">' +
+                            '<p class="admin-card-label">Capital</p>' +
+                            '<p class="admin-card-value" style="font-size:16px;">' + formatDecimal(detail.capitalIn) + '</p>' +
+                            '<p class="admin-card-hint">In: ' + formatDecimal(detail.capitalIn) + ' | Out: ' + formatDecimal(detail.capitalOut) + ' | Profit: ' + formatDecimal(detail.profit) + '</p>' +
+                        '</div>' +
+                    '</div>' +
+
+                    '<div class="admin-card">' +
+                        '<p class="admin-card-label">Operational Controls</p>' +
+                        '<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">' +
+                            '<div style="flex:1;min-width:180px;">' +
+                                '<label class="admin-label" for="admin-door-state-select">Door State</label>' +
+                                '<select class="admin-select" id="admin-door-state-select">' + doorStateOptions + '</select>' +
+                            '</div>' +
+                            '<button class="admin-btn admin-btn-sm js-admin-reset" type="button" data-id="' + machine.machineId + '">Reset</button>' +
+                            '<button class="admin-btn admin-btn-sm admin-btn-danger js-admin-force-reset" type="button" data-id="' + machine.machineId + '" data-name="' + escapeHtml(machine.name) + '">Force Reset</button>' +
+                        '</div>' +
+                    '</div>' +
+
+                    sessionsHtml +
+                    activeRoundsHtml +
+                    cabinetDevicesHtml;
+            }
+
+            function openDetailModal(machineId) {
+                currentDetailMachineId = machineId;
+                detailTitleEl.textContent = 'Machine #' + machineId + ' Detail';
+                detailBodyEl.innerHTML = '<div class="admin-loading-state"><span class="admin-spinner"></span><span>Loading detail&hellip;</span></div>';
+                showModal(detailModal);
+
+                window.AdminApi.getMachineDetail(machineId)
+                    .then(function (data) {
+                        renderDetail(data);
+                    })
+                    .catch(function (err) {
+                        detailBodyEl.innerHTML = '<p style="color:var(--admin-text-muted);">Failed to load detail: ' + escapeHtml(err && err.message ? err.message : 'Unknown error') + '</p>';
+                    });
+            }
+
+            function closeDetailModal() {
+                hideModal(detailModal);
+                currentDetailMachineId = null;
+            }
+
+            function loadMachines() {
+                hideError();
+                hideBlock(emptyEl);
+                hideBlock(tableWrapEl);
+                showBlock(loadingEl);
+
+                window.AdminApi.listMachines()
+                    .then(function (data) {
+                        hideBlock(loadingEl);
+                        var machines = Array.isArray(data) ? data : [];
+                        machinesCache = machines;
+                        if (machines.length === 0) {
+                            showBlock(emptyEl);
+                        } else {
+                            renderMachines(machines);
+                            showBlock(tableWrapEl);
+                        }
+                    })
+                    .catch(function (err) {
+                        hideBlock(loadingEl);
+                        hideBlock(emptyEl);
+                        hideBlock(tableWrapEl);
+                        showError(err && err.message ? err.message : 'Failed to load machines.');
+                    });
+            }
+
+            function doReset(machineId) {
+                var row = findRow(machineId);
+                setRowBusy(row, true);
+                window.AdminApi.resetMachine(machineId)
+                    .then(function () {
+                        window.AdminShell.showToast('Machine #' + machineId + ' reset successfully.', 'success');
+                        if (currentDetailMachineId === String(machineId)) {
+                            openDetailModal(machineId);
+                        }
+                        loadMachines();
+                    })
+                    .catch(function (err) {
+                        window.AdminShell.showToast(err && err.message ? err.message : 'Reset failed.', 'error');
+                    })
+                    .finally(function () {
+                        setRowBusy(row, false);
+                    });
+            }
+
+            function openForceResetModal(machineId, machineName) {
+                currentForceResetMachineId = machineId;
+                forceResetLabelEl.textContent = machineName || ('#' + machineId);
+                showModal(forceResetModal);
+            }
+
+            function closeForceResetModal() {
+                hideModal(forceResetModal);
+                currentForceResetMachineId = null;
+            }
+
+            function doForceReset() {
+                var machineId = currentForceResetMachineId;
+                if (machineId === null) return;
+                closeForceResetModal();
+
+                var row = findRow(machineId);
+                setRowBusy(row, true);
+                window.AdminApi.forceResetMachine(machineId)
+                    .then(function () {
+                        window.AdminShell.showToast('Machine #' + machineId + ' force reset successfully.', 'success');
+                        if (currentDetailMachineId === String(machineId)) {
+                            openDetailModal(machineId);
+                        }
+                        loadMachines();
+                    })
+                    .catch(function (err) {
+                        window.AdminShell.showToast(err && err.message ? err.message : 'Force reset failed.', 'error');
+                    })
+                    .finally(function () {
+                        setRowBusy(row, false);
+                    });
+            }
+
+            function findRow(machineId) {
+                return tbodyEl.querySelector('.js-admin-reset[data-id="' + machineId + '"], .js-admin-force-reset[data-id="' + machineId + '"]');
+            }
+
+            function setRowBusy(row, busy) {
+                if (!row) return;
+                row.disabled = busy;
+                row.textContent = busy ? 'Working...' : (row.classList.contains('js-admin-force-reset') ? 'Force Reset' : 'Reset');
+            }
+
+            function onDoorStateChange(machineId, doorState) {
+                window.AdminApi.setDoorState(machineId, doorState)
+                    .then(function () {
+                        window.AdminShell.showToast('Door state updated to ' + doorState + '.', 'success');
+                        if (currentDetailMachineId === String(machineId)) {
+                            openDetailModal(machineId);
+                        }
+                        loadMachines();
+                    })
+                    .catch(function (err) {
+                        window.AdminShell.showToast(err && err.message ? err.message : 'Failed to update door state.', 'error');
+                    });
+            }
+
+            function wireDetailEvents() {
+                var resetButtons = detailBodyEl.querySelectorAll('.js-admin-reset');
+                resetButtons.forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        doReset(btn.getAttribute('data-id'));
+                    });
+                });
+
+                var forceResetButtons = detailBodyEl.querySelectorAll('.js-admin-force-reset');
+                forceResetButtons.forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        openForceResetModal(btn.getAttribute('data-id'), btn.getAttribute('data-name'));
+                    });
+                });
+
+                var doorSelect = document.getElementById('admin-door-state-select');
+                if (doorSelect) {
+                    doorSelect.addEventListener('change', function () {
+                        if (!currentDetailMachineId) return;
+                        onDoorStateChange(currentDetailMachineId, doorSelect.value);
+                    });
+                }
+            }
+
+            var renderDetailWire = new MutationObserver(function () {
+                renderDetailWire.disconnect();
+                wireDetailEvents();
+                renderDetailWire.observe(detailBodyEl, { childList: true, subtree: true });
+            });
+            renderDetailWire.observe(detailBodyEl, { childList: true, subtree: true });
+
+            detailModalClose.addEventListener('click', closeDetailModal);
+            detailModal.addEventListener('click', function (ev) {
+                if (ev.target === detailModal) closeDetailModal();
+            });
+
+            forceResetCancelBtn.addEventListener('click', closeForceResetModal);
+            forceResetSubmitBtn.addEventListener('click', doForceReset);
+            forceResetModalClose.addEventListener('click', closeForceResetModal);
+            forceResetModal.addEventListener('click', function (ev) {
+                if (ev.target === forceResetModal) closeForceResetModal();
+            });
+
+            document.addEventListener('keydown', function (ev) {
+                if (ev.key === 'Escape') {
+                    if (forceResetModal.classList.contains('is-open')) closeForceResetModal();
+                    if (detailModal.classList.contains('is-open')) closeDetailModal();
+                }
+            });
+
+            loadMachines();
+        })();
+    </script>
+</body>
+</html>
