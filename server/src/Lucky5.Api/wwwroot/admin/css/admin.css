@@ -2,8 +2,7 @@
  * admin.css
  * Shared styles for the Lucky5 back-office admin dashboard.
  * Plain modern admin aesthetic (NOT the retro cabinet theme) - dark UI.
- * All admin/*.html pages should reuse these classes rather than
- * introducing ad-hoc inline styles.
+ * Admin pages should prefer these classes; avoid inline styles where practical.
  */
 
 :root {
