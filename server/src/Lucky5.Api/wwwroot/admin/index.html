@@ -73,46 +73,13 @@
             </header>
 
             <main class="admin-content">
-                <div class="admin-page-header">
-                    <div>
-                        <h1>Welcome, <span id="admin-welcome-username">admin</span></h1>
-                        <p>Use the sidebar to manage users, machines, agents, cabinet devices, and content.</p>
-                    </div>
-                </div>
-
-                <div class="admin-card-grid" id="admin-index-summary">
-                    <div class="admin-card">
-                        <p class="admin-card-label">Overview</p>
-                        <p class="admin-card-value">&rarr;</p>
-                        <p class="admin-card-hint"><a href="overview.html">Go to Overview</a> for KPIs and the admin audit log.</p>
-                    </div>
-                    <div class="admin-card">
-                        <p class="admin-card-label">Users</p>
-                        <p class="admin-card-value">&rarr;</p>
-                        <p class="admin-card-hint"><a href="users.html">Go to Users</a> to manage player accounts.</p>
-                    </div>
-                    <div class="admin-card">
-                        <p class="admin-card-label">Machines</p>
-                        <p class="admin-card-value">&rarr;</p>
-                        <p class="admin-card-hint"><a href="machines.html">Go to Machines</a> to manage cabinet state.</p>
-                    </div>
-                </div>
+                <script>window.location.replace('overview.html');</script>
+                <noscript><p style="color:var(--admin-text-muted);">Redirecting to <a href="overview.html">Overview</a>…</p></noscript>
             </main>
         </div>
     </div>
 
     <script src="js/admin-api.js"></script>
     <script src="js/admin-shell.js"></script>
-    <script>
-        (function () {
-            'use strict';
-            var session = window.AdminShell ? window.AdminShell.guardSession() : null;
-            if (session) {
-                var username = (session.profile && (session.profile.username || session.profile.displayName)) || 'admin';
-                var welcomeEl = document.getElementById('admin-welcome-username');
-                if (welcomeEl) welcomeEl.textContent = username;
-            }
-        })();
-    </script>
 </body>
 </html>
