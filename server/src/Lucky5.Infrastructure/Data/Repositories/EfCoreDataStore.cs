@@ -205,15 +205,7 @@ public class EfCoreDataStore : IDataStore
 
     public async Task UpdateAppSettingAsync(string key, string value)
     {
-        var existing = await _context.AppSettings.FindAsync(key);
-        if (existing != null)
-        {
-            existing.Value = value;
-        }
-        else
-        {
-            _context.AppSettings.Add(new AppSetting { Key = key, Value = value });
-        }
+        _context.AppSettings.Update(new AppSetting { Key = key, Value = value });
         await _context.SaveChangesAsync();
     }
 
