@@ -175,7 +175,7 @@
             }
 
             function openModal(modalId) {
-                var modal = ensureModal(modalId);
+                var modal = document.getElementById(modalId);
                 if (modal) modal.classList.add('is-open');
             }
 
@@ -308,7 +308,7 @@
                                 '</div>' +
                                 '<div class="admin-form-group" style="flex:1;">' +
                                     '<label class="admin-label" for="admin-new-password">Password</label>' +
-                                    '<input class="admin-input" id="admin-new-password" name="password" type="text" required />' +
+                                    '<input class="admin-input" id="admin-new-password" name="password" type="password" autocomplete="new-password" required />' +
                                 '</div>' +
                             '</div>' +
                             '<div class="admin-form-row">' +
@@ -437,14 +437,7 @@
                 }
             }
 
-            function escapeHtml(value) {
-                if (value === null || value === undefined) return '';
-                return String(value)
-                    .replace(/&/g, '&amp;')
-                    .replace(/</g, '&lt;')
-                    .replace(/>/g, '&gt;')
-                    .replace(/"/g, '&quot;');
-            }
+            function escapeHtml(value) {\n                if (value === null || value === undefined) return '';\n                return String(value)\n                    .replace(/&/g, '&amp;')\n                    .replace(/</g, '&lt;')\n                    .replace(/>/g, '&gt;')\n                    .replace(/"/g, '&quot;')\n                    .replace(/'/g, '&#39;');\n            }
 
             function init() {
                 ensureModal('admin-create-agent-modal');
