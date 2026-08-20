@@ -68,6 +68,9 @@
             instance.code = details.code || '';
             instance.traceId = details.traceId || '';
             instance.errors = details.errors || [];
+            if (Object.setPrototypeOf) {
+                Object.setPrototypeOf(instance, AdminApiError.prototype);
+            }
             return instance;
         }
         AdminApiError.prototype = Object.create(_super.prototype);
@@ -137,7 +140,7 @@
                 var success = normalized.success;
                 if (success === undefined) success = response.ok;
 
-                if (response.status === 401 && !options.skipAuthRedirect) {
+                if ((response.status === 401 || response.status === 403) && !options.skipAuthRedirect) {
                     AdminSession.clear();
                     AdminSession.redirectToLogin();
                 }
