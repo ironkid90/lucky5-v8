@@ -306,7 +306,7 @@
                 toastEl.className = 'admin-toast ' + toastType;
                 toastEl.textContent = message;
                 container.appendChild(toastEl);
-                global.setTimeout(function () {
+                window.setTimeout(function () {
                     if (toastEl.parentNode) toastEl.parentNode.removeChild(toastEl);
                 }, durationMs || 4000);
             };
