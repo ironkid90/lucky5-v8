@@ -500,7 +500,7 @@
 
             function applySearchFilter(query) {
                 if (!query || query.trim() === '') {
-                    filteredUsers = allUsers.slice();
+                    filteredUsers = allUsers.slice(); currentPage = 0;
                     renderTable();
                     setLoading(false);
                     return;
