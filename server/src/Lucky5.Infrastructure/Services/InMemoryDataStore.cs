@@ -42,7 +42,7 @@ public sealed class InMemoryDataStore
         new() { Id = 1, Title = "Welcome Bonus", Description = "First deposit bonus", BonusAmount = 10 },
         new() { Id = 2, Title = "Weekend Cashback", Description = "5% cashback on losses", BonusAmount = 5 }
     ];
-    private int _nextOfferId = 3;
+    private int _nextOfferId = 2;
 
     public List<ContactType> ContactTypes { get; } =
     [
