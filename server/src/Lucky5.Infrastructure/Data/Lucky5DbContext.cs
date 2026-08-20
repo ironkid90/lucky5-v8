@@ -231,7 +231,7 @@ public class Lucky5DbContext : DbContext
         });
 
         modelBuilder.Entity<TermsDocument>().HasData(
-            new TermsDocument { Version = "1.0.0", BodyMarkdown = "# Terms\n\nUse this clean-room build for testing and internal validation only.", UpdatedUtc = DateTime.UtcNow }
+            new TermsDocument { Version = "1.0.0", BodyMarkdown = "# Terms\n\nUse this clean-room build for testing and internal validation only.", UpdatedUtc = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc) }
         );
 
         // Offers and Contacts Configuration
