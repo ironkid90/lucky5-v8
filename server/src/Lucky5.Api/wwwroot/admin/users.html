@@ -139,7 +139,7 @@
         <div class="admin-modal">
             <div class="admin-modal-header">
                 <h2>Create user</h2>
-                <button class="admin-modal-close" data-close="admin-create-user-overlay" type="button">&times;</button>
+                <button class="admin-modal-close" data-close="admin-create-user-overlay" type="button" aria-label="Close modal">&times;</button>
             </div>
             <form id="admin-create-user-form" autocomplete="off">
                 <div class="admin-form-group">
@@ -306,7 +306,7 @@
                 toastEl.className = 'admin-toast ' + toastType;
                 toastEl.textContent = message;
                 container.appendChild(toastEl);
-                global.setTimeout(function () {
+                window.setTimeout(function () {
                     if (toastEl.parentNode) toastEl.parentNode.removeChild(toastEl);
                 }, durationMs || 4000);
             };
@@ -396,6 +396,10 @@
             }
 
             function renderTable() {
+                var totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
+                if (currentPage >= totalPages) currentPage = totalPages - 1;
+                if (currentPage < 0) currentPage = 0;
+
                 tbody.innerHTML = '';
                 var start = currentPage * PAGE_SIZE;
                 var pageUsers = filteredUsers.slice(start, start + PAGE_SIZE);
@@ -496,7 +500,7 @@
 
             function applySearchFilter(query) {
                 if (!query || query.trim() === '') {
-                    filteredUsers = allUsers.slice();
+                    filteredUsers = allUsers.slice(); currentPage = 0;
                     renderTable();
                     setLoading(false);
                     return;
