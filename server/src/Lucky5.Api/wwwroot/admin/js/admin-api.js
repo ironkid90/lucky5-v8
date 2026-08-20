@@ -327,6 +327,50 @@
         return this.post('/api/admin/cabinet-devices/' + encodeURIComponent(deviceId) + '/revoke', payload);
     };
 
+    /* ---------------------------------------------------------- */
+    /* Content management                                            */
+    /* ---------------------------------------------------------- */
+
+    AdminApiClient.prototype.listOffers = function listOffers() {
+        return this.get('/api/admin/content/offers');
+    };
+
+    AdminApiClient.prototype.createOffer = function createOffer(title, description, bonusAmount) {
+        return this.post('/api/admin/content/offers', { title: title, description: description, bonusAmount: bonusAmount });
+    };
+
+    AdminApiClient.prototype.updateOffer = function updateOffer(id, title, description, bonusAmount) {
+        return this.put('/api/admin/content/offers/' + encodeURIComponent(id), { title: title, description: description, bonusAmount: bonusAmount });
+    };
+
+    AdminApiClient.prototype.deleteOffer = function deleteOffer(id) {
+        return this.del('/api/admin/content/offers/' + encodeURIComponent(id));
+    };
+
+    AdminApiClient.prototype.listTerms = function listTerms() {
+        return this.get('/api/admin/content/terms');
+    };
+
+    AdminApiClient.prototype.upsertTerms = function upsertTerms(version, bodyMarkdown) {
+        return this.put('/api/admin/content/terms', { version: version, bodyMarkdown: bodyMarkdown });
+    };
+
+    AdminApiClient.prototype.deleteTerms = function deleteTerms() {
+        return this.del('/api/admin/content/terms');
+    };
+
+    AdminApiClient.prototype.listAppSettings = function listAppSettings() {
+        return this.get('/api/admin/content/app-settings');
+    };
+
+    AdminApiClient.prototype.upsertAppSetting = function upsertAppSetting(key, value) {
+        return this.post('/api/admin/content/app-settings', { key: key, value: value });
+    };
+
+    AdminApiClient.prototype.deleteAppSetting = function deleteAppSetting(key) {
+        return this.del('/api/admin/content/app-settings/' + encodeURIComponent(key));
+    };
+
     global.AdminSession = AdminSession;
     global.AdminApiError = AdminApiError;
     global.AdminApiClient = AdminApiClient;

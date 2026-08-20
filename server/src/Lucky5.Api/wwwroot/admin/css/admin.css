@@ -639,7 +639,7 @@ a:hover {
     align-items: center;
     justify-content: center;
     padding: 20px;
-    z-index: 1000;
+    z-index: 100000 !important;
 }
 
 .admin-modal-overlay.is-open {
@@ -750,3 +750,36 @@ a:hover {
     align-items: center;
     gap: 8px;
 }
+
+.admin-tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--admin-border);
+}
+
+.admin-tab {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 10px 16px;
+    color: var(--admin-text-muted);
+    font-size: 13.5px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.admin-tab:hover {
+    color: var(--admin-text);
+}
+
+.admin-tab-active {
+    color: var(--admin-accent-hover);
+    border-bottom-color: var(--admin-accent);
+}
+
+.admin-tab-panel {
+    display: block;
+}
+

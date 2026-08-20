@@ -3,6 +3,8 @@ namespace Lucky5.Infrastructure.Services;
 using Lucky5.Domain.Entities;
 using Lucky5.Domain.Game.CleanRoom;
 using System.Collections.Concurrent;
+using System.Linq;
+using System.Threading;
 
 public sealed class InMemoryDataStore
 {
@@ -40,6 +42,7 @@ public sealed class InMemoryDataStore
         new() { Id = 1, Title = "Welcome Bonus", Description = "First deposit bonus", BonusAmount = 10 },
         new() { Id = 2, Title = "Weekend Cashback", Description = "5% cashback on losses", BonusAmount = 5 }
     ];
+    private int _nextOfferId = 3;
 
     public List<ContactType> ContactTypes { get; } =
     [
@@ -135,6 +138,88 @@ public sealed class InMemoryDataStore
             PhoneNumber = testUser.PhoneNumber,
             WalletBalance = 50_000_000
         };
+    }
+
+    public Task<Offer?> GetOfferAsync(int id)
+    {
+        var offer = Offers.FirstOrDefault(o => o.Id == id);
+        return Task.FromResult<Offer?>(offer);
+    }
+
+    public Task<Offer> CreateOfferAsync(Offer offer)
+    {
+        if (offer.Id <= 0)
+        {
+            offer = new Offer { Id = Interlocked.Increment(ref _nextOfferId), Title = offer.Title, Description = offer.Description, BonusAmount = offer.BonusAmount };
+        }
+        var existing = Offers.FirstOrDefault(o => o.Id == offer.Id);
+        if (existing != null)
+        {
+            existing.Title = offer.Title;
+            existing.Description = offer.Description;
+            existing.BonusAmount = offer.BonusAmount;
+            return Task.FromResult(existing);
+        }
+
+        Offers.Add(offer);
+        return Task.FromResult(offer);
+    }
+
+    public Task UpdateOfferAsync(Offer offer)
+    {
+        var existing = Offers.FirstOrDefault(o => o.Id == offer.Id);
+        if (existing != null)
+        {
+            existing.Title = offer.Title;
+            existing.Description = offer.Description;
+            existing.BonusAmount = offer.BonusAmount;
+        }
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteOfferAsync(int id)
+    {
+        var existing = Offers.FirstOrDefault(o => o.Id == id);
+        if (existing != null) Offers.Remove(existing);
+        return Task.CompletedTask;
+    }
+
+    public Task<TermsDocument?> GetTermsAsync()
+    {
+        return Task.FromResult<TermsDocument?>(Terms);
+    }
+
+    public Task UpdateTermsAsync(TermsDocument terms)
+    {
+        Terms.Version = terms.Version;
+        Terms.BodyMarkdown = terms.BodyMarkdown;
+        Terms.UpdatedUtc = DateTime.UtcNow;
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteTermsAsync()
+    {
+        Terms.Version = "1.0.0";
+        Terms.BodyMarkdown = string.Empty;
+        Terms.UpdatedUtc = DateTime.UtcNow;
+        return Task.CompletedTask;
+    }
+
+    public Task<Dictionary<string, string>> GetAppSettingsAsync()
+    {
+        return Task.FromResult(new Dictionary<string, string>(AppSettings, StringComparer.OrdinalIgnoreCase));
+    }
+
+    public Task UpdateAppSettingAsync(string key, string value)
+    {
+        AppSettings[key] = value;
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteAppSettingAsync(string key)
+    {
+        AppSettings.Remove(key);
+        return Task.CompletedTask;
     }
 
     public void ClearStaleRounds(TimeSpan maxAge)
