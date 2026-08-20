@@ -23,6 +23,7 @@ public class Lucky5DbContext : DbContext
     public DbSet<CabinetStateCursor> CabinetStateCursors => Set<CabinetStateCursor>();
     public DbSet<CabinetEventRecord> CabinetEventRecords => Set<CabinetEventRecord>();
     public DbSet<Offer> Offers => Set<Offer>();
+    public DbSet<TermsDocument> TermsDocuments => Set<TermsDocument>();
     public DbSet<ContactType> ContactTypes => Set<ContactType>();
     public DbSet<ContactReport> ContactReports => Set<ContactReport>();
     public DbSet<AppSetting> AppSettings => Set<AppSetting>();
@@ -220,6 +221,17 @@ public class Lucky5DbContext : DbContext
             new AppSetting { Key = "game.houseRulesetVersion", Value = "v2" },
             new AppSetting { Key = "signalr.heartbeatSeconds", Value = "20" },
             new AppSetting { Key = "wallet.currency", Value = "USD" }
+        );
+
+        // TermsDocument Configuration
+        modelBuilder.Entity<TermsDocument>(entity =>
+        {
+            entity.HasKey(e => e.Version);
+            entity.Property(e => e.BodyMarkdown).HasColumnType("text");
+        });
+
+        modelBuilder.Entity<TermsDocument>().HasData(
+            new TermsDocument { Version = "1.0.0", BodyMarkdown = "# Terms\n\nUse this clean-room build for testing and internal validation only.", UpdatedUtc = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc) }
         );
 
         // Offers and Contacts Configuration
