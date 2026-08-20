@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Lucky5 Admin - Agents</title>
+    <link rel="stylesheet" href="css/admin.css" />
+</head>
+<body>
+    <div class="admin-shell">
+        <aside class="admin-sidebar">
+            <div class="admin-sidebar-brand">
+                <span class="admin-sidebar-brand-mark">L5</span>
+                <span class="admin-sidebar-brand-text">
+                    Lucky5 Admin
+                    <small>Back office</small>
+                </span>
+            </div>
+
+            <ul class="admin-nav">
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="overview.html">
+                        <span class="admin-nav-icon">&#9632;</span>
+                        Overview
+                    </a>
+                </li>
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="users.html">
+                        <span class="admin-nav-icon">&#9670;</span>
+                        Users
+                    </a>
+                </li>
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="machines.html">
+                        <span class="admin-nav-icon">&#9636;</span>
+                        Machines
+                    </a>
+                </li>
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="agents.html">
+                        <span class="admin-nav-icon">&#9679;</span>
+                        Agents
+                    </a>
+                </li>
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="devices.html">
+                        <span class="admin-nav-icon">&#9673;</span>
+                        Cabinet Devices
+                    </a>
+                </li>
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="content.html">
+                        <span class="admin-nav-icon">&#9998;</span>
+                        Content
+                    </a>
+                </li>
+            </ul>
+
+            <div class="admin-sidebar-footer">Lucky5 v8 &middot; Admin Dashboard</div>
+        </aside>
+
+        <div class="admin-main">
+            <header class="admin-topbar">
+                <div class="admin-topbar-title">Agents</div>
+                <div class="admin-topbar-right">
+                    <div class="admin-user-chip">
+                        <span class="admin-user-avatar" id="admin-user-avatar">A</span>
+                        <span id="admin-username">admin</span>
+                    </div>
+                    <button class="admin-btn admin-btn-sm" id="admin-logout-btn" type="button">Log out</button>
+                </div>
+            </header>
+
+            <main class="admin-content">
+                <div class="admin-page-header">
+                    <div>
+                        <h1>Agents</h1>
+                        <p>Manage distributor and sub-admin accounts, their credit pools, and assigned users.</p>
+                    </div>
+                    <button class="admin-btn admin-btn-primary" id="admin-create-agent-btn" type="button">Create agent</button>
+                </div>
+
+                <div class="admin-table-wrap">
+                    <table class="admin-table" id="admin-agents-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Code</th>
+                                <th>Phone</th>
+                                <th>Status</th>
+                                <th>Credit Pool</th>
+                                <th>Users</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-agents-tbody">
+                            <tr>
+                                <td colspan="7">
+                                    <div class="admin-loading-state">
+                                        <span class="admin-spinner"></span> Loading agents...
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <div class="admin-modal-overlay" id="admin-create-agent-modal">
+        <div class="admin-modal">
+            <div class="admin-modal-header">
+                <h2>Create agent</h2>
+                <button class="admin-modal-close" data-close="admin-create-agent-modal" type="button">&times;</button>
+            </div>
+            <form id="admin-create-agent-form" novalidate>
+                <div class="admin-form-group">
+                    <label class="admin-label" for="admin-agent-name">Name</label>
+                    <input class="admin-input" id="admin-agent-name" name="name" type="text" required minlength="3" maxlength="50" />
+                </div>
+                <div class="admin-form-group">
+                    <label class="admin-label" for="admin-agent-code">Code</label>
+                    <input class="admin-input" id="admin-agent-code" name="code" type="text" required minlength="2" maxlength="10" />
+                </div>
+                <div class="admin-form-group">
+                    <label class="admin-label" for="admin-agent-phone">Phone Number</label>
+                    <input class="admin-input" id="admin-agent-phone" name="phoneNumber" type="text" required minlength="5" maxlength="20" />
+                </div>
+                <div class="admin-form-actions">
+                    <button class="admin-btn" data-close="admin-create-agent-modal" type="button">Cancel</button>
+                    <button class="admin-btn admin-btn-primary" type="submit">Create agent</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="admin-modal-overlay" id="admin-users-modal">
+        <div class="admin-modal admin-modal-lg">
+            <div class="admin-modal-header">
+                <h2 id="admin-users-modal-title">Agent users</h2>
+                <button class="admin-modal-close" data-close="admin-users-modal" type="button">&times;</button>
+            </div>
+            <div id="admin-users-modal-body">
+                <div class="admin-loading-state">
+                    <span class="admin-spinner"></span> Loading users...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/admin-api.js"></script>
+    <script src="js/admin-shell.js"></script>
+    <script>
+        (function () {
+            'use strict';
+
+            var currentAgentId = null;
+
+            function ensureModal(modalId) {
+                var modal = document.getElementById(modalId);
+                if (!modal) return null;
+                modal.addEventListener('click', function (event) {
+                    if (event.target === modal) {
+                        modal.classList.remove('is-open');
+                    }
+                });
+                modal.querySelectorAll('[data-close]').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        modal.classList.remove('is-open');
+                    });
+                });
+                return modal;
+            }
+
+            function openModal(modalId) {
+                var modal = ensureModal(modalId);
+                if (modal) modal.classList.add('is-open');
+            }
+
+            function closeModal(modalId) {
+                var modal = document.getElementById(modalId);
+                if (modal) modal.classList.remove('is-open');
+            }
+
+            function formatCurrency(value) {
+                var num = Number(value || 0);
+                return num.toFixed(2);
+            }
+
+            function formatDate(value) {
+                if (!value) return '-';
+                var d = new Date(value);
+                if (Number.isNaN(d.getTime())) return '-';
+                return d.toLocaleDateString();
+            }
+
+            function renderAgents() {
+                var tbody = document.getElementById('admin-agents-tbody');
+                if (!tbody) return;
+
+                tbody.innerHTML = '<tr><td colspan="7"><div class="admin-loading-state"><span class="admin-spinner"></span> Loading agents...</div></td></tr>';
+
+                window.AdminApi.getAgentsSummary()
+                    .then(function (agents) {
+                        if (!agents || !agents.length) {
+                            tbody.innerHTML = '<tr><td colspan="7"><div class="admin-empty-state"><h3>No agents found</h3><p>Create an agent to get started.</p></div></td></tr>';
+                            return;
+                        }
+
+                        var rows = agents.map(function (agent) {
+                            var statusBadge = agent.isActive
+                                ? '<span class="admin-badge admin-badge-success">Active</span>'
+                                : '<span class="admin-badge admin-badge-danger">Inactive</span>';
+
+                            return '<tr data-agent-id="' + agent.id + '">' +
+                                '<td>' + escapeHtml(agent.name) + '</td>' +
+                                '<td>' + escapeHtml(agent.code) + '</td>' +
+                                '<td>' + escapeHtml(agent.phoneNumber) + '</td>' +
+                                '<td>' + statusBadge + '</td>' +
+                                '<td>' + formatCurrency(agent.creditPool) + '</td>' +
+                                '<td>' + (agent.userCount || 0) + '</td>' +
+                                '<td><button class="admin-btn admin-btn-sm admin-view-users-btn" data-agent-id="' + agent.id + '" data-agent-name="' + escapeHtml(agent.name) + '" type="button">View users</button></td>' +
+                            '</tr>';
+                        }).join('');
+
+                        tbody.innerHTML = rows;
+
+                        tbody.querySelectorAll('.admin-view-users-btn').forEach(function (btn) {
+                            btn.addEventListener('click', function () {
+                                var agentId = btn.getAttribute('data-agent-id');
+                                var agentName = btn.getAttribute('data-agent-name');
+                                openAgentUsers(agentId, agentName);
+                            });
+                        });
+                    })
+                    .catch(function (error) {
+                        tbody.innerHTML = '<tr><td colspan="7"><div class="admin-error-state">Failed to load agents: ' + escapeHtml((error && error.message) || 'Unknown error') + '</div></td></tr>';
+                    });
+            }
+
+            function openAgentUsers(agentId, agentName) {
+                currentAgentId = agentId;
+                document.getElementById('admin-users-modal-title').textContent = 'Users - ' + (agentName || ('Agent ' + agentId));
+                document.getElementById('admin-users-modal-body').innerHTML = '<div class="admin-loading-state"><span class="admin-spinner"></span> Loading users...</div>';
+                openModal('admin-users-modal');
+
+                window.AdminApi.getAgentUsers(agentId)
+                    .then(function (users) {
+                        renderUsersModal(users);
+                    })
+                    .catch(function (error) {
+                        document.getElementById('admin-users-modal-body').innerHTML = '<div class="admin-error-state">Failed to load users: ' + escapeHtml((error && error.message) || 'Unknown error') + '</div>';
+                    });
+            }
+
+            function renderUsersModal(users) {
+                var body = document.getElementById('admin-users-modal-body');
+                if (!body) return;
+
+                var usersHtml = '';
+                if (!users || !users.length) {
+                    usersHtml = '<div class="admin-empty-state"><h3>No users assigned</h3><p>Assign an existing user or create a new one below.</p></div>';
+                } else {
+                    usersHtml = '<div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Username</th><th>Display</th><th>Phone</th><th>Wallet</th><th>Role</th><th>Created</th><th></th></tr></thead><tbody>';
+                    usersHtml += users.map(function (user) {
+                        return '<tr>' +
+                            '<td>' + escapeHtml(user.username) + '</td>' +
+                            '<td>' + escapeHtml(user.displayName) + '</td>' +
+                            '<td>' + escapeHtml(user.phoneNumber) + '</td>' +
+                            '<td>' + formatCurrency(user.walletBalance) + '</td>' +
+                            '<td>' + escapeHtml(user.role) + '</td>' +
+                            '<td>' + formatDate(user.createdUtc) + '</td>' +
+                            '<td>' +
+                                '<div class="admin-form-row" style="gap:6px;">' +
+                                    '<input class="admin-input admin-load-credit-amount" data-user-id="' + user.userId + '" type="number" step="0.01" placeholder="Amount" style="width:90px;" />' +
+                                    '<button class="admin-btn admin-btn-sm admin-load-credit-btn" data-user-id="' + user.userId + '" type="button">Load</button>' +
+                                '</div>' +
+                            '</td>' +
+                        '</tr>';
+                    }).join('');
+                    usersHtml += '</tbody></table></div>';
+                }
+
+                body.innerHTML = usersHtml +
+                    '<div class="admin-mt-16 admin-card" style="background:var(--admin-bg-elevated);border:1px solid var(--admin-border);border-radius:var(--admin-radius);padding:18px 20px;">' +
+                        '<h3 style="margin:0 0 12px;font-size:15px;">Assign existing user</h3>' +
+                        '<div class="admin-form-row">' +
+                            '<div class="admin-form-group" style="flex:1;">' +
+                                '<label class="admin-label" for="admin-assign-user-id">User GUID</label>' +
+                                '<input class="admin-input" id="admin-assign-user-id" type="text" placeholder="e.g. 00000000-0000-0000-0000-000000000000" />' +
+                            '</div>' +
+                            '<div class="admin-form-group" style="flex:1;">' +
+                                '<label class="admin-label" for="admin-assign-user-note">Note</label>' +
+                                '<input class="admin-input" id="admin-assign-user-note" type="text" placeholder="Optional note" />' +
+                            '</div>' +
+                        '</div>' +
+                        '<button class="admin-btn admin-btn-primary admin-assign-user-btn" type="button" data-agent-id="' + currentAgentId + '">Assign user</button>' +
+                    '</div>' +
+                    '<div class="admin-mt-16 admin-card" style="background:var(--admin-bg-elevated);border:1px solid var(--admin-border);border-radius:var(--admin-radius);padding:18px 20px;">' +
+                        '<h3 style="margin:0 0 12px;font-size:15px;">Create user under this agent</h3>' +
+                        '<form id="admin-create-user-form" novalidate>' +
+                            '<div class="admin-form-row">' +
+                                '<div class="admin-form-group" style="flex:1;">' +
+                                    '<label class="admin-label" for="admin-new-username">Username</label>' +
+                                    '<input class="admin-input" id="admin-new-username" name="username" type="text" required />' +
+                                '</div>' +
+                                '<div class="admin-form-group" style="flex:1;">' +
+                                    '<label class="admin-label" for="admin-new-password">Password</label>' +
+                                    '<input class="admin-input" id="admin-new-password" name="password" type="text" required />' +
+                                '</div>' +
+                            '</div>' +
+                            '<div class="admin-form-row">' +
+                                '<div class="admin-form-group" style="flex:1;">' +
+                                    '<label class="admin-label" for="admin-new-phone">Phone Number</label>' +
+                                    '<input class="admin-input" id="admin-new-phone" name="phoneNumber" type="text" required />' +
+                                '</div>' +
+                                '<div class="admin-form-group" style="flex:1;">' +
+                                    '<label class="admin-label" for="admin-new-email">Email</label>' +
+                                    '<input class="admin-input" id="admin-new-email" name="email" type="email" />' +
+                                '</div>' +
+                            '</div>' +
+                            '<div class="admin-form-row">' +
+                                '<div class="admin-form-group" style="flex:1;">' +
+                                    '<label class="admin-label" for="admin-new-fullname">Full Name</label>' +
+                                    '<input class="admin-input" id="admin-new-fullname" name="fullName" type="text" />' +
+                                '</div>' +
+                                '<div class="admin-form-group" style="flex:1;">' +
+                                    '<label class="admin-label" for="admin-new-dob">Date of Birth</label>' +
+                                    '<input class="admin-input" id="admin-new-dob" name="dateOfBirth" type="date" />' +
+                                '</div>' +
+                            '</div>' +
+                            '<button class="admin-btn admin-btn-primary" type="submit">Create user</button>' +
+                        '</form>' +
+                    '</div>';
+
+                bindUsersModalEvents();
+            }
+
+            function bindUsersModalEvents() {
+                var body = document.getElementById('admin-users-modal-body');
+                if (!body) return;
+
+                body.querySelectorAll('.admin-load-credit-btn').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        var userId = btn.getAttribute('data-user-id');
+                        var input = btn.previousElementSibling;
+                        var amount = input ? parseFloat(input.value) : NaN;
+                        if (Number.isNaN(amount) || amount <= 0) {
+                            window.AdminShell.showToast('Enter a valid credit amount.', 'error');
+                            return;
+                        }
+                        btn.disabled = true;
+                        window.AdminApi.loadCredit(currentAgentId, amount)
+                            .then(function (agent) {
+                                window.AdminShell.showToast('Credit loaded successfully. Pool: ' + formatCurrency(agent.creditPool), 'success');
+                                input.value = '';
+                                renderAgents();
+                            })
+                            .catch(function (error) {
+                                window.AdminShell.showToast((error && error.message) || 'Failed to load credit.', 'error');
+                            })
+                            .finally(function () {
+                                btn.disabled = false;
+                            });
+                    });
+                });
+
+                var assignBtn = body.querySelector('.admin-assign-user-btn');
+                if (assignBtn) {
+                    assignBtn.addEventListener('click', function () {
+                        var userIdInput = document.getElementById('admin-assign-user-id');
+                        var userId = userIdInput ? userIdInput.value.trim() : '';
+                        if (!userId) {
+                            window.AdminShell.showToast('Enter a user GUID.', 'error');
+                            return;
+                        }
+                        assignBtn.disabled = true;
+                        window.AdminApi.assignUser(currentAgentId, userId)
+                            .then(function () {
+                                window.AdminShell.showToast('User assigned successfully.', 'success');
+                                userIdInput.value = '';
+                                openAgentUsers(currentAgentId, document.getElementById('admin-users-modal-title').textContent.replace('Users - ', ''));
+                            })
+                            .catch(function (error) {
+                                window.AdminShell.showToast((error && error.message) || 'Failed to assign user.', 'error');
+                            })
+                            .finally(function () {
+                                assignBtn.disabled = false;
+                            });
+                    });
+                }
+
+                var createUserForm = document.getElementById('admin-create-user-form');
+                if (createUserForm) {
+                    createUserForm.addEventListener('submit', function (event) {
+                        event.preventDefault();
+                        var form = event.target;
+                        var username = document.getElementById('admin-new-username').value.trim();
+                        var password = document.getElementById('admin-new-password').value;
+                        var phoneNumber = document.getElementById('admin-new-phone').value.trim();
+                        var email = document.getElementById('admin-new-email').value.trim() || null;
+                        var fullName = document.getElementById('admin-new-fullname').value.trim() || null;
+                        var dob = document.getElementById('admin-new-dob').value || null;
+
+                        if (!username || !password || !phoneNumber) {
+                            window.AdminShell.showToast('Username, password, and phone number are required.', 'error');
+                            return;
+                        }
+
+                        var payload = {
+                            username: username,
+                            password: password,
+                            phoneNumber: phoneNumber,
+                            email: email,
+                            fullName: fullName,
+                            dateOfBirth: dob ? new Date(dob).toISOString() : null
+                        };
+
+                        var submitBtn = form.querySelector('button[type="submit"]');
+                        submitBtn.disabled = true;
+
+                        window.AdminApi.createUserUnderAgent(payload)
+                            .then(function (result) {
+                                window.AdminShell.showToast('User created successfully under agent.', 'success');
+                                form.reset();
+                                openAgentUsers(currentAgentId, document.getElementById('admin-users-modal-title').textContent.replace('Users - ', ''));
+                            })
+                            .catch(function (error) {
+                                window.AdminShell.showToast((error && error.message) || 'Failed to create user.', 'error');
+                            })
+                            .finally(function () {
+                                submitBtn.disabled = false;
+                            });
+                    });
+                }
+            }
+
+            function escapeHtml(value) {
+                if (value === null || value === undefined) return '';
+                return String(value)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;');
+            }
+
+            function init() {
+                ensureModal('admin-create-agent-modal');
+                ensureModal('admin-users-modal');
+
+                document.getElementById('admin-create-agent-btn').addEventListener('click', function () {
+                    document.getElementById('admin-create-agent-form').reset();
+                    openModal('admin-create-agent-modal');
+                });
+
+                document.getElementById('admin-create-agent-form').addEventListener('submit', function (event) {
+                    event.preventDefault();
+                    var form = event.target;
+                    var name = document.getElementById('admin-agent-name').value.trim();
+                    var code = document.getElementById('admin-agent-code').value.trim();
+                    var phoneNumber = document.getElementById('admin-agent-phone').value.trim();
+
+                    if (!name || !code || !phoneNumber) {
+                        window.AdminShell.showToast('All fields are required.', 'error');
+                        return;
+                    }
+
+                    var submitBtn = form.querySelector('button[type="submit"]');
+                    submitBtn.disabled = true;
+
+                    window.AdminApi.createAgent({ name: name, code: code, phoneNumber: phoneNumber })
+                        .then(function (agent) {
+                            window.AdminShell.showToast('Agent created successfully.', 'success');
+                            closeModal('admin-create-agent-modal');
+                            form.reset();
+                            renderAgents();
+                        })
+                        .catch(function (error) {
+                            window.AdminShell.showToast((error && error.message) || 'Failed to create agent.', 'error');
+                        })
+                        .finally(function () {
+                            submitBtn.disabled = false;
+                        });
+                });
+
+                renderAgents();
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', init);
+            } else {
+                init();
+            }
+        })();
+    </script>
+</body>
+</html>
