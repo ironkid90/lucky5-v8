@@ -557,7 +557,7 @@
                                 '<table class="admin-table" style="font-size:12px;"><thead><tr><th>Round</th><th>Machine</th><th>Bet</th><th>Phase</th><th>Win</th><th>Hand</th></tr></thead><tbody>';
                             detail.activeRounds.forEach(function (r) {
                                 roundsHtml += '<tr>' +
-                                    '<td style="font-size:11px;">' + r.roundId + '</td>' +
+                                    '<td style="font-size:11px;">' + escapeHtml(r.roundId) + '</td>' +
                                     '<td>' + escapeHtml(r.machineName) + ' (#' + r.machineId + ')</td>' +
                                     '<td>' + formatCurrency(r.betAmount) + '</td>' +
                                     '<td><span class="admin-badge ' + roleBadgeClass(r.phase) + '">' + escapeHtml(r.phase) + '</span></td>' +
