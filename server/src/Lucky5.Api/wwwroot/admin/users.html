@@ -542,7 +542,7 @@
                             detail.sessions.forEach(function (s) {
                                 sessionsHtml += '<tr>' +
                                     '<td>' + escapeHtml(s.machineName) + ' (#' + s.machineId + ')</td>' +
-                                    '<td style="font-size:11px;">' + s.sessionId + '</td>' +
+                                    '<td style="font-size:11px;">' + escapeHtml(s.sessionId) + '</td>' +
                                     '<td>' + formatCurrency(s.machineCredits) + '</td>' +
                                     '<td>' + formatCurrency(s.totalCashIn) + '</td>' +
                                     '<td><span class="admin-badge ' + (s.isMachineClosed ? 'admin-badge-danger' : 'admin-badge-success') + '">' + (s.isMachineClosed ? 'Closed' : 'Open') + '</span></td>' +
