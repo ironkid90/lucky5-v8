@@ -194,15 +194,15 @@ public class Lucky5DbContext : DbContext
         });
 
         // Agent Configuration
-                modelBuilder.Entity<Agent>(entity =>
-                {
-                    entity.HasKey(e => e.Id);
-                    entity.Property(e => e.UserId).IsRequired();
-                    entity.Property(e => e.Name).HasMaxLength(100).IsRequired();
-                    entity.Property(e => e.Code).HasMaxLength(50).IsRequired();
-                    entity.HasIndex(e => e.Code).IsUnique();
-                    entity.Property(e => e.CreditPool).HasPrecision(18, 2);
-                });
+        modelBuilder.Entity<Agent>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.UserId).IsRequired();
+            entity.Property(e => e.Name).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.Code).HasMaxLength(50).IsRequired();
+            entity.HasIndex(e => e.Code).IsUnique();
+            entity.Property(e => e.CreditPool).HasPrecision(18, 2);
+        });
 
         // Seed Data for Machines
         modelBuilder.Entity<Machine>().HasData(
