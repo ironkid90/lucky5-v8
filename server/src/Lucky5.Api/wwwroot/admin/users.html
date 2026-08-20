@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Users - Lucky5 Admin</title>
+    <link rel="stylesheet" href="css/admin.css" />
+</head>
+<body>
+    <div class="admin-shell">
+        <aside class="admin-sidebar">
+            <div class="admin-sidebar-brand">
+                <span class="admin-sidebar-brand-mark">L5</span>
+                <span class="admin-sidebar-brand-text">
+                    Lucky5 Admin
+                    <small>Back office</small>
+                </span>
+            </div>
+
+            <ul class="admin-nav">
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="overview.html">
+                        <span class="admin-nav-icon">&#9632;</span>
+                        Overview
+                    </a>
+                </li>
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="users.html">
+                        <span class="admin-nav-icon">&#9670;</span>
+                        Users
+                    </a>
+                </li>
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="machines.html">
+                        <span class="admin-nav-icon">&#9636;</span>
+                        Machines
+                    </a>
+                </li>
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="agents.html">
+                        <span class="admin-nav-icon">&#9679;</span>
+                        Agents
+                    </a>
+                </li>
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="devices.html">
+                        <span class="admin-nav-icon">&#9673;</span>
+                        Cabinet Devices
+                    </a>
+                </li>
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="content.html">
+                        <span class="admin-nav-icon">&#9998;</span>
+                        Content
+                    </a>
+                </li>
+            </ul>
+
+            <div class="admin-sidebar-footer">Lucky5 v8 &middot; Admin Dashboard</div>
+        </aside>
+
+        <div class="admin-main">
+            <header class="admin-topbar">
+                <div class="admin-topbar-title">Users</div>
+                <div class="admin-topbar-right">
+                    <div class="admin-user-chip">
+                        <span class="admin-user-avatar" id="admin-user-avatar">A</span>
+                        <span id="admin-username">admin</span>
+                    </div>
+                    <button class="admin-btn admin-btn-sm" id="admin-logout-btn" type="button">Log out</button>
+                </div>
+            </header>
+
+            <main class="admin-content">
+                <div class="admin-page-header">
+                    <div>
+                        <h1>User Management</h1>
+                        <p>Manage player accounts, roles, wallets, and agent assignments.</p>
+                    </div>
+                    <button class="admin-btn admin-btn-primary" id="btn-create-user" type="button">Create user</button>
+                </div>
+
+                <div id="admin-bulk-bar" class="admin-bulk-bar" style="display:none;">
+                    <span class="admin-bulk-bar-info"><span id="admin-bulk-count">0</span> selected</span>
+                    <select id="admin-bulk-agent-select" class="admin-select" style="width:240px;">
+                        <option value="">Assign to agent...</option>
+                    </select>
+                    <button class="admin-btn admin-btn-sm admin-btn-primary" id="admin-bulk-assign-btn" type="button">Assign agent</button>
+                    <button class="admin-btn admin-btn-sm" id="admin-bulk-clear-btn" type="button">Clear selection</button>
+                </div>
+
+                <div class="admin-table-wrap">
+                    <div class="admin-table-toolbar">
+                        <input type="search" id="admin-user-search" class="admin-input" placeholder="Search users..." style="max-width:320px;" />
+                        <div class="admin-table-actions">
+                            <button class="admin-btn admin-btn-sm" id="admin-refresh-btn" type="button">Refresh</button>
+                        </div>
+                    </div>
+                    <div id="admin-users-loading" class="admin-loading-state">
+                        <span class="admin-spinner"></span> Loading users...
+                    </div>
+                    <div id="admin-users-error" class="admin-error-state" style="display:none;"></div>
+                    <div id="admin-users-empty" class="admin-empty-state" style="display:none;">
+                        <h3>No users found</h3>
+                        <p>Try a different search term or create a new user.</p>
+                    </div>
+                    <div id="admin-users-table-container" style="display:none;">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:36px;"><input type="checkbox" id="admin-users-select-all" /></th>
+                                    <th>Username</th>
+                                    <th>Role</th>
+                                    <th>Wallet Balance</th>
+                                    <th>Created</th>
+                                    <th>Agent</th>
+                                    <th style="text-align:right;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-users-tbody"></tbody>
+                        </table>
+                        <div class="admin-table-toolbar" style="margin-top:12px;margin-bottom:0;">
+                            <span id="admin-users-page-info" class="admin-text-muted" style="font-size:12px;"></span>
+                            <div class="admin-table-actions">
+                                <button class="admin-btn admin-btn-sm" id="admin-users-prev" type="button" disabled>&larr; Prev</button>
+                                <button class="admin-btn admin-btn-sm" id="admin-users-next" type="button" disabled>Next &rarr;</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <div id="admin-toast-container" class="admin-toast-container"></div>
+
+    <div class="admin-modal-overlay" id="admin-create-user-overlay">
+        <div class="admin-modal">
+            <div class="admin-modal-header">
+                <h2>Create user</h2>
+                <button class="admin-modal-close" data-close="admin-create-user-overlay" type="button">&times;</button>
+            </div>
+            <form id="admin-create-user-form" autocomplete="off">
+                <div class="admin-form-group">
+                    <label class="admin-label" for="create-username">Username</label>
+                    <input class="admin-input" id="create-username" name="username" type="text" required minlength="3" maxlength="50" pattern="[a-zA-Z0-9]+" />
+                </div>
+                <div class="admin-form-group">
+                    <label class="admin-label" for="create-password">Password</label>
+                    <input class="admin-input" id="create-password" name="password" type="password" required minlength="8" />
+                </div>
+                <div class="admin-form-group">
+                    <label class="admin-label" for="create-phone">Phone Number</label>
+                    <input class="admin-input" id="create-phone" name="phoneNumber" type="tel" required minlength="5" maxlength="20" />
+                </div>
+                <div class="admin-form-group">
+                    <label class="admin-label" for="create-fullname">Full Name (optional)</label>
+                    <input class="admin-input" id="create-fullname" name="fullName" type="text" maxlength="100" />
+                </div>
+                <div class="admin-form-group">
+                    <label class="admin-label" for="create-email">Email (optional)</label>
+                    <input class="admin-input" id="create-email" name="email" type="email" maxlength="100" />
+                </div>
+                <div class="admin-form-row">
+                    <div class="admin-form-group">
+                        <label class="admin-label" for="create-role">Role</label>
+                        <select class="admin-select" id="create-role" name="role">
+                            <option value="player">Player</option>
+                            <option value="agent">Agent</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                    <div class="admin-form-group">
+                        <label class="admin-label" for="create-agent">Agent (optional)</label>
+                        <select class="admin-select" id="create-agent" name="agentId">
+                            <option value="">None</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="admin-form-actions">
+                    <button class="admin-btn" type="button" data-close="admin-create-user-overlay">Cancel</button>
+                    <button class="admin-btn admin-btn-primary" type="submit">Create user</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="admin-modal-overlay admin-modal-overlay-lg" id="admin-user-detail-overlay">
+        <div class="admin-modal">
+            <div class="admin-modal-header">
+                <h2 id="admin-detail-title">User detail</h2>
+                <button class="admin-modal-close" data-close="admin-user-detail-overlay" type="button">&times;</button>
+            </div>
+            <div id="admin-user-detail-body">
+                <div class="admin-loading-state">
+                    <span class="admin-spinner"></span> Loading...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="admin-modal-overlay" id="admin-credit-overlay">
+        <div class="admin-modal">
+            <div class="admin-modal-header">
+                <h2>Credit / Debit wallet</h2>
+                <button class="admin-modal-close" data-close="admin-credit-overlay" type="button">&times;</button>
+            </div>
+            <form id="admin-credit-form" autocomplete="off">
+                <input type="hidden" id="credit-user-id" />
+                <div class="admin-form-group">
+                    <label class="admin-label" for="credit-amount">Amount (positive = credit, negative = debit)</label>
+                    <input class="admin-input" id="credit-amount" name="amount" type="number" step="0.01" required />
+                </div>
+                <div class="admin-form-group">
+                    <label class="admin-label" for="credit-reason">Reason</label>
+                    <input class="admin-input" id="credit-reason" name="reason" type="text" required minlength="3" maxlength="100" />
+                </div>
+                <div class="admin-form-actions">
+                    <button class="admin-btn" type="button" data-close="admin-credit-overlay">Cancel</button>
+                    <button class="admin-btn admin-btn-primary" type="submit">Apply</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="admin-modal-overlay" id="admin-force-end-overlay">
+        <div class="admin-modal">
+            <div class="admin-modal-header">
+                <h2>Force end session</h2>
+                <button class="admin-modal-close" data-close="admin-force-end-overlay" type="button">&times;</button>
+            </div>
+            <form id="admin-force-end-form" autocomplete="off">
+                <input type="hidden" id="force-end-user-id" />
+                <div class="admin-form-group">
+                    <label class="admin-label" for="force-end-machine-id">Machine ID</label>
+                    <input class="admin-input" id="force-end-machine-id" name="machineId" type="number" required />
+                    <p class="admin-text-muted" style="font-size:12px;margin-top:6px;">This will immediately end the user's active session on the specified machine.</p>
+                </div>
+                <div class="admin-form-actions">
+                    <button class="admin-btn" type="button" data-close="admin-force-end-overlay">Cancel</button>
+                    <button class="admin-btn admin-btn-danger" type="submit">Force end session</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="admin-modal-overlay" id="admin-recharge-overlay">
+        <div class="admin-modal">
+            <div class="admin-modal-header">
+                <h2>Recharge bonus</h2>
+                <button class="admin-modal-close" data-close="admin-recharge-overlay" type="button">&times;</button>
+            </div>
+            <form id="admin-recharge-form" autocomplete="off">
+                <input type="hidden" id="recharge-user-id" />
+                <div class="admin-form-group">
+                    <label class="admin-label" for="recharge-amount">Recharge Amount</label>
+                    <input class="admin-input" id="recharge-amount" name="rechargeAmount" type="number" step="0.01" min="0.01" required />
+                </div>
+                <div class="admin-form-actions">
+                    <button class="admin-btn" type="button" data-close="admin-recharge-overlay">Cancel</button>
+                    <button class="admin-btn admin-btn-primary" type="submit">Recharge</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="admin-modal-overlay" id="admin-change-role-overlay">
+        <div class="admin-modal">
+            <div class="admin-modal-header">
+                <h2>Change role</h2>
+                <button class="admin-modal-close" data-close="admin-change-role-overlay" type="button">&times;</button>
+            </div>
+            <form id="admin-change-role-form" autocomplete="off">
+                <input type="hidden" id="change-role-user-id" />
+                <div class="admin-form-group">
+                    <label class="admin-label" for="change-role-select">Role</label>
+                    <select class="admin-select" id="change-role-select" name="role">
+                        <option value="player">Player</option>
+                        <option value="agent">Agent</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div class="admin-form-actions">
+                    <button class="admin-btn" type="button" data-close="admin-change-role-overlay">Cancel</button>
+                    <button class="admin-btn admin-btn-primary" type="submit">Update role</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/admin-api.js"></script>
+    <script src="js/admin-shell.js"></script>
+    <script>
+        (function () {
+            'use strict';
+
+            var session = window.AdminShell ? window.AdminShell.guardSession() : null;
+            if (!session) return;
+
+            var toast = window.AdminShell.showToast ? window.AdminShell.showToast.bind(window.AdminShell) : function (message, type, durationMs) {
+                var container = document.getElementById('admin-toast-container');
+                if (!container) return;
+                var toastEl = document.createElement('div');
+                var toastType = type === 'error' ? 'admin-toast-error' : (type === 'success' ? 'admin-toast-success' : '');
+                toastEl.className = 'admin-toast ' + toastType;
+                toastEl.textContent = message;
+                container.appendChild(toastEl);
+                global.setTimeout(function () {
+                    if (toastEl.parentNode) toastEl.parentNode.removeChild(toastEl);
+                }, durationMs || 4000);
+            };
+
+            var PAGE_SIZE = 25;
+            var allUsers = [];
+            var filteredUsers = [];
+            var selectedUserIds = {};
+            var currentPage = 0;
+            var searchDebounceTimer = null;
+
+            var tbody = document.getElementById('admin-users-tbody');
+            var loadingEl = document.getElementById('admin-users-loading');
+            var errorEl = document.getElementById('admin-users-error');
+            var emptyEl = document.getElementById('admin-users-empty');
+            var tableContainer = document.getElementById('admin-users-table-container');
+            var searchInput = document.getElementById('admin-user-search');
+            var prevBtn = document.getElementById('admin-users-prev');
+            var nextBtn = document.getElementById('admin-users-next');
+            var pageInfo = document.getElementById('admin-users-page-info');
+            var bulkBar = document.getElementById('admin-bulk-bar');
+            var bulkCount = document.getElementById('admin-bulk-count');
+            var bulkAgentSelect = document.getElementById('admin-bulk-agent-select');
+            var refreshBtn = document.getElementById('admin-refresh-btn');
+
+            function closeModal(overlayId) {
+                var overlay = document.getElementById(overlayId);
+                if (overlay) overlay.classList.remove('is-open');
+            }
+
+            function openModal(overlayId) {
+                var overlay = document.getElementById(overlayId);
+                if (overlay) overlay.classList.add('is-open');
+            }
+
+            function formatDate(value) {
+                if (!value) return '-';
+                var d = new Date(value);
+                if (isNaN(d.getTime())) return '-';
+                return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+            }
+
+            function formatCurrency(value) {
+                if (value === null || value === undefined) return '-';
+                return Number(value).toLocaleString(undefined, { style: 'currency', currency: 'USD' });
+            }
+
+            function roleBadgeClass(role) {
+                if (!role) return '';
+                if (role === 'admin') return 'admin-badge-danger';
+                if (role === 'agent') return 'admin-badge-warning';
+                return 'admin-badge-success';
+            }
+
+            function setLoading(isLoading) {
+                loadingEl.style.display = isLoading ? 'flex' : 'none';
+                errorEl.style.display = 'none';
+                if (!isLoading) {
+                    if (filteredUsers.length === 0) {
+                        emptyEl.style.display = 'block';
+                        tableContainer.style.display = 'none';
+                    } else {
+                        emptyEl.style.display = 'none';
+                        tableContainer.style.display = 'block';
+                    }
+                } else {
+                    emptyEl.style.display = 'none';
+                    tableContainer.style.display = 'none';
+                }
+            }
+
+            function showError(message) {
+                loadingEl.style.display = 'none';
+                emptyEl.style.display = 'none';
+                tableContainer.style.display = 'none';
+                errorEl.textContent = message;
+                errorEl.style.display = 'block';
+            }
+
+            function renderPagination() {
+                var totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
+                if (currentPage >= totalPages) currentPage = totalPages - 1;
+                if (currentPage < 0) currentPage = 0;
+                pageInfo.textContent = 'Page ' + (currentPage + 1) + ' of ' + totalPages + ' (' + filteredUsers.length + ' users)';
+                prevBtn.disabled = currentPage <= 0;
+                nextBtn.disabled = currentPage >= totalPages - 1;
+            }
+
+            function renderTable() {
+                tbody.innerHTML = '';
+                var start = currentPage * PAGE_SIZE;
+                var pageUsers = filteredUsers.slice(start, start + PAGE_SIZE);
+                pageUsers.forEach(function (user) {
+                    var tr = document.createElement('tr');
+                    var checked = selectedUserIds[user.userId] ? 'checked' : '';
+                    var agentDisplay = user.agentName || (user.agentId ? 'Agent #' + user.agentId : '');
+                    var agentBadgeClass = agentDisplay ? 'admin-badge-warning' : 'admin-badge';
+
+                    tr.innerHTML =
+                        '<td><input type="checkbox" class="admin-user-select" data-user-id="' + user.userId + '" ' + checked + ' /></td>' +
+                        '<td><strong>' + escapeHtml(user.username) + '</strong><br/><span class="admin-text-muted" style="font-size:12px;">' + escapeHtml(user.displayName || user.fullName || '') + '</span></td>' +
+                        '<td><span class="admin-badge ' + roleBadgeClass(user.role) + '">' + escapeHtml(user.role) + '</span></td>' +
+                        '<td>' + formatCurrency(user.walletBalance) + '</td>' +
+                        '<td>' + formatDate(user.createdUtc) + '</td>' +
+                        '<td><span class="admin-badge ' + agentBadgeClass + '">' + escapeHtml(agentDisplay) + '</span></td>' +
+                        '<td style="text-align:right;"><button class="admin-btn admin-btn-sm admin-user-view-btn" data-user-id="' + user.userId + '" type="button">View</button></td>';
+                    tbody.appendChild(tr);
+                });
+
+                document.querySelectorAll('.admin-user-select').forEach(function (cb) {
+                    cb.addEventListener('change', function () {
+                        var uid = cb.getAttribute('data-user-id');
+                        if (cb.checked) {
+                            selectedUserIds[uid] = true;
+                        } else {
+                            delete selectedUserIds[uid];
+                        }
+                        updateBulkBar();
+                        updateSelectAllCheckbox();
+                    });
+                });
+
+                document.querySelectorAll('.admin-user-view-btn').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        openUserDetail(btn.getAttribute('data-user-id'));
+                    });
+                });
+
+                renderPagination();
+            }
+
+            function escapeHtml(str) {
+                if (!str) return '';
+                return String(str)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;');
+            }
+
+            function updateBulkBar() {
+                var count = Object.keys(selectedUserIds).length;
+                bulkCount.textContent = count;
+                bulkBar.style.display = count > 0 ? 'flex' : 'none';
+            }
+
+            function updateSelectAllCheckbox() {
+                var selectAll = document.getElementById('admin-users-select-all');
+                if (!selectAll) return;
+                var start = currentPage * PAGE_SIZE;
+                var pageUsers = filteredUsers.slice(start, start + PAGE_SIZE);
+                var allChecked = pageUsers.length > 0 && pageUsers.every(function (u) { return selectedUserIds[u.userId]; });
+                var someChecked = pageUsers.some(function (u) { return selectedUserIds[u.userId]; });
+                selectAll.checked = allChecked;
+                selectAll.indeterminate = !allChecked && someChecked;
+            }
+
+            function mapUserDto(u) {
+                return {
+                    userId: u.userId,
+                    username: u.username,
+                    displayName: u.displayName,
+                    phoneNumber: u.phoneNumber,
+                    walletBalance: u.walletBalance,
+                    role: u.role,
+                    createdUtc: u.createdUtc,
+                    lastSeenUtc: u.lastSeenUtc,
+                    email: u.email,
+                    fullName: u.fullName,
+                    agentId: u.agentId,
+                    agentName: u.agentName
+                };
+            }
+
+            function loadUsers() {
+                setLoading(true);
+                window.AdminApi.listUsers()
+                    .then(function (data) {
+                        allUsers = (data || []).map(mapUserDto);
+                        applySearchFilter('');
+                    })
+                    .catch(function (err) {
+                        console.error(err);
+                        showError('Failed to load users: ' + (err.message || 'Unknown error'));
+                    });
+            }
+
+            function applySearchFilter(query) {
+                if (!query || query.trim() === '') {
+                    filteredUsers = allUsers.slice();
+                    renderTable();
+                    setLoading(false);
+                    return;
+                }
+                setLoading(true);
+                window.AdminApi.searchUsers(query)
+                    .then(function (data) {
+                        filteredUsers = (data || []).map(mapUserDto);
+                        currentPage = 0;
+                        renderTable();
+                        setLoading(false);
+                    })
+                    .catch(function (err) {
+                        console.error(err);
+                        showError('Search failed: ' + (err.message || 'Unknown error'));
+                    });
+            }
+
+            function refreshAfterMutation() {
+                loadUsers();
+            }
+
+            function openUserDetail(userId) {
+                var overlay = document.getElementById('admin-user-detail-overlay');
+                var body = document.getElementById('admin-user-detail-body');
+                var title = document.getElementById('admin-detail-title');
+                body.innerHTML = '<div class="admin-loading-state"><span class="admin-spinner"></span> Loading user detail...</div>';
+                openModal('admin-user-detail-overlay');
+
+                window.AdminApi.getUserDetail(userId)
+                    .then(function (detail) {
+                        if (!detail || !detail.user) {
+                            body.innerHTML = '<p class="admin-error-state">User not found.</p>';
+                            return;
+                        }
+                        var user = detail.user;
+                        title.textContent = user.username + ' - Details';
+
+                        var sessionsHtml = '';
+                        if (detail.sessions && detail.sessions.length > 0) {
+                            sessionsHtml = '<h3 style="font-size:14px;margin:18px 0 8px;">Active Sessions</h3>' +
+                                '<table class="admin-table" style="font-size:12px;"><thead><tr><th>Machine</th><th>Session ID</th><th>Credits</th><th>Cash In</th><th>Status</th></tr></thead><tbody>';
+                            detail.sessions.forEach(function (s) {
+                                sessionsHtml += '<tr>' +
+                                    '<td>' + escapeHtml(s.machineName) + ' (#' + s.machineId + ')</td>' +
+                                    '<td style="font-size:11px;">' + s.sessionId + '</td>' +
+                                    '<td>' + formatCurrency(s.machineCredits) + '</td>' +
+                                    '<td>' + formatCurrency(s.totalCashIn) + '</td>' +
+                                    '<td><span class="admin-badge ' + (s.isMachineClosed ? 'admin-badge-danger' : 'admin-badge-success') + '">' + (s.isMachineClosed ? 'Closed' : 'Open') + '</span></td>' +
+                                    '</tr>';
+                            });
+                            sessionsHtml += '</tbody></table>';
+                        }
+
+                        var roundsHtml = '';
+                        if (detail.activeRounds && detail.activeRounds.length > 0) {
+                            roundsHtml = '<h3 style="font-size:14px;margin:18px 0 8px;">Active Rounds</h3>' +
+                                '<table class="admin-table" style="font-size:12px;"><thead><tr><th>Round</th><th>Machine</th><th>Bet</th><th>Phase</th><th>Win</th><th>Hand</th></tr></thead><tbody>';
+                            detail.activeRounds.forEach(function (r) {
+                                roundsHtml += '<tr>' +
+                                    '<td style="font-size:11px;">' + r.roundId + '</td>' +
+                                    '<td>' + escapeHtml(r.machineName) + ' (#' + r.machineId + ')</td>' +
+                                    '<td>' + formatCurrency(r.betAmount) + '</td>' +
+                                    '<td><span class="admin-badge ' + roleBadgeClass(r.phase) + '">' + escapeHtml(r.phase) + '</span></td>' +
+                                    '<td>' + formatCurrency(r.winAmount) + '</td>' +
+                                    '<td>' + escapeHtml(r.handRank) + '</td>' +
+                                    '</tr>';
+                            });
+                            roundsHtml += '</tbody></table>';
+                        }
+
+                        var ledgerHtml = '';
+                        if (detail.recentLedger && detail.recentLedger.length > 0) {
+                            ledgerHtml = '<h3 style="font-size:14px;margin:18px 0 8px;">Recent Ledger</h3>' +
+                                '<table class="admin-table" style="font-size:12px;"><thead><tr><th>Date</th><th>Amount</th><th>Balance After</th><th>Type</th><th>Reference</th></tr></thead><tbody>';
+                            detail.recentLedger.forEach(function (l) {
+                                ledgerHtml += '<tr>' +
+                                    '<td>' + formatDate(l.createdUtc) + '</td>' +
+                                    '<td>' + formatCurrency(l.amount) + '</td>' +
+                                    '<td>' + formatCurrency(l.balanceAfter) + '</td>' +
+                                    '<td><span class="admin-badge">' + escapeHtml(l.type) + '</span></td>' +
+                                    '<td style="font-size:11px;">' + escapeHtml(l.reference) + '</td>' +
+                                    '</tr>';
+                            });
+                            ledgerHtml += '</tbody></table>';
+                        }
+
+                        var defaultMachineId = '';
+                        if (detail.sessions && detail.sessions.length > 0 && detail.sessions[0]) {
+                            defaultMachineId = detail.sessions[0].machineId || '';
+                        }
+
+                        body.innerHTML =
+                            '<div class="admin-form-row" style="margin-bottom:14px;">' +
+                            '<div class="admin-form-group"><label class="admin-label">Username</label><div style="font-size:14px;">' + escapeHtml(user.username) + '</div></div>' +
+                            '<div class="admin-form-group"><label class="admin-label">Email</label><div style="font-size:14px;">' + escapeHtml(user.email || '-') + '</div></div>' +
+                            '<div class="admin-form-group"><label class="admin-label">Full Name</label><div style="font-size:14px;">' + escapeHtml(user.fullName || '-') + '</div></div>' +
+                            '</div>' +
+                            '<div class="admin-form-row" style="margin-bottom:14px;">' +
+                            '<div class="admin-form-group"><label class="admin-label">Role</label><div style="font-size:14px;"><span class="admin-badge ' + roleBadgeClass(user.role) + '">' + escapeHtml(user.role) + '</span></div></div>' +
+                            '<div class="admin-form-group"><label class="admin-label">Wallet Balance</label><div style="font-size:14px;font-weight:600;">' + formatCurrency(detail.credit) + '</div></div>' +
+                            '<div class="admin-form-group"><label class="admin-label">Generated ID</label><div style="font-size:12px;word-break:break-all;">' + escapeHtml(detail.generatedId) + '</div></div>' +
+                            '</div>' +
+                            '<div class="admin-form-row" style="margin-bottom:14px;">' +
+                            '<div class="admin-form-group"><label class="admin-label">Agent</label><div style="font-size:14px;">' + (detail.agentId ? 'Agent #' + detail.agentId : 'None') + '</div></div>' +
+                            '<div class="admin-form-group"><label class="admin-label">Bonus Recharge Count</label><div style="font-size:14px;">' + detail.bonusRechargeCount + '</div></div>' +
+                            '<div class="admin-form-group"><label class="admin-label">Session Net Loss</label><div style="font-size:14px;">' + formatCurrency(detail.sessionNetLoss) + '</div></div>' +
+                            '</div>' +
+                            '<div class="admin-form-row" style="margin-bottom:4px;">' +
+                            '<div class="admin-form-group"><label class="admin-label">Total Wins</label><div style="font-size:14px;">' + detail.totalWins + '</div></div>' +
+                            '<div class="admin-form-group"><label class="admin-label">Bonus Date</label><div style="font-size:14px;">' + (detail.bonusDate ? formatDate(detail.bonusDate) : 'None') + '</div></div>' +
+                            '<div class="admin-form-group"><label class="admin-label">Minimum Out</label><div style="font-size:14px;">' + formatCurrency(detail.minimumOut) + '</div></div>' +
+                            '</div>' +
+                            '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;">' +
+                            '<button class="admin-btn admin-btn-sm" data-action="change-role" data-user-id="' + user.userId + '" data-role="' + escapeHtml(user.role) + '" type="button">Change Role</button>' +
+                            '<button class="admin-btn admin-btn-sm" data-action="credit" data-user-id="' + user.userId + '" type="button">Credit / Debit</button>' +
+                            '<button class="admin-btn admin-btn-sm" data-action="recharge" data-user-id="' + user.userId + '" type="button">Recharge Bonus</button>' +
+                            '<button class="admin-btn admin-btn-sm" data-action="force-end" data-user-id="' + user.userId + '" data-machine-id="' + escapeHtml(String(defaultMachineId)) + '" type="button">Force End Session</button>' +
+                            '</div>' +
+                            sessionsHtml +
+                            roundsHtml +
+                            ledgerHtml;
+
+                        document.querySelectorAll('#admin-user-detail-body [data-action]').forEach(function (btn) {
+                            btn.addEventListener('click', function () {
+                                var action = btn.getAttribute('data-action');
+                                var uid = btn.getAttribute('data-user-id');
+                                if (action === 'change-role') {
+                                    document.getElementById('change-role-user-id').value = uid;
+                                    document.getElementById('change-role-select').value = btn.getAttribute('data-role') || 'player';
+                                    openModal('admin-change-role-overlay');
+                                } else if (action === 'credit') {
+                                    document.getElementById('credit-user-id').value = uid;
+                                    document.getElementById('credit-amount').value = '';
+                                    document.getElementById('credit-reason').value = '';
+                                    openModal('admin-credit-overlay');
+                                } else if (action === 'recharge') {
+                                    document.getElementById('recharge-user-id').value = uid;
+                                    document.getElementById('recharge-amount').value = '';
+                                    openModal('admin-recharge-overlay');
+                                } else if (action === 'force-end') {
+                                    document.getElementById('force-end-user-id').value = uid;
+                                    document.getElementById('force-end-machine-id').value = btn.getAttribute('data-machine-id') || '';
+                                    openModal('admin-force-end-overlay');
+                                }
+                            });
+                        });
+                    })
+                    .catch(function (err) {
+                        console.error(err);
+                        body.innerHTML = '<p class="admin-error-state">Failed to load user detail: ' + escapeHtml(err.message || 'Unknown error') + '</p>';
+                    });
+            }
+
+            function loadAgentsSummary() {
+                return window.AdminApi.getAgentsSummary()
+                    .then(function (data) {
+                        var agents = (data || []);
+                        bulkAgentSelect.innerHTML = '<option value="">Assign to agent...</option>';
+                        document.getElementById('create-agent').innerHTML = '<option value="">None</option>';
+                        agents.forEach(function (a) {
+                            bulkAgentSelect.innerHTML += '<option value="' + a.id + '">' + escapeHtml(a.name) + ' (#' + a.id + ')</option>';
+                            document.getElementById('create-agent').innerHTML += '<option value="' + a.id + '">' + escapeHtml(a.name) + ' (#' + a.id + ')</option>';
+                        });
+                        return agents;
+                    })
+                    .catch(function () {
+                        bulkAgentSelect.innerHTML = '<option value="">No agents available</option>';
+                        document.getElementById('create-agent').innerHTML = '<option value="">None</option>';
+                        return [];
+                    });
+            }
+
+            function handleCreateUser(formData) {
+                var payload = {
+                    username: formData.get('username'),
+                    password: formData.get('password'),
+                    phoneNumber: formData.get('phoneNumber'),
+                    fullName: formData.get('fullName') || null,
+                    email: formData.get('email') || null,
+                    role: formData.get('role') || 'player',
+                    agentId: formData.get('agentId') ? parseInt(formData.get('agentId'), 10) : null
+                };
+                return window.AdminApi.createUser(payload);
+            }
+
+            document.getElementById('admin-create-user-form').addEventListener('submit', function (e) {
+                e.preventDefault();
+                var form = e.target;
+                var submitBtn = form.querySelector('button[type="submit"]');
+                submitBtn.disabled = true;
+                handleCreateUser(new FormData(form))
+                    .then(function () {
+                        toast('User created successfully', 'success');
+                        closeModal('admin-create-user-overlay');
+                        form.reset();
+                        loadUsers();
+                    })
+                    .catch(function (err) {
+                        console.error(err);
+                        toast('Failed to create user: ' + (err.message || 'Unknown error'), 'error');
+                    })
+                    .finally(function () {
+                        submitBtn.disabled = false;
+                    });
+            });
+
+            document.getElementById('admin-change-role-form').addEventListener('submit', function (e) {
+                e.preventDefault();
+                var userId = document.getElementById('change-role-user-id').value;
+                var role = document.getElementById('change-role-select').value;
+                window.AdminApi.setUserRole(userId, role)
+                    .then(function () {
+                        toast('Role updated successfully', 'success');
+                        closeModal('admin-change-role-overlay');
+                        refreshAfterMutation();
+                    })
+                    .catch(function (err) {
+                        console.error(err);
+                        toast('Failed to update role: ' + (err.message || 'Unknown error'), 'error');
+                    });
+            });
+
+            document.getElementById('admin-credit-form').addEventListener('submit', function (e) {
+                e.preventDefault();
+                var targetUserId = document.getElementById('credit-user-id').value;
+                var amount = parseFloat(document.getElementById('credit-amount').value);
+                var reason = document.getElementById('credit-reason').value;
+                if (isNaN(amount)) {
+                    toast('Please enter a valid amount', 'error');
+                    return;
+                }
+                window.AdminApi.creditUser({ targetUserId: targetUserId, amount: amount, reason: reason })
+                    .then(function () {
+                        toast('Wallet updated successfully', 'success');
+                        closeModal('admin-credit-overlay');
+                        refreshAfterMutation();
+                    })
+                    .catch(function (err) {
+                        console.error(err);
+                        toast('Failed to update wallet: ' + (err.message || 'Unknown error'), 'error');
+                    });
+            });
+
+            document.getElementById('admin-force-end-form').addEventListener('submit', function (e) {
+                e.preventDefault();
+                var userId = document.getElementById('force-end-user-id').value;
+                var machineId = parseInt(document.getElementById('force-end-machine-id').value, 10);
+                if (isNaN(machineId)) {
+                    toast('Please enter a valid machine ID', 'error');
+                    return;
+                }
+                window.AdminApi.forceEndSession(userId, machineId)
+                    .then(function () {
+                        toast('Session force-ended successfully', 'success');
+                        closeModal('admin-force-end-overlay');
+                        refreshAfterMutation();
+                    })
+                    .catch(function (err) {
+                        console.error(err);
+                        toast('Failed to force end session: ' + (err.message || 'Unknown error'), 'error');
+                    });
+            });
+
+            document.getElementById('admin-recharge-form').addEventListener('submit', function (e) {
+                e.preventDefault();
+                var userId = document.getElementById('recharge-user-id').value;
+                var rechargeAmount = parseFloat(document.getElementById('recharge-amount').value);
+                if (isNaN(rechargeAmount) || rechargeAmount <= 0) {
+                    toast('Please enter a valid recharge amount', 'error');
+                    return;
+                }
+                window.AdminApi.rechargeBonus(userId, rechargeAmount)
+                    .then(function () {
+                        toast('Recharge bonus applied successfully', 'success');
+                        closeModal('admin-recharge-overlay');
+                        refreshAfterMutation();
+                    })
+                    .catch(function (err) {
+                        console.error(err);
+                        toast('Failed to recharge bonus: ' + (err.message || 'Unknown error'), 'error');
+                    });
+            });
+
+            document.getElementById('admin-users-select-all').addEventListener('change', function () {
+                var start = currentPage * PAGE_SIZE;
+                var pageUsers = filteredUsers.slice(start, start + PAGE_SIZE);
+                pageUsers.forEach(function (u) {
+                    if (document.getElementById('admin-users-select-all').checked) {
+                        selectedUserIds[u.userId] = true;
+                    } else {
+                        delete selectedUserIds[u.userId];
+                    }
+                });
+                renderTable();
+                updateBulkBar();
+            });
+
+            document.getElementById('admin-bulk-assign-btn').addEventListener('click', function () {
+                var agentId = parseInt(bulkAgentSelect.value, 10);
+                if (isNaN(agentId)) {
+                    toast('Please select an agent', 'error');
+                    return;
+                }
+                var userIds = Object.keys(selectedUserIds).map(function (k) { return k; });
+                window.AdminApi.bulkAssignAgent(userIds, agentId)
+                    .then(function () {
+                        toast('Assigned ' + userIds.length + ' user(s) to agent successfully', 'success');
+                        selectedUserIds = {};
+                        updateBulkBar();
+                        document.getElementById('admin-users-select-all').checked = false;
+                        refreshAfterMutation();
+                    })
+                    .catch(function (err) {
+                        console.error(err);
+                        toast('Failed to assign agent: ' + (err.message || 'Unknown error'), 'error');
+                    });
+            });
+
+            document.getElementById('admin-bulk-clear-btn').addEventListener('click', function () {
+                selectedUserIds = {};
+                updateBulkBar();
+                renderTable();
+            });
+
+            searchInput.addEventListener('input', function () {
+                clearTimeout(searchDebounceTimer);
+                var q = searchInput.value;
+                searchDebounceTimer = setTimeout(function () {
+                    applySearchFilter(q);
+                }, 250);
+            });
+
+            prevBtn.addEventListener('click', function () {
+                if (currentPage > 0) {
+                    currentPage--;
+                    renderTable();
+                    updateSelectAllCheckbox();
+                }
+            });
+
+            nextBtn.addEventListener('click', function () {
+                var totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
+                if (currentPage < totalPages - 1) {
+                    currentPage++;
+                    renderTable();
+                    updateSelectAllCheckbox();
+                }
+            });
+
+            refreshBtn.addEventListener('click', function () {
+                searchInput.value = '';
+                selectedUserIds = {};
+                updateBulkBar();
+                loadUsers();
+            });
+
+            document.getElementById('btn-create-user').addEventListener('click', function () {
+                openModal('admin-create-user-overlay');
+            });
+
+            document.querySelectorAll('[data-close]').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    closeModal(btn.getAttribute('data-close'));
+                });
+            });
+
+            document.querySelectorAll('.admin-modal-overlay').forEach(function (overlay) {
+                overlay.addEventListener('click', function (e) {
+                    if (e.target === overlay) {
+                        overlay.classList.remove('is-open');
+                    }
+                });
+            });
+
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') {
+                    document.querySelectorAll('.admin-modal-overlay.is-open').forEach(function (o) {
+                        o.classList.remove('is-open');
+                    });
+                }
+            });
+
+            document.getElementById('admin-create-user-overlay').addEventListener('click', function (e) {
+                if (e.target === this) closeModal('admin-create-user-overlay');
+            });
+            document.getElementById('admin-user-detail-overlay').addEventListener('click', function (e) {
+                if (e.target === this) closeModal('admin-user-detail-overlay');
+            });
+            document.getElementById('admin-credit-overlay').addEventListener('click', function (e) {
+                if (e.target === this) closeModal('admin-credit-overlay');
+            });
+            document.getElementById('admin-force-end-overlay').addEventListener('click', function (e) {
+                if (e.target === this) closeModal('admin-force-end-overlay');
+            });
+            document.getElementById('admin-recharge-overlay').addEventListener('click', function (e) {
+                if (e.target === this) closeModal('admin-recharge-overlay');
+            });
+            document.getElementById('admin-change-role-overlay').addEventListener('click', function (e) {
+                if (e.target === this) closeModal('admin-change-role-overlay');
+            });
+
+            loadUsers();
+            loadAgentsSummary();
+        })();
+    </script>
+</body>
+</html>
