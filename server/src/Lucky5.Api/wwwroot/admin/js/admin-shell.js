@@ -20,12 +20,14 @@
     }
 
     function guardSession() {
-        if (!global.AdminSession || !global.AdminSession.isValid()) {
+        var session = (global.AdminSession && global.AdminSession.isValid()) ? global.AdminSession.get() : null;
+        var role = session && session.profile && session.profile.role ? String(session.profile.role).toLowerCase() : '';
+        if (!session || role !== 'admin') {
             if (global.AdminSession) global.AdminSession.clear();
             global.location.href = 'login.html';
             return null;
         }
-        return global.AdminSession.get();
+        return session;
     }
 
     function highlightActiveNav() {
