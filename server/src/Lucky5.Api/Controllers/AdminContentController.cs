@@ -1,5 +1,6 @@
 namespace Lucky5.Api.Controllers;
 
+using Lucky5.Api.Models;
 using Lucky5.Application.Contracts;
 using Lucky5.Application.Dtos;
 using Microsoft.AspNetCore.Mvc;
