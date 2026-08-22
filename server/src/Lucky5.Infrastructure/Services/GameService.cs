@@ -1417,12 +1417,18 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 
 			try
 			{
+				var previousCursor = await store.GetOrInitializeCabinetStateCursorAsync(userId, command.MachineId);
+				var previousVersion = previousCursor.StateVersion;
 				await ExecuteCabinetCommandAsync(userId, command, cancellationToken);
 				var mutatesCabinetState = MutatesCabinetState(command.CommandType);
 				CabinetStateCursor cursor;
 				if (mutatesCabinetState)
 				{
-					cursor = await store.AdvanceCabinetStateCursorAsync(userId, command.MachineId);
+					cursor = await store.GetOrInitializeCabinetStateCursorAsync(userId, command.MachineId);
+					if (cursor.StateVersion == previousVersion)
+					{
+						cursor = await store.AdvanceCabinetStateCursorAsync(userId, command.MachineId);
+					}
 				}
 				else
 				{

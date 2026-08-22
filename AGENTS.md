@@ -38,12 +38,19 @@ This machine has a single canonical MCP store at `C:\Users\Gabi.WIN-CD45QMUUPFF\
 - **DO NOT change `Lucky5DoubleUpOptions`** (MaxSwitchesPerRound, AceCountsHiOrLo, LuckyFiveArmsNoLose). These are the core DU game rules. The deck pressure system handles difficulty, not rule changes.
 - **DO NOT use `--no-dependencies`** for builds after changing Domain project files. Always do a full `dotnet build server/Lucky5.sln` to ensure all projects pick up changes.
 
+### PC Environment & Build Setup
+- **Pinned SDK**: `global.json` pins SDK `10.0.302`. (SDK 10.0.400 has corrupted null-byte files on this system).
+- **Workload Resolver Disabled**: `Directory.Build.props` has `<MSBuildEnableWorkloadResolver>false</MSBuildEnableWorkloadResolver>` to bypass corrupt 10.0.111 workload manifests.
+- **NuGet Configuration**: `nuget.config` in repo root defines `nuget.org` package source.
+- **Fast Dev Startup**: `server/src/Lucky5.Api/appsettings.Development.json` disables Redis connection strings to avoid a 10s timeout when local Redis is not running.
+
 ### Commands
 
-- **Launch Full Stack**: `./dev.ps1`
-- **API Only**: `./dev.ps1 -Headless`
-- **Run Tests**: `dotnet run --project server/tests/Lucky5.Tests/Lucky5.Tests.csproj`
-- **Build API**: `dotnet build server/Lucky5.sln`
+- **Launch Full Stack**: `.\dev.ps1`
+- **API Only**: `.\dev.ps1 -Headless`
+- **Run Full Regression Suite & RTP Sim**: `dotnet run --project server/tests/Lucky5.Tests/Lucky5.Tests.csproj`
+- **Run Unit Tests**: `dotnet test server/Lucky5.sln`
+- **Build Solution**: `dotnet build server/Lucky5.sln`
 
 ### Grounding Documentation
 
