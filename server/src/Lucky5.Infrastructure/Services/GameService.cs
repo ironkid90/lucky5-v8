@@ -264,9 +264,12 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 					_ = await DrawAsync(userId, new DrawRequest(latestRound.RoundId, []), CancellationToken.None);
 					latestRound = await store.GetRoundAsync(latestRound.RoundId);
 				}
-				catch
+				catch (InvalidOperationException)
 				{
+					// Draw cannot proceed (e.g., machine closed, credits exhausted).
+					// Mark round as completed with zero payout so cashout can proceed.
 					latestRound.IsCompleted = true;
+					latestRound.WinAmount = 0;
 					await store.SaveRoundAsync(latestRound);
 				}
 			}
@@ -924,10 +927,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		if (round.IsPayoutSettled)
 			throw new InvalidOperationException("Payout already settled");
 		if (round.DoubleUpSession is null)
-		{
-			_ = await StartDoubleUpAsync(userId, roundId, cancellationToken);
-			round = await store.GetRoundAsync(roundId);
-		}
+			throw new InvalidOperationException("Double-up session not started. Call StartDoubleUp first.");
 
 		var parsedGuess = guess.Equals("big", StringComparison.OrdinalIgnoreCase) ? BigSmallGuess.Big : BigSmallGuess.Small;
 		var resolution = Lucky5DoubleUpEngine.ResolveGuess(round!.DoubleUpSession!, parsedGuess);
@@ -1982,6 +1982,8 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		string phase;
 		if (duSession is not null && !duSession.IsTerminal)
 			phase = "DoubleUp";
+		else if (duSession is not null && duSession.IsTerminal)
+			phase = "DoubleUpEnded";
 		else if (state.Phase == RoundPhase.Dealt)
 			phase = "Dealt";
 		else
@@ -2000,9 +2002,11 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 
 		// Double-up snapshot
 		DoubleUpStateDto? duDto = null;
-		if (duSession is not null && !duSession.IsTerminal)
+		if (duSession is not null)
 		{
-			var switchesRemaining = duSession.Options.MaxSwitchesPerRound - duSession.SwitchCountInRound;
+			var switchesRemaining = duSession.IsTerminal
+				? 0
+				: duSession.Options.MaxSwitchesPerRound - duSession.SwitchCountInRound;
 			var multiplier = !duSession.IsNoLoseActive
 				? 1
 				: duSession.LuckyHitCount <= 1

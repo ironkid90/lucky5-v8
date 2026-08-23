@@ -344,12 +344,113 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
         }
 
         var result = await gameService.GuessDoubleUpAsync(userId, roundId, guess, Context.ConnectionAborted);
-        var cursor = TryGetCurrentMachineId(out var duMachineId)
+        var duMachineId = TryGetCurrentMachineId(out var mId) ? mId : 0;
+        var cursor = duMachineId > 0
             ? await gameService.GetCabinetStateCursorAsync(userId, duMachineId, Context.ConnectionAborted)
             : (StateVersion: 0L, SequenceNumber: 0L);
         // Emit DoubleUpWin (v2) instead of RewardStatus (v1)
         await Clients.Caller.SendAsync(DoubleUpWinEvent, result with { StateVersion = cursor.StateVersion, SequenceNumber = cursor.SequenceNumber }, Context.ConnectionAborted);
         await Clients.Caller.SendAsync("DoubleUpCard", new { roundId, guess }, Context.ConnectionAborted);
+
+        // Broadcast machine state to group and spectators so all watchers see the DU result
+        if (duMachineId > 0)
+        {
+            await BroadcastMachineStateAsync(duMachineId, Clients.Groups(GroupName(duMachineId), SpectatorGroupName(duMachineId)), Context.ConnectionAborted, userId);
+        }
+    }
+
+    public async Task StartDoubleUp(Guid roundId)
+    {
+        if (!TryGetUserId(out var userId))
+        {
+            await EmitErrorAsync("UNAUTHORIZED", "Unauthorized");
+            throw new HubException("Unauthorized");
+        }
+
+        var result = await gameService.StartDoubleUpAsync(userId, roundId, Context.ConnectionAborted);
+        var duMachineId = TryGetCurrentMachineId(out var mId) ? mId : 0;
+        var cursor = duMachineId > 0
+            ? await gameService.GetCabinetStateCursorAsync(userId, duMachineId, Context.ConnectionAborted)
+            : (StateVersion: 0L, SequenceNumber: 0L);
+        await Clients.Caller.SendAsync(DoubleUpWinEvent, result with { StateVersion = cursor.StateVersion, SequenceNumber = cursor.SequenceNumber }, Context.ConnectionAborted);
+
+        // Broadcast machine state to group and spectators
+        if (duMachineId > 0)
+        {
+            await BroadcastMachineStateAsync(duMachineId, Clients.Groups(GroupName(duMachineId), SpectatorGroupName(duMachineId)), Context.ConnectionAborted, userId);
+        }
+    }
+
+    public async Task SwitchDoubleUpDealer(Guid roundId)
+    {
+        if (!TryGetUserId(out var userId))
+        {
+            await EmitErrorAsync("UNAUTHORIZED", "Unauthorized");
+            throw new HubException("Unauthorized");
+        }
+
+        var result = await gameService.SwitchDealerAsync(userId, roundId, Context.ConnectionAborted);
+        var duMachineId = TryGetCurrentMachineId(out var mId) ? mId : 0;
+        var cursor = duMachineId > 0
+            ? await gameService.GetCabinetStateCursorAsync(userId, duMachineId, Context.ConnectionAborted)
+            : (StateVersion: 0L, SequenceNumber: 0L);
+        await Clients.Caller.SendAsync(DoubleUpWinEvent, result with { StateVersion = cursor.StateVersion, SequenceNumber = cursor.SequenceNumber }, Context.ConnectionAborted);
+
+        // Broadcast machine state to group and spectators
+        if (duMachineId > 0)
+        {
+            await BroadcastMachineStateAsync(duMachineId, Clients.Groups(GroupName(duMachineId), SpectatorGroupName(duMachineId)), Context.ConnectionAborted, userId);
+        }
+    }
+
+    public async Task SwapDoubleUpCard(Guid roundId, int swapPosition)
+    {
+        if (!TryGetUserId(out var userId))
+        {
+            await EmitErrorAsync("UNAUTHORIZED", "Unauthorized");
+            throw new HubException("Unauthorized");
+        }
+
+        var result = await gameService.SwapDoubleUpCardAsync(userId, roundId, swapPosition, Context.ConnectionAborted);
+        var duMachineId = TryGetCurrentMachineId(out var mId) ? mId : 0;
+        var cursor = duMachineId > 0
+            ? await gameService.GetCabinetStateCursorAsync(userId, duMachineId, Context.ConnectionAborted)
+            : (StateVersion: 0L, SequenceNumber: 0L);
+        await Clients.Caller.SendAsync(SwapDoubleUpCardEvent, result with { StateVersion = cursor.StateVersion, SequenceNumber = cursor.SequenceNumber }, Context.ConnectionAborted);
+    }
+
+    public async Task CashoutDoubleUp(Guid roundId)
+    {
+        if (!TryGetUserId(out var userId))
+        {
+            await EmitErrorAsync("UNAUTHORIZED", "Unauthorized");
+            throw new HubException("Unauthorized");
+        }
+
+        var result = await gameService.CashoutDoubleUpAsync(userId, roundId, Context.ConnectionAborted);
+        var duMachineId = TryGetCurrentMachineId(out var mId) ? mId : 0;
+        var cursor = duMachineId > 0
+            ? await gameService.GetCabinetStateCursorAsync(userId, duMachineId, Context.ConnectionAborted)
+            : (StateVersion: 0L, SequenceNumber: 0L);
+        await Clients.Caller.SendAsync(DoubleUpWinEvent, result with { StateVersion = cursor.StateVersion, SequenceNumber = cursor.SequenceNumber }, Context.ConnectionAborted);
+
+        // Broadcast machine state to group and spectators — cashout changes credits
+        if (duMachineId > 0)
+        {
+            await BroadcastMachineStateAsync(duMachineId, Clients.Groups(GroupName(duMachineId), SpectatorGroupName(duMachineId)), Context.ConnectionAborted, userId);
+        }
+    }
+
+    public async Task TakeHalfDoubleUp(Guid roundId)
+    {
+        if (!TryGetUserId(out var userId))
+        {
+            await EmitErrorAsync("UNAUTHORIZED", "Unauthorized");
+            throw new HubException("Unauthorized");
+        }
+
+        var result = await gameService.TakeHalfAsync(userId, roundId, Context.ConnectionAborted);
+        await Clients.Caller.SendAsync(DoubleUpWinEvent, result, Context.ConnectionAborted);
     }
 
     public Task Heartbeat()

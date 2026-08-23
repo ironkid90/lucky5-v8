@@ -1,7 +1,7 @@
 namespace Lucky5.Realtime.Services;
 
 using Lucky5.Domain.Entities;
-using Lucky5.Infrastructure.Services;
+using Lucky5.Application.Contracts;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -11,16 +11,20 @@ using Microsoft.Extensions.Logging;
 /// force-settles machine sessions for disconnected players.
 /// This prevents the "stuck DU" issue where a player disconnects mid-double-up
 /// and the machine remains locked indefinitely.
+/// Uses IGameService.CashOutAsync to ensure DU credits are properly settled
+/// and machine credits are zeroed out (preventing double-settlement on reconnect).
 /// </summary>
 public sealed class SessionCleanupService : BackgroundService
 {
+    private readonly IGameService _gameService;
     private readonly InMemoryDataStore _store;
     private readonly ILogger<SessionCleanupService> _logger;
     private static readonly TimeSpan CleanupInterval = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan StaleRoundThreshold = TimeSpan.FromMinutes(10);
 
-    public SessionCleanupService(InMemoryDataStore store, ILogger<SessionCleanupService> logger)
+    public SessionCleanupService(IGameService gameService, InMemoryDataStore store, ILogger<SessionCleanupService> logger)
     {
+        _gameService = gameService;
         _store = store;
         _logger = logger;
     }
@@ -61,35 +65,22 @@ public sealed class SessionCleanupService : BackgroundService
         {
             _store.ActiveRounds.TryRemove(roundId, out _);
 
-            // If the round was in DU or had pending winnings, settle to wallet
+            // If the round had pending winnings or an active DU session,
+            // use CashOutAsync to properly settle DU credits and zero out
+            // the session (prevents double-settlement if player reconnects).
             if (round.WinAmount > 0m && !round.IsPayoutSettled)
             {
-                var session = _store.MachineSessions.Values
-                    .FirstOrDefault(s => s.UserId == round.UserId && s.MachineId == round.MachineId);
-
-                if (session is not null && _store.MemberProfiles.TryGetValue(round.UserId, out var profile))
+                try
                 {
-                    lock (_store.LedgerSync)
-                    {
-                        profile.WalletBalance += round.WinAmount;
-                    }
-
-                    _store.Ledger.Add(new WalletLedgerEntry
-                    {
-                        UserId = round.UserId,
-                        Amount = round.WinAmount,
-                        Type = "StaleRoundSettle",
-                        Reference = $"round:{roundId}:stale_cleanup",
-                        BalanceAfter = profile.WalletBalance,
-                        CreatedUtc = DateTime.UtcNow
-                    });
-
-                    _logger.LogInformation("Settled {Amount} from stale round {RoundId} to user {UserId}",
-                        round.WinAmount, roundId, round.UserId);
+                    _ = _gameService.CashOutAsync(round.UserId, round.MachineId, CancellationToken.None, bypassRules: true);
+                    _logger.LogInformation("Settled stale round {RoundId} to user {UserId} via CashOut",
+                        roundId, round.UserId);
                 }
-
-                // Mark as settled so it doesn't get processed again
-                round.IsPayoutSettled = true;
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to settle stale round {RoundId} for user {UserId}",
+                        roundId, round.UserId);
+                }
             }
         }
     }

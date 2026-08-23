@@ -181,11 +181,11 @@ public class GameController(IGameService gameService) : ControllerBase
     }
 
     [HttpPost("double-up/swap")]
-    public async Task<ActionResult<ApiResponse<DoubleUpResultDto>>> SwapDoubleUpCard([FromBody] CashoutDoubleUpRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<DoubleUpResultDto>>> SwapDoubleUpCard([FromBody] SwapDoubleUpCardRequest request, CancellationToken cancellationToken)
     {
         try
         {
-            var result = await gameService.SwapDoubleUpCardAsync(UserId, request.RoundId, 0, cancellationToken);
+            var result = await gameService.SwapDoubleUpCardAsync(UserId, request.RoundId, request.SwapPosition, cancellationToken);
             return Ok(ApiResponse<DoubleUpResultDto>.Ok(result, traceId: HttpContext.TraceIdentifier));
         }
         catch (InvalidOperationException ex)
