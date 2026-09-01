@@ -4,6 +4,7 @@ using Lucky5.Domain.Entities;
 using Lucky5.Application.Contracts;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 
 /// <summary>
 /// Background service that periodically cleans up stuck game sessions.
@@ -13,18 +14,19 @@ using Microsoft.Extensions.Logging;
 /// and the machine remains locked indefinitely.
 /// Uses IGameService.CashOutAsync to ensure DU credits are properly settled
 /// and machine credits are zeroed out (preventing double-settlement on reconnect).
+/// Creates a service scope per cleanup iteration to safely resolve the scoped IGameService.
 /// </summary>
 public sealed class SessionCleanupService : BackgroundService
 {
-    private readonly IGameService _gameService;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly InMemoryDataStore _store;
     private readonly ILogger<SessionCleanupService> _logger;
     private static readonly TimeSpan CleanupInterval = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan StaleRoundThreshold = TimeSpan.FromMinutes(10);
 
-    public SessionCleanupService(IGameService gameService, InMemoryDataStore store, ILogger<SessionCleanupService> logger)
+    public SessionCleanupService(IServiceScopeFactory scopeFactory, InMemoryDataStore store, ILogger<SessionCleanupService> logger)
     {
-        _gameService = gameService;
+        _scopeFactory = scopeFactory;
         _store = store;
         _logger = logger;
     }
@@ -61,6 +63,10 @@ public sealed class SessionCleanupService : BackgroundService
 
         _logger.LogWarning("Cleaning up {Count} stale active rounds", staleRounds.Count);
 
+        // Create a scope to safely resolve the scoped IGameService
+        using var scope = _scopeFactory.CreateScope();
+        var gameService = scope.ServiceProvider.GetRequiredService<IGameService>();
+
         foreach (var (roundId, round) in staleRounds)
         {
             _store.ActiveRounds.TryRemove(roundId, out _);
@@ -72,7 +78,7 @@ public sealed class SessionCleanupService : BackgroundService
             {
                 try
                 {
-                    _ = _gameService.CashOutAsync(round.UserId, round.MachineId, CancellationToken.None, bypassRules: true);
+                    _ = gameService.CashOutAsync(round.UserId, round.MachineId, CancellationToken.None, bypassRules: true);
                     _logger.LogInformation("Settled stale round {RoundId} to user {UserId} via CashOut",
                         roundId, round.UserId);
                 }

@@ -264,9 +264,9 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 					_ = await DrawAsync(userId, new DrawRequest(latestRound.RoundId, []), CancellationToken.None);
 					latestRound = await store.GetRoundAsync(latestRound.RoundId);
 				}
-				catch (InvalidOperationException)
+				catch (Exception ex) when (ex is InvalidOperationException or KeyNotFoundException)
 				{
-					// Draw cannot proceed (e.g., machine closed, credits exhausted).
+					// Draw cannot proceed (e.g., machine closed, credits exhausted, round not found).
 					// Mark round as completed with zero payout so cashout can proceed.
 					latestRound.IsCompleted = true;
 					latestRound.WinAmount = 0;
