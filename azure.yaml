@@ -7,7 +7,7 @@ services:
     lucky5-v8:
         project: .
         host: containerapp
-        language: js
+        language: dotnet
         docker:
             path: Dockerfile
 resources:
