@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Lucky5 Admin — Content</title>
+    <link rel="stylesheet" href="css/admin.css" />
+</head>
+<body>
+    <div class="admin-shell">
+        <aside class="admin-sidebar">
+            <div class="admin-sidebar-brand">
+                <span class="admin-sidebar-brand-mark">L5</span>
+                <span class="admin-sidebar-brand-text">
+                    Lucky5 Admin
+                    <small>Back office</small>
+                </span>
+            </div>
+
+            <ul class="admin-nav">
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="overview.html">
+                        <span class="admin-nav-icon">&#9632;</span>
+                        Overview
+                    </a>
+                </li>
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="users.html">
+                        <span class="admin-nav-icon">&#9670;</span>
+                        Users
+                    </a>
+                </li>
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="machines.html">
+                        <span class="admin-nav-icon">&#9636;</span>
+                        Machines
+                    </a>
+                </li>
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="agents.html">
+                        <span class="admin-nav-icon">&#9679;</span>
+                        Agents
+                    </a>
+                </li>
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="devices.html">
+                        <span class="admin-nav-icon">&#9673;</span>
+                        Cabinet Devices
+                    </a>
+                </li>
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="content.html">
+                        <span class="admin-nav-icon">&#9998;</span>
+                        Content
+                    </a>
+                </li>
+            </ul>
+
+            <div class="admin-sidebar-footer">Lucky5 v8 &middot; Admin Dashboard</div>
+        </aside>
+
+        <div class="admin-main">
+            <header class="admin-topbar">
+                <div class="admin-topbar-title">Content</div>
+                <div class="admin-topbar-right">
+                    <div class="admin-user-chip">
+                        <span class="admin-user-avatar" id="admin-user-avatar">A</span>
+                        <span id="admin-username">admin</span>
+                    </div>
+                    <button class="admin-btn admin-btn-sm" id="admin-logout-btn" type="button">Log out</button>
+                </div>
+            </header>
+
+            <main class="admin-content">
+                <div class="admin-page-header">
+                    <div>
+                        <h1>Content Management</h1>
+                        <p>Manage offers, terms &amp; conditions, and app settings.</p>
+                    </div>
+                </div>
+
+                <div class="admin-tabs" style="margin-bottom:20px;">
+                    <button class="admin-tab admin-tab-active" data-tab="offers" type="button">Offers</button>
+                    <button class="admin-tab" data-tab="terms" type="button">Terms</button>
+                    <button class="admin-tab" data-tab="app-settings" type="button">App Settings</button>
+                </div>
+
+                <div id="tab-offers" class="admin-tab-panel">
+                    <div class="admin-table-toolbar">
+                        <div class="admin-table-actions">
+                            <button class="admin-btn admin-btn-primary admin-btn-sm" id="btn-create-offer" type="button">Create offer</button>
+                            <button class="admin-btn admin-btn-sm" id="btn-refresh-offers" type="button">Refresh</button>
+                        </div>
+                    </div>
+                    <div class="admin-table-wrap">
+                        <div id="offers-loading" class="admin-loading-state">
+                            <span class="admin-spinner"></span> Loading offers...
+                        </div>
+                        <div id="offers-error" class="admin-error-state" style="display:none;"></div>
+                        <div id="offers-empty" class="admin-empty-state" style="display:none;">
+                            <h3>No offers found</h3>
+                            <p>Create your first offer to get started.</p>
+                        </div>
+                        <table class="admin-table" id="offers-table" style="display:none;">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Title</th>
+                                    <th>Description</th>
+                                    <th>Bonus Amount</th>
+                                    <th style="text-align:right;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="offers-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="tab-terms" class="admin-tab-panel" style="display:none;">
+                    <div class="admin-table-toolbar">
+                        <div class="admin-table-actions">
+                            <button class="admin-btn admin-btn-primary admin-btn-sm" id="btn-edit-terms" type="button">Edit terms</button>
+                            <button class="admin-btn admin-btn-sm" id="btn-refresh-terms" type="button">Refresh</button>
+                        </div>
+                    </div>
+                    <div class="admin-table-wrap">
+                        <div id="terms-loading" class="admin-loading-state">
+                            <span class="admin-spinner"></span> Loading terms...
+                        </div>
+                        <div id="terms-error" class="admin-error-state" style="display:none;"></div>
+                        <div id="terms-empty" class="admin-empty-state" style="display:none;">
+                            <h3>No terms document found</h3>
+                            <p>Create one to get started.</p>
+                        </div>
+                        <table class="admin-table" id="terms-table" style="display:none;">
+                            <thead>
+                                <tr>
+                                    <th>Version</th>
+                                    <th>Updated</th>
+                                    <th>Preview</th>
+                                    <th style="text-align:right;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="terms-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="tab-app-settings" class="admin-tab-panel" style="display:none;">
+                    <div class="admin-table-toolbar">
+                        <div class="admin-table-actions">
+                            <button class="admin-btn admin-btn-primary admin-btn-sm" id="btn-create-setting" type="button">Add setting</button>
+                            <button class="admin-btn admin-btn-sm" id="btn-refresh-settings" type="button">Refresh</button>
+                        </div>
+                    </div>
+                    <div class="admin-table-wrap">
+                        <div id="settings-loading" class="admin-loading-state">
+                            <span class="admin-spinner"></span> Loading settings...
+                        </div>
+                        <div id="settings-error" class="admin-error-state" style="display:none;"></div>
+                        <div id="settings-empty" class="admin-empty-state" style="display:none;">
+                            <h3>No app settings found</h3>
+                            <p>Add your first key/value setting.</p>
+                        </div>
+                        <table class="admin-table" id="settings-table" style="display:none;">
+                            <thead>
+                                <tr>
+                                    <th>Key</th>
+                                    <th>Value</th>
+                                    <th style="text-align:right;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="settings-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <div id="admin-toast-container" class="admin-toast-container"></div>
+
+    <div class="admin-modal-overlay" id="offer-modal">
+        <div class="admin-modal">
+            <div class="admin-modal-header">
+                <h2 id="offer-modal-title">Create offer</h2>
+                <button class="admin-modal-close" data-close="offer-modal" type="button">&times;</button>
+            </div>
+            <form id="offer-form" autocomplete="off">
+                <input type="hidden" id="offer-id" />
+                <div class="admin-form-group">
+                    <label class="admin-label" for="offer-title">Title</label>
+                    <input class="admin-input" id="offer-title" name="title" type="text" required minlength="2" maxlength="100" />
+                </div>
+                <div class="admin-form-group">
+                    <label class="admin-label" for="offer-description">Description</label>
+                    <input class="admin-input" id="offer-description" name="description" type="text" maxlength="255" />
+                </div>
+                <div class="admin-form-group">
+                    <label class="admin-label" for="offer-bonus">Bonus Amount</label>
+                    <input class="admin-input" id="offer-bonus" name="bonusAmount" type="number" step="0.01" min="0" required />
+                </div>
+                <div class="admin-form-actions">
+                    <button class="admin-btn" type="button" data-close="offer-modal">Cancel</button>
+                    <button class="admin-btn admin-btn-primary" type="submit">Save offer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="admin-modal-overlay" id="terms-modal">
+        <div class="admin-modal admin-modal-lg">
+            <div class="admin-modal-header">
+                <h2>Edit terms</h2>
+                <button class="admin-modal-close" data-close="terms-modal" type="button">&times;</button>
+            </div>
+            <form id="terms-form" autocomplete="off">
+                <div class="admin-form-group">
+                    <label class="admin-label" for="terms-version">Version</label>
+                    <input class="admin-input" id="terms-version" name="version" type="text" required maxlength="20" />
+                </div>
+                <div class="admin-form-group">
+                    <label class="admin-label" for="terms-body">Body (Markdown)</label>
+                    <textarea class="admin-textarea" id="terms-body" name="bodyMarkdown" rows="12" required></textarea>
+                </div>
+                <div class="admin-form-actions">
+                    <button class="admin-btn admin-btn-danger" type="button" id="btn-delete-terms">Delete</button>
+                    <button class="admin-btn" type="button" data-close="terms-modal">Cancel</button>
+                    <button class="admin-btn admin-btn-primary" type="submit">Save terms</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="admin-modal-overlay" id="setting-modal">
+        <div class="admin-modal">
+            <div class="admin-modal-header">
+                <h2 id="setting-modal-title">Add setting</h2>
+                <button class="admin-modal-close" data-close="setting-modal" type="button">&times;</button>
+            </div>
+            <form id="setting-form" autocomplete="off">
+                <div class="admin-form-group">
+                    <label class="admin-label" for="setting-key">Key</label>
+                    <input class="admin-input" id="setting-key" name="key" type="text" required maxlength="100" />
+                </div>
+                <div class="admin-form-group">
+                    <label class="admin-label" for="setting-value">Value</label>
+                    <input class="admin-input" id="setting-value" name="value" type="text" required maxlength="500" />
+                </div>
+                <div class="admin-form-actions">
+                    <button class="admin-btn" type="button" data-close="setting-modal">Cancel</button>
+                    <button class="admin-btn admin-btn-primary" type="submit">Save setting</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="admin-modal-overlay" id="confirm-delete-overlay">
+        <div class="admin-modal">
+            <div class="admin-modal-header">
+                <h2>Confirm delete</h2>
+                <button class="admin-modal-close" data-close="confirm-delete-overlay" type="button">&times;</button>
+            </div>
+            <p id="confirm-delete-message" style="margin:0 0 18px;color:var(--admin-text-muted);font-size:13px;"></p>
+            <div class="admin-form-actions">
+                <button class="admin-btn" type="button" data-close="confirm-delete-overlay">Cancel</button>
+                <button class="admin-btn admin-btn-danger" id="confirm-delete-btn" type="button">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/admin-api.js"></script>
+    <script src="js/admin-shell.js"></script>
+    <script>
+        (function () {
+            'use strict';
+
+            var session = window.AdminShell ? window.AdminShell.guardSession() : null;
+            if (!session) return;
+
+            function ensureModal(modalId) {
+                var modal = document.getElementById(modalId);
+                if (!modal) return null;
+                modal.addEventListener('click', function (event) {
+                    if (event.target === modal) {
+                        modal.classList.remove('is-open');
+                    }
+                });
+                modal.querySelectorAll('[data-close]').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        modal.classList.remove('is-open');
+                    });
+                });
+                return modal;
+            }
+
+            function openModal(modalId) {
+                var modal = ensureModal(modalId);
+                if (modal) modal.classList.add('is-open');
+            }
+
+            function closeModal(modalId) {
+                var modal = document.getElementById(modalId);
+                if (modal) modal.classList.remove('is-open');
+            }
+
+            function showToast(message, type) {
+                if (window.AdminShell) window.AdminShell.showToast(message, type);
+            }
+
+            function formatCurrency(value) {
+                var num = Number(value || 0);
+                return num.toFixed(2);
+            }
+
+            function formatDateTime(value) {
+                if (!value) return '—';
+                var d = new Date(value);
+                if (Number.isNaN(d.getTime())) return value;
+                return d.toLocaleString();
+            }
+
+            function previewText(text, maxLen) {
+                if (!text) return '—';
+                text = text.replace(/[#*_`]/g, '').replace(/\s+/g, ' ').trim();
+                return text.length > maxLen ? text.slice(0, maxLen) + '…' : text;
+            }
+
+            var confirmDeleteCallback = null;
+
+            function confirmDelete(message, onConfirm) {
+                var msgEl = document.getElementById('confirm-delete-message');
+                var btn = document.getElementById('confirm-delete-btn');
+                msgEl.textContent = message;
+                confirmDeleteCallback = onConfirm;
+                btn.onclick = function () {
+                    closeModal('confirm-delete-overlay');
+                    if (confirmDeleteCallback) confirmDeleteCallback();
+                };
+                openModal('confirm-delete-overlay');
+            }
+
+            var currentTab = 'offers';
+
+            function switchTab(tab) {
+                currentTab = tab;
+                document.querySelectorAll('.admin-tab').forEach(function (t) {
+                    t.classList.toggle('admin-tab-active', t.getAttribute('data-tab') === tab);
+                });
+                document.querySelectorAll('.admin-tab-panel').forEach(function (p) {
+                    p.style.display = p.id === 'tab-' + tab ? 'block' : 'none';
+                });
+                if (tab === 'offers') loadOffers();
+                if (tab === 'terms') loadTerms();
+                if (tab === 'app-settings') loadSettings();
+            }
+
+            document.querySelectorAll('.admin-tab').forEach(function (tab) {
+                tab.addEventListener('click', function () {
+                    switchTab(tab.getAttribute('data-tab'));
+                });
+            });
+
+            // ========================
+            // Offers
+            // ========================
+            var offersTbody = document.getElementById('offers-tbody');
+            var offersTable = document.getElementById('offers-table');
+            var offersLoading = document.getElementById('offers-loading');
+            var offersError = document.getElementById('offers-error');
+            var offersEmpty = document.getElementById('offers-empty');
+            var currentOffers = [];
+
+            function renderOffers(offers) {
+                currentOffers = offers || [];
+                if (!offers || offers.length === 0) {
+                    offersTable.style.display = 'none';
+                    offersEmpty.style.display = 'block';
+                    return;
+                }
+                offersEmpty.style.display = 'none';
+                offersTable.style.display = 'table';
+                var html = '';
+                for (var i = 0; i < offers.length; i++) {
+                    var o = offers[i];
+                    html += '<tr>' +
+                        '<td>' + o.id + '</td>' +
+                        '<td>' + escapeHtml(o.title) + '</td>' +
+                        '<td>' + escapeHtml(o.description) + '</td>' +
+                        '<td>$' + formatCurrency(o.bonusAmount) + '</td>' +
+                        '<td style="text-align:right;">' +
+                            '<button class="admin-btn admin-btn-sm" data-edit-offer="' + o.id + '" type="button">Edit</button> ' +
+                            '<button class="admin-btn admin-btn-sm admin-btn-danger" data-delete-offer="' + o.id + '" type="button">Delete</button>' +
+                        '</td>' +
+                        '</tr>';
+                }
+                offersTbody.innerHTML = html;
+
+                offersTbody.querySelectorAll('[data-edit-offer]').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        var id = parseInt(btn.getAttribute('data-edit-offer'), 10);
+                        openOfferModal(id);
+                    });
+                });
+                offersTbody.querySelectorAll('[data-delete-offer]').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        var id = parseInt(btn.getAttribute('data-delete-offer'), 10);
+                        confirmDelete('Delete this offer?', function () {
+                            window.AdminApi.deleteOffer(id).then(function () {
+                                showToast('Offer deleted', 'success');
+                                loadOffers();
+                            }).catch(function (err) {
+                                showToast(err && err.message ? err.message : 'Failed to delete offer', 'error');
+                            });
+                        });
+                    });
+                });
+            }
+
+            function escapeHtml(str) {
+                return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            }
+
+            function loadOffers() {
+                offersTable.style.display = 'none';
+                offersEmpty.style.display = 'none';
+                offersError.style.display = 'none';
+                offersLoading.style.display = 'flex';
+
+                window.AdminApi.listOffers().then(function (data) {
+                    renderOffers(data || []);
+                    offersLoading.style.display = 'none';
+                }).catch(function (err) {
+                    offersLoading.style.display = 'none';
+                    offersError.textContent = err && err.message ? err.message : 'Failed to load offers.';
+                    offersError.style.display = 'block';
+                });
+            }
+
+            function openOfferModal(editId) {
+                var isEdit = !!editId;
+                document.getElementById('offer-modal-title').textContent = isEdit ? 'Edit offer' : 'Create offer';
+                document.getElementById('offer-id').value = isEdit ? editId : '';
+                var existing = isEdit ? currentOffers.find(function (o) { return o.id === editId; }) : null;
+                document.getElementById('offer-title').value = existing ? existing.title : '';
+                document.getElementById('offer-description').value = existing ? existing.description : '';
+                document.getElementById('offer-bonus').value = existing ? existing.bonusAmount : '';
+                openModal('offer-modal');
+            }
+
+            document.getElementById('btn-create-offer').addEventListener('click', function () {
+                openOfferModal(null);
+            });
+
+            document.getElementById('btn-refresh-offers').addEventListener('click', loadOffers);
+
+            document.getElementById('offer-form').addEventListener('submit', function (e) {
+                e.preventDefault();
+                var id = document.getElementById('offer-id').value;
+                var title = document.getElementById('offer-title').value.trim();
+                var description = document.getElementById('offer-description').value.trim();
+                var bonusAmount = parseFloat(document.getElementById('offer-bonus').value);
+
+                var promise = id
+                    ? window.AdminApi.updateOffer(parseInt(id, 10), title, description, bonusAmount)
+                    : window.AdminApi.createOffer(title, description, bonusAmount);
+
+                promise.then(function () {
+                    showToast(id ? 'Offer updated' : 'Offer created', 'success');
+                    closeModal('offer-modal');
+                    loadOffers();
+                }).catch(function (err) {
+                    showToast(err && err.message ? err.message : 'Failed to save offer', 'error');
+                });
+            });
+
+            // ========================
+            // Terms
+            // ========================
+            var termsTbody = document.getElementById('terms-tbody');
+            var termsTable = document.getElementById('terms-table');
+            var termsLoading = document.getElementById('terms-loading');
+            var termsError = document.getElementById('terms-error');
+            var termsEmpty = document.getElementById('terms-empty');
+            var currentTerms = null;
+
+            function renderTerms(terms) {
+                currentTerms = terms;
+                if (!terms) {
+                    termsTable.style.display = 'none';
+                    termsEmpty.style.display = 'block';
+                    return;
+                }
+                termsEmpty.style.display = 'none';
+                termsTable.style.display = 'table';
+                termsTbody.innerHTML = '<tr>' +
+                    '<td>' + escapeHtml(terms.version) + '</td>' +
+                    '<td>' + formatDateTime(terms.updatedUtc) + '</td>' +
+                    '<td>' + escapeHtml(previewText(terms.bodyMarkdown, 120)) + '</td>' +
+                    '<td style="text-align:right;">' +
+                        '<button class="admin-btn admin-btn-sm" id="btn-edit-terms-row" type="button">Edit</button> ' +
+                        '<button class="admin-btn admin-btn-sm admin-btn-danger" id="btn-delete-terms-row" type="button">Delete</button>' +
+                    '</td>' +
+                    '</tr>';
+
+                document.getElementById('btn-edit-terms-row').addEventListener('click', function () {
+                    openTermsModal();
+                });
+                document.getElementById('btn-delete-terms-row').addEventListener('click', function () {
+                    confirmDelete('Delete the current terms document?', function () {
+                        window.AdminApi.deleteTerms().then(function () {
+                            showToast('Terms deleted', 'success');
+                            loadTerms();
+                        }).catch(function (err) {
+                            showToast(err && err.message ? err.message : 'Failed to delete terms', 'error');
+                        });
+                    });
+                });
+            }
+
+            function loadTerms() {
+                termsTable.style.display = 'none';
+                termsEmpty.style.display = 'none';
+                termsError.style.display = 'none';
+                termsLoading.style.display = 'flex';
+
+                window.AdminApi.listTerms().then(function (data) {
+                    renderTerms(data);
+                    termsLoading.style.display = 'none';
+                }).catch(function (err) {
+                    termsLoading.style.display = 'none';
+                    termsError.textContent = err && err.message ? err.message : 'Failed to load terms.';
+                    termsError.style.display = 'block';
+                });
+            }
+
+            function openTermsModal() {
+                if (!currentTerms) return;
+                document.getElementById('terms-version').value = currentTerms.version || '';
+                document.getElementById('terms-body').value = currentTerms.bodyMarkdown || '';
+                openModal('terms-modal');
+            }
+
+            document.getElementById('btn-edit-terms').addEventListener('click', openTermsModal);
+            document.getElementById('btn-refresh-terms').addEventListener('click', loadTerms);
+
+            document.getElementById('terms-form').addEventListener('submit', function (e) {
+                e.preventDefault();
+                var version = document.getElementById('terms-version').value.trim();
+                var bodyMarkdown = document.getElementById('terms-body').value;
+                window.AdminApi.upsertTerms(version, bodyMarkdown).then(function () {
+                    showToast('Terms saved', 'success');
+                    closeModal('terms-modal');
+                    loadTerms();
+                }).catch(function (err) {
+                    showToast(err && err.message ? err.message : 'Failed to save terms', 'error');
+                });
+            });
+
+            document.getElementById('btn-delete-terms').addEventListener('click', function () {
+                confirmDelete('Delete the current terms document?', function () {
+                    window.AdminApi.deleteTerms().then(function () {
+                        showToast('Terms deleted', 'success');
+                        closeModal('terms-modal');
+                        loadTerms();
+                    }).catch(function (err) {
+                        showToast(err && err.message ? err.message : 'Failed to delete terms', 'error');
+                    });
+                });
+            });
+
+            // ========================
+            // App Settings
+            // ========================
+            var settingsTbody = document.getElementById('settings-tbody');
+            var settingsTable = document.getElementById('settings-table');
+            var settingsLoading = document.getElementById('settings-loading');
+            var settingsError = document.getElementById('settings-error');
+            var settingsEmpty = document.getElementById('settings-empty');
+            var currentSettings = null;
+
+            function renderSettings(settings) {
+                currentSettings = settings || {};
+                if (!settings || Object.keys(settings).length === 0) {
+                    settingsTable.style.display = 'none';
+                    settingsEmpty.style.display = 'block';
+                    return;
+                }
+                settingsEmpty.style.display = 'none';
+                settingsTable.style.display = 'table';
+                var keys = Object.keys(settings).sort();
+                var html = '';
+                for (var i = 0; i < keys.length; i++) {
+                    var key = keys[i];
+                    html += '<tr>' +
+                        '<td><code>' + escapeHtml(key) + '</code></td>' +
+                        '<td>' + escapeHtml(settings[key]) + '</td>' +
+                        '<td style="text-align:right;">' +
+                            '<button class="admin-btn admin-btn-sm" data-edit-setting="' + escapeHtml(key) + '" type="button">Edit</button> ' +
+                            '<button class="admin-btn admin-btn-sm admin-btn-danger" data-delete-setting="' + escapeHtml(key) + '" type="button">Delete</button>' +
+                        '</td>' +
+                        '</tr>';
+                }
+                settingsTbody.innerHTML = html;
+
+                settingsTbody.querySelectorAll('[data-edit-setting]').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        var key = btn.getAttribute('data-edit-setting');
+                        openSettingModal(key);
+                    });
+                });
+                settingsTbody.querySelectorAll('[data-delete-setting]').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        var key = btn.getAttribute('data-delete-setting');
+                        confirmDelete('Delete setting "' + key + '"?', function () {
+                            window.AdminApi.deleteAppSetting(key).then(function () {
+                                showToast('Setting deleted', 'success');
+                                loadSettings();
+                            }).catch(function (err) {
+                                showToast(err && err.message ? err.message : 'Failed to delete setting', 'error');
+                            });
+                        });
+                    });
+                });
+            }
+
+            function loadSettings() {
+                settingsTable.style.display = 'none';
+                settingsEmpty.style.display = 'none';
+                settingsError.style.display = 'none';
+                settingsLoading.style.display = 'flex';
+
+                window.AdminApi.listAppSettings().then(function (data) {
+                    renderSettings(data);
+                    settingsLoading.style.display = 'none';
+                }).catch(function (err) {
+                    settingsLoading.style.display = 'none';
+                    settingsError.textContent = err && err.message ? err.message : 'Failed to load settings.';
+                    settingsError.style.display = 'block';
+                });
+            }
+
+            function openSettingModal(editKey) {
+                var isEdit = !!editKey;
+                document.getElementById('setting-modal-title').textContent = isEdit ? 'Edit setting' : 'Add setting';
+                document.getElementById('setting-key').value = isEdit ? editKey : '';
+                document.getElementById('setting-key').readOnly = isEdit;
+                document.getElementById('setting-value').value = isEdit ? (currentSettings[editKey] || '') : '';
+                openModal('setting-modal');
+            }
+
+            document.getElementById('btn-create-setting').addEventListener('click', function () {
+                openSettingModal(null);
+            });
+            document.getElementById('btn-refresh-settings').addEventListener('click', loadSettings);
+
+            document.getElementById('setting-form').addEventListener('submit', function (e) {
+                e.preventDefault();
+                var key = document.getElementById('setting-key').value.trim();
+                var value = document.getElementById('setting-value').value;
+                window.AdminApi.upsertAppSetting(key, value).then(function () {
+                    showToast('Setting saved', 'success');
+                    closeModal('setting-modal');
+                    loadSettings();
+                }).catch(function (err) {
+                    showToast(err && err.message ? err.message : 'Failed to save setting', 'error');
+                });
+            });
+
+            switchTab('offers');
+        })();
+    </script>
+</body>
+</html>

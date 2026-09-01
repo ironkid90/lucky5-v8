@@ -1,0 +1,22 @@
+{
+  "name": "Lucky5 v8",
+  "version": "1.0.0",
+  "description": "Web-native Lucky 5 cabinet built around the existing .NET backend and CleanRoom game logic.",
+  "runtimePlatform": "Python >=3.12",
+  "@context": [
+    "https://doi.org/10.5063/schema/codemeta-2.0",
+    {
+      "hermes": "https://software-metadata.pub/ns/hermes/"
+    }
+  ],
+  "@type": "SoftwareSourceCode",
+  "author": [
+    {
+      "@type": "Person",
+      "alternateName": "ironkid90"
+    }
+  ],
+  "codeRepository": "https://github.com/ironkid90/lucky5-v8",
+  "license": "https://spdx.org/licenses/GPL-3.0-only",
+  "url": "https://github.com/ironkid90/lucky5-v8"
+}

@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Lucky5 Admin — Overview</title>
+    <link rel="stylesheet" href="css/admin.css" />
+</head>
+<body>
+    <div class="admin-shell">
+        <aside class="admin-sidebar">
+            <div class="admin-sidebar-brand">
+                <span class="admin-sidebar-brand-mark">L5</span>
+                <span class="admin-sidebar-brand-text">
+                    Lucky5 Admin
+                    <small>Back office</small>
+                </span>
+            </div>
+
+            <ul class="admin-nav">
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="overview.html">
+                        <span class="admin-nav-icon">&#9632;</span>
+                        Overview
+                    </a>
+                </li>
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="users.html">
+                        <span class="admin-nav-icon">&#9670;</span>
+                        Users
+                    </a>
+                </li>
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="machines.html">
+                        <span class="admin-nav-icon">&#9636;</span>
+                        Machines
+                    </a>
+                </li>
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="agents.html">
+                        <span class="admin-nav-icon">&#9679;</span>
+                        Agents
+                    </a>
+                </li>
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="devices.html">
+                        <span class="admin-nav-icon">&#9673;</span>
+                        Cabinet Devices
+                    </a>
+                </li>
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="content.html">
+                        <span class="admin-nav-icon">&#9998;</span>
+                        Content
+                    </a>
+                </li>
+            </ul>
+
+            <div class="admin-sidebar-footer">Lucky5 v8 &middot; Admin Dashboard</div>
+        </aside>
+
+        <div class="admin-main">
+            <header class="admin-topbar">
+                <div class="admin-topbar-title">Overview</div>
+                <div class="admin-topbar-right">
+                    <div class="admin-user-chip">
+                        <span class="admin-user-avatar" id="admin-user-avatar">A</span>
+                        <span id="admin-username">admin</span>
+                    </div>
+                    <button class="admin-btn admin-btn-sm" id="admin-logout-btn" type="button">Log out</button>
+                </div>
+            </header>
+
+            <main class="admin-content">
+                <div class="admin-page-header">
+                    <div>
+                        <h1>Overview</h1>
+                        <p>Key metrics and recent admin activity.</p>
+                    </div>
+                </div>
+
+                <div id="overview-dashboard-section">
+                    <div class="admin-loading-state" id="dashboard-loading">
+                        <span class="admin-spinner"></span> Loading dashboard…
+                    </div>
+                    <div class="admin-error-state" id="dashboard-error" style="display:none;"></div>
+                    <div class="admin-card-grid" id="dashboard-cards" style="display:none;"></div>
+                </div>
+
+                <div class="admin-page-header admin-mt-16">
+                    <div>
+                        <h2>Audit Log</h2>
+                        <p>Recent admin actions across the platform.</p>
+                    </div>
+                    <div class="admin-table-actions">
+                        <select class="admin-select" id="audit-take">
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                            <option value="200">200</option>
+                        </select>
+                        <button class="admin-btn admin-btn-sm" id="audit-refresh" type="button">Refresh</button>
+                    </div>
+                </div>
+
+                <div id="overview-audit-section">
+                    <div class="admin-loading-state" id="audit-loading">
+                        <span class="admin-spinner"></span> Loading audit log…
+                    </div>
+                    <div class="admin-error-state" id="audit-error" style="display:none;"></div>
+                    <div class="admin-table-wrap" id="audit-table-wrap" style="display:none;">
+                        <div style="max-height: 520px; overflow-y: auto;">
+                            <table class="admin-table">
+                                <thead>
+                                    <tr>
+                                        <th data-sort="createdUtc">Time</th>
+                                        <th data-sort="actorRole">Admin</th>
+                                        <th data-sort="action">Action</th>
+                                        <th data-sort="targetType">Target</th>
+                                        <th data-sort="outcome">Outcome</th>
+                                        <th data-sort="reason">Reason</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="audit-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="js/admin-api.js"></script>
+    <script src="js/admin-shell.js"></script>
+    <script>
+        (function () {
+            'use strict';
+            var session = window.AdminShell ? window.AdminShell.guardSession() : null;
+            if (!session) return;
+
+            function escapeHtml(str) {
+                if (str === null || str === undefined) return '';
+                return String(str)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+            }
+
+            var dashboardLoading = document.getElementById('dashboard-loading');
+            var dashboardError = document.getElementById('dashboard-error');
+            var dashboardCards = document.getElementById('dashboard-cards');
+
+            var auditLoading = document.getElementById('audit-loading');
+            var auditError = document.getElementById('audit-error');
+            var auditTableWrap = document.getElementById('audit-table-wrap');
+            var auditTbody = document.getElementById('audit-tbody');
+            var auditTake = document.getElementById('audit-take');
+            var auditRefresh = document.getElementById('audit-refresh');
+
+            var currentAuditData = [];
+            var auditSortCol = 'createdUtc';
+            var auditSortAsc = false;
+
+            function formatCurrency(value) {
+                if (value === null || value === undefined) return '—';
+                return '$' + Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+
+            function formatNumber(value) {
+                if (value === null || value === undefined) return '—';
+                return Number(value).toLocaleString();
+            }
+
+            function formatDateTime(value) {
+                if (!value) return '—';
+                var d = new Date(value);
+                if (Number.isNaN(d.getTime())) return value;
+                return d.toLocaleString();
+            }
+
+            function shortId(value) {
+                if (!value) return '—';
+                var s = String(value);
+                return s.length > 8 ? s.slice(0, 8) + '…' : s;
+            }
+
+            function showError(el, message) {
+                el.textContent = message || 'Something went wrong. Please try again.';
+                el.style.display = 'block';
+            }
+
+            function renderDashboard(data) {
+                if (!data) {
+                    showError(dashboardError, 'Failed to load dashboard data.');
+                    dashboardLoading.style.display = 'none';
+                    dashboardCards.style.display = 'none';
+                    return;
+                }
+
+                var cards = [
+                    { label: 'Total Users', value: formatNumber(data.userCount) },
+                    { label: 'Players', value: formatNumber(data.playerCount) },
+                    { label: 'Admins', value: formatNumber(data.adminCount) },
+                    { label: 'Wallet Balance', value: formatCurrency(data.totalWalletBalance) },
+                    { label: 'Machine Credits', value: formatCurrency(data.totalMachineCredits) },
+                    { label: 'Machines', value: formatNumber(data.machineCount), hint: (data.openMachineCount || 0) + ' open / ' + (data.closedMachineCount || 0) + ' closed' },
+                    { label: 'Active Sessions', value: formatNumber(data.activeMachineSessions) },
+                    { label: 'Recoverable Rounds', value: formatNumber(data.recoverableRounds) },
+                    { label: 'Cabinet Devices', value: formatNumber(data.cabinetDeviceCount), hint: (data.activeCabinetDeviceSessions || 0) + ' active / ' + (data.revokedCabinetDeviceCount || 0) + ' revoked' },
+                    { label: 'Capital In', value: formatCurrency(data.totalCapitalIn) },
+                    { label: 'Capital Out', value: formatCurrency(data.totalCapitalOut) },
+                    { label: 'Observed RTP', value: (data.observedRtp !== null && data.observedRtp !== undefined ? (Number(data.observedRtp) * 100).toFixed(1) + '%' : '—') }
+                ];
+
+                var html = '';
+                for (var i = 0; i < cards.length; i++) {
+                    var c = cards[i];
+                    html += '<div class="admin-card">' +
+                        '<p class="admin-card-label">' + escapeHtml(c.label) + '</p>' +
+                        '<p class="admin-card-value">' + escapeHtml(c.value) + '</p>';
+                    if (c.hint) {
+                        html += '<p class="admin-card-hint">' + escapeHtml(c.hint) + '</p>';
+                    }
+                    html += '</div>';
+                }
+                dashboardCards.innerHTML = html;
+                dashboardLoading.style.display = 'none';
+                dashboardError.style.display = 'none';
+                dashboardCards.style.display = 'block';
+            }
+
+            function sortAuditData() {
+                var col = auditSortCol;
+                var asc = auditSortAsc;
+                currentAuditData.sort(function (a, b) {
+                    var av = a[col];
+                    var bv = b[col];
+                    if (av === bv) return 0;
+                    if (av === null || av === undefined) return 1;
+                    if (bv === null || bv === undefined) return -1;
+                    if (typeof av === 'string') {
+                        var cmp = av.localeCompare(bv);
+                        return asc ? cmp : -cmp;
+                    }
+                    if (av > bv) return asc ? 1 : -1;
+                    return asc ? -1 : 1;
+                });
+            }
+
+            function renderAuditRows() {
+                auditTbody.innerHTML = '';
+                if (!currentAuditData.length) {
+                    var emptyRow = document.createElement('tr');
+                    var emptyCell = document.createElement('td');
+                    emptyCell.setAttribute('colspan', '6');
+                    emptyCell.style.textAlign = 'center';
+                    emptyCell.style.color = 'var(--admin-text-muted)';
+                    emptyCell.style.padding = '24px';
+                    emptyCell.textContent = 'No audit entries found.';
+                    emptyRow.appendChild(emptyCell);
+                    auditTbody.appendChild(emptyRow);
+                    return;
+                }
+                for (var i = 0; i < currentAuditData.length; i++) {
+                    var e = currentAuditData[i];
+                    var target = '';
+                    if (e.targetType && e.targetId) {
+                        target = e.targetType + ' ' + shortId(e.targetId);
+                    } else if (e.machineId) {
+                        target = 'Machine ' + shortId(e.machineId);
+                    } else if (e.cabinetDeviceId) {
+                        target = 'Device ' + shortId(e.cabinetDeviceId);
+                    } else {
+                        target = '—';
+                    }
+                    var outcomeClass = '';
+                    if (e.outcome) {
+                        var lower = e.outcome.toLowerCase();
+                        if (lower.indexOf('success') !== -1 || lower.indexOf('succeeded') !== -1) {
+                            outcomeClass = 'admin-badge-success';
+                        } else if (lower.indexOf('fail') !== -1 || lower.indexOf('error') !== -1) {
+                            outcomeClass = 'admin-badge-danger';
+                        }
+                    }
+
+                    var row = document.createElement('tr');
+
+                    var tdTime = document.createElement('td');
+                    tdTime.textContent = formatDateTime(e.createdUtc);
+                    row.appendChild(tdTime);
+
+                    var tdActor = document.createElement('td');
+                    tdActor.textContent = e.actorRole || '—';
+                    var br = document.createElement('br');
+                    tdActor.appendChild(br);
+                    var actorSpan = document.createElement('span');
+                    actorSpan.className = 'admin-text-muted';
+                    actorSpan.textContent = shortId(e.actorUserId);
+                    tdActor.appendChild(actorSpan);
+                    row.appendChild(tdActor);
+
+                    var tdAction = document.createElement('td');
+                    tdAction.textContent = e.action || '—';
+                    row.appendChild(tdAction);
+
+                    var tdTarget = document.createElement('td');
+                    tdTarget.textContent = target;
+                    row.appendChild(tdTarget);
+
+                    var tdOutcome = document.createElement('td');
+                    if (e.outcome) {
+                        var badge = document.createElement('span');
+                        badge.className = 'admin-badge ' + outcomeClass;
+                        badge.textContent = e.outcome;
+                        tdOutcome.appendChild(badge);
+                    } else {
+                        tdOutcome.textContent = '—';
+                    }
+                    row.appendChild(tdOutcome);
+
+                    var tdReason = document.createElement('td');
+                    tdReason.textContent = e.reason || '—';
+                    row.appendChild(tdReason);
+
+                    auditTbody.appendChild(row);
+                }
+            }
+
+            function renderAudit(entries) {
+                currentAuditData = entries || [];
+                sortAuditData();
+                renderAuditRows();
+                auditLoading.style.display = 'none';
+                auditError.style.display = 'none';
+                auditTableWrap.style.display = 'block';
+            }
+
+            function loadDashboard() {
+                dashboardLoading.style.display = 'flex';
+                dashboardError.style.display = 'none';
+                dashboardCards.style.display = 'none';
+
+                window.AdminApi.getDashboard().then(function (data) {
+                    renderDashboard(data);
+                }).catch(function (err) {
+                    showError(dashboardError, err && err.message ? err.message : 'Failed to load dashboard data.');
+                    dashboardLoading.style.display = 'none';
+                    dashboardCards.style.display = 'none';
+                });
+            }
+
+            function loadAudit() {
+                var take = parseInt(auditTake.value, 10) || 50;
+                auditLoading.style.display = 'flex';
+                auditError.style.display = 'none';
+                auditTableWrap.style.display = 'none';
+
+                window.AdminApi.listAudit(take).then(function (data) {
+                    renderAudit(data);
+                }).catch(function (err) {
+                    showError(auditError, err && err.message ? err.message : 'Failed to load audit log.');
+                    auditLoading.style.display = 'none';
+                });
+            }
+
+            if (auditRefresh) {
+                auditRefresh.addEventListener('click', loadAudit);
+            }
+            if (auditTake) {
+                auditTake.addEventListener('change', loadAudit);
+            }
+
+            var ths = auditTableWrap ? auditTableWrap.querySelectorAll('th[data-sort]') : [];
+            for (var t = 0; t < ths.length; t++) {
+                (function (th) {
+                    th.style.cursor = 'pointer';
+                    th.addEventListener('click', function () {
+                        var col = th.getAttribute('data-sort');
+                        if (auditSortCol === col) {
+                            auditSortAsc = !auditSortAsc;
+                        } else {
+                            auditSortCol = col;
+                            auditSortAsc = true;
+                        }
+                        sortAuditData();
+                        renderAuditRows();
+                    });
+                })(ths[t]);
+            }
+
+            loadDashboard();
+            loadAudit();
+        })();
+    </script>
+</body>
+</html>

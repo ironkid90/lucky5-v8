@@ -23,10 +23,19 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 	private const int CabinetReplayMaxEvents = 128;
 	private static readonly EngineConfig EngineCfg = EngineConfig.Default;
 	private static readonly ConcurrentDictionary<string, SemaphoreSlim> CabinetCommandLocks = new(StringComparer.OrdinalIgnoreCase);
+	private static readonly ConcurrentDictionary<Guid, DoubleUpStartLock> DoubleUpStartLocks = new();
 	private static readonly JsonSerializerOptions CabinetJsonOptions = new(JsonSerializerDefaults.Web)
 	{
 		PropertyNameCaseInsensitive = true
 	};
+
+	private sealed class DoubleUpStartLock
+	{
+		public SemaphoreSlim Gate { get; } = new(1, 1);
+		public object SyncRoot { get; } = new();
+		public int ReferenceCount { get; set; }
+	}
+
 	private static readonly IReadOnlyList<OfferDto> DefaultOffers =
 	[
 		new(1, "Welcome Bonus", "First deposit bonus", 10),
@@ -255,9 +264,12 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 					_ = await DrawAsync(userId, new DrawRequest(latestRound.RoundId, []), CancellationToken.None);
 					latestRound = await store.GetRoundAsync(latestRound.RoundId);
 				}
-				catch
+				catch (InvalidOperationException)
 				{
+					// Draw cannot proceed (e.g., machine closed, credits exhausted).
+					// Mark round as completed with zero payout so cashout can proceed.
 					latestRound.IsCompleted = true;
+					latestRound.WinAmount = 0;
 					await store.SaveRoundAsync(latestRound);
 				}
 			}
@@ -395,6 +407,8 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 
 		await store.SaveRoundAsync(round);
 
+		var cursor = await store.AdvanceCabinetStateCursorAsync(userId, request.MachineId);
+
 		var profile = await RequireProfileAsync(userId);
 		await store.AddWalletLedgerEntryAsync(new WalletLedgerEntry
 		{
@@ -413,7 +427,9 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		stateCache.InvalidateMachineSession(userId, request.MachineId);
 		return new DealResultDto(round.RoundId, cards.Select(ToDto).ToArray(), request.BetAmount, session.MachineCredits, jackpots, advisedHolds,
 			AceCard: false,
-			AceMultiplier: 0);
+			AceMultiplier: 0,
+			StateVersion: cursor.StateVersion,
+			SequenceNumber: cursor.SequenceNumber);
 	}
 
 	public async Task<DrawResultDto> DrawAsync(Guid userId, DrawRequest request, CancellationToken cancellationToken)
@@ -614,14 +630,88 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		await store.UpdateMachineSessionAsync(session);
 		await store.SaveRoundAsync(round);
 
+		var cursor = await store.AdvanceCabinetStateCursorAsync(userId, round.MachineId);
+
 		var jackpots = SnapshotJackpots(ledger);
 
 		stateCache.InvalidateActiveRound(userId, round.MachineId);
 		stateCache.InvalidateMachineSession(userId, round.MachineId);
-		return new DrawResultDto(round.RoundId, finalCards.Select(ToDto).ToArray(), handRankName, payout, session.MachineCredits, jackpotWon, jackpots, doubleUpAvailable);
+		return new DrawResultDto(round.RoundId, finalCards.Select(ToDto).ToArray(), handRankName, payout, session.MachineCredits, jackpotWon, jackpots, doubleUpAvailable, cursor.StateVersion, cursor.SequenceNumber);
 	}
 
 	public async Task<DoubleUpResultDto> StartDoubleUpAsync(Guid userId, Guid roundId, CancellationToken cancellationToken)
+	{
+		var startLock = await AcquireDoubleUpStartLockAsync(roundId, cancellationToken);
+
+		try
+		{
+			return await StartDoubleUpCoreAsync(userId, roundId, cancellationToken);
+		}
+		finally
+		{
+			startLock.Gate.Release();
+			ReleaseDoubleUpStartLockReference(roundId, startLock);
+		}
+	}
+
+	private static async Task<DoubleUpStartLock> AcquireDoubleUpStartLockAsync(Guid roundId, CancellationToken cancellationToken)
+	{
+		while (true)
+		{
+			var startLock = DoubleUpStartLocks.GetOrAdd(roundId, _ => new DoubleUpStartLock());
+			if (!TryRetainDoubleUpStartLock(roundId, startLock))
+			{
+				continue;
+			}
+
+			try
+			{
+				await startLock.Gate.WaitAsync(cancellationToken);
+				return startLock;
+			}
+			catch
+			{
+				ReleaseDoubleUpStartLockReference(roundId, startLock);
+				throw;
+			}
+		}
+	}
+
+	private static bool TryRetainDoubleUpStartLock(Guid roundId, DoubleUpStartLock startLock)
+	{
+		lock (startLock.SyncRoot)
+		{
+			if (!DoubleUpStartLocks.TryGetValue(roundId, out var currentLock)
+				|| !ReferenceEquals(currentLock, startLock))
+			{
+				return false;
+			}
+
+			startLock.ReferenceCount++;
+			return true;
+		}
+	}
+
+	private static void ReleaseDoubleUpStartLockReference(Guid roundId, DoubleUpStartLock startLock)
+	{
+		var disposeLock = false;
+		lock (startLock.SyncRoot)
+		{
+			startLock.ReferenceCount--;
+			if (startLock.ReferenceCount == 0)
+			{
+				DoubleUpStartLocks.TryRemove(roundId, out _);
+				disposeLock = true;
+			}
+		}
+
+		if (disposeLock)
+		{
+			startLock.Gate.Dispose();
+		}
+	}
+
+	private async Task<DoubleUpResultDto> StartDoubleUpCoreAsync(Guid userId, Guid roundId, CancellationToken cancellationToken)
 	{
 		var round = await store.GetRoundAsync(roundId);
 		if (round == null || round.UserId != userId)
@@ -631,6 +721,27 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		if (!round.IsCompleted || round.WinAmount <= 0)
 			throw new InvalidOperationException("No win to double up");
 		round.DoubleUpOffered = true;
+
+		if (round.DoubleUpSession is { IsTerminal: false } existingSession)
+		{
+			var existingSessionBank = await RequireMachineSessionAsync(userId, round.MachineId, createIfMissing: false);
+			var existingNoise = GenerateNoise(round.RoundEntropySeed, existingSession.CurrentRoundIndex);
+			return new DoubleUpResultDto(roundId, "Started", existingSession.CurrentAmount, existingSessionBank.MachineCredits,
+				DealerCard: ToCleanRoomDto(existingSession.DealerCard),
+				SwitchesRemaining: existingSession.Options.MaxSwitchesPerRound - existingSession.SwitchCountInRound,
+				IsNoLoseActive: existingSession.IsNoLoseActive,
+				CurrentRoundIndex: existingSession.CurrentRoundIndex,
+				Noise: existingNoise,
+				CardTrail: BuildCardTrail(existingSession),
+				BoardHandRank: existingSession.BoardHandRank?.ToString(),
+				BoardBonusAmount: existingSession.LastBoardBonusAmount,
+				SlotIndex: existingSession.LastResolvedBoardSlotIndex,
+				IsLucky5Active: existingSession.IsNoLoseActive,
+				CurrentBonusAmount: existingSession.BoardBonusTotal,
+				AceCard: round.AceCard != null,
+				AceMultiplier: round.AceMultiplier,
+				AceMultiplierFired: round.AceMultiplierFired);
+		}
 
 		var machine = await RequireMachineAsync(round.MachineId);
 		var sessionBank = await RequireMachineSessionAsync(userId, round.MachineId, createIfMissing: false);
@@ -679,6 +790,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		round.EnteredDoubleUp = true;
 
 		await store.SaveRoundAsync(round);
+		var cursor = await store.AdvanceCabinetStateCursorAsync(userId, round.MachineId);
 
 		var noise = GenerateNoise(round.RoundEntropySeed, 0);
 		InvalidateCaches(userId, round.MachineId);
@@ -696,7 +808,9 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 			CurrentBonusAmount: session.BoardBonusTotal,
 			AceCard: round.AceCard != null,
 			AceMultiplier: round.AceMultiplier,
-			AceMultiplierFired: round.AceMultiplierFired);
+			AceMultiplierFired: round.AceMultiplierFired,
+			StateVersion: cursor.StateVersion,
+			SequenceNumber: cursor.SequenceNumber);
 	}
 
 	public async Task<DoubleUpResultDto> SwitchDealerAsync(Guid userId, Guid roundId, CancellationToken cancellationToken)
@@ -729,6 +843,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		if (session.IsTerminal && session.TerminalOutcome == Lucky5DoubleUpOutcome.MachineClosed)
 		{
 			await FinalizeDoubleUpAsync(round, sessionBank, session.CashoutCredits);
+			var closedCursor = await store.AdvanceCabinetStateCursorAsync(userId, round.MachineId);
 			InvalidateCaches(userId, round.MachineId);
 			return new DoubleUpResultDto(roundId, "MachineClosed", session.CashoutCredits, sessionBank.MachineCredits,
 				DealerCard: ToCleanRoomDto(session.DealerCard),
@@ -742,9 +857,12 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 				BoardBonusAmount: session.LastBoardBonusAmount,
 				SlotIndex: session.LastResolvedBoardSlotIndex,
 				IsLucky5Active: session.IsNoLoseActive,
-				CurrentBonusAmount: session.BoardBonusTotal);
+				CurrentBonusAmount: session.BoardBonusTotal,
+				StateVersion: closedCursor.StateVersion,
+				SequenceNumber: closedCursor.SequenceNumber);
 		}
 
+		var cursor = await store.AdvanceCabinetStateCursorAsync(userId, round.MachineId);
 		InvalidateCaches(userId, round.MachineId);
 		return new DoubleUpResultDto(roundId, isLucky ? "Lucky5" : "Switched", session.CurrentAmount, sessionBank.MachineCredits,
 			DealerCard: ToCleanRoomDto(session.DealerCard),
@@ -758,7 +876,9 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 			BoardBonusAmount: session.LastBoardBonusAmount,
 			SlotIndex: session.LastResolvedBoardSlotIndex,
 			IsLucky5Active: session.IsNoLoseActive,
-			CurrentBonusAmount: session.BoardBonusTotal);
+			CurrentBonusAmount: session.BoardBonusTotal,
+			StateVersion: cursor.StateVersion,
+			SequenceNumber: cursor.SequenceNumber);
 	}
 
 	public async Task<DoubleUpResultDto> SwapDoubleUpCardAsync(Guid userId, Guid roundId, int swapPosition, CancellationToken cancellationToken)
@@ -772,6 +892,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		var session = Lucky5DoubleUpEngine.SwapChallenger(round.DoubleUpSession, swapPosition);
 		round.DoubleUpSession = session;
 		await store.SaveRoundAsync(round);
+		var cursor = await store.AdvanceCabinetStateCursorAsync(userId, round.MachineId);
 
 		var sessionBank = await RequireMachineSessionAsync(userId, round.MachineId, createIfMissing: false);
 		var noise = GenerateNoise(round.RoundEntropySeed, session.CurrentRoundIndex);
@@ -793,7 +914,9 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 			SlotIndex: session.LastResolvedBoardSlotIndex,
 			IsLucky5Active: session.IsNoLoseActive,
 			CurrentBonusAmount: session.BoardBonusTotal,
-			SwapActivePosition: session.SwapActivePosition);
+			SwapActivePosition: session.SwapActivePosition,
+			StateVersion: cursor.StateVersion,
+			SequenceNumber: cursor.SequenceNumber);
 	}
 
 	public async Task<DoubleUpResultDto> GuessDoubleUpAsync(Guid userId, Guid roundId, string guess, CancellationToken cancellationToken)
@@ -804,10 +927,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		if (round.IsPayoutSettled)
 			throw new InvalidOperationException("Payout already settled");
 		if (round.DoubleUpSession is null)
-		{
-			_ = await StartDoubleUpAsync(userId, roundId, cancellationToken);
-			round = await store.GetRoundAsync(roundId);
-		}
+			throw new InvalidOperationException("Double-up session not started. Call StartDoubleUp first.");
 
 		var parsedGuess = guess.Equals("big", StringComparison.OrdinalIgnoreCase) ? BigSmallGuess.Big : BigSmallGuess.Small;
 		var resolution = Lucky5DoubleUpEngine.ResolveGuess(round!.DoubleUpSession!, parsedGuess);
@@ -816,10 +936,12 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		var noise = GenerateNoise(round.RoundEntropySeed, resolution.Session.CurrentRoundIndex);
 
 		DoubleUpResultDto guessResult;
+		CabinetStateCursor cursor;
 		switch (resolution.Outcome)
 		{
 			case Lucky5DoubleUpOutcome.Win:
 				await store.SaveRoundAsync(round);
+				cursor = await store.AdvanceCabinetStateCursorAsync(userId, round.MachineId);
 				guessResult = new DoubleUpResultDto(
 					roundId,
 					"Win",
@@ -836,11 +958,14 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 					BoardBonusAmount: resolution.Session.LastBoardBonusAmount,
 					SlotIndex: resolution.Session.LastResolvedBoardSlotIndex,
 					IsLucky5Active: resolution.Session.IsNoLoseActive,
-					CurrentBonusAmount: resolution.Session.BoardBonusTotal);
+					CurrentBonusAmount: resolution.Session.BoardBonusTotal,
+					StateVersion: cursor.StateVersion,
+					SequenceNumber: cursor.SequenceNumber);
 				break;
 
 			case Lucky5DoubleUpOutcome.SafeFail:
 				await FinalizeDoubleUpAsync(round, sessionBank, resolution.CashoutCredits);
+				cursor = await store.AdvanceCabinetStateCursorAsync(userId, round.MachineId);
 				guessResult = new DoubleUpResultDto(
 					roundId,
 					"SafeFail",
@@ -857,11 +982,14 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 					BoardBonusAmount: resolution.Session.LastBoardBonusAmount,
 					SlotIndex: resolution.Session.LastResolvedBoardSlotIndex,
 					IsLucky5Active: false,
-					CurrentBonusAmount: resolution.Session.BoardBonusTotal);
+					CurrentBonusAmount: resolution.Session.BoardBonusTotal,
+					StateVersion: cursor.StateVersion,
+					SequenceNumber: cursor.SequenceNumber);
 				break;
 
 			case Lucky5DoubleUpOutcome.MachineClosed:
 				await FinalizeDoubleUpAsync(round, sessionBank, resolution.CashoutCredits);
+				cursor = await store.AdvanceCabinetStateCursorAsync(userId, round.MachineId);
 				guessResult = new DoubleUpResultDto(
 					roundId,
 					"MachineClosed",
@@ -877,13 +1005,16 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 					BoardBonusAmount: resolution.Session.LastBoardBonusAmount,
 					SlotIndex: resolution.Session.LastResolvedBoardSlotIndex,
 					IsLucky5Active: false,
-					CurrentBonusAmount: resolution.Session.BoardBonusTotal);
+					CurrentBonusAmount: resolution.Session.BoardBonusTotal,
+					StateVersion: cursor.StateVersion,
+					SequenceNumber: cursor.SequenceNumber);
 				break;
 
 			default:
 				await FinalizeDoubleUpAsync(round, sessionBank, 0);
 				round.WinAmount = 0;
 				await store.SaveRoundAsync(round);
+				cursor = await store.AdvanceCabinetStateCursorAsync(userId, round.MachineId);
 				guessResult = new DoubleUpResultDto(
 					roundId,
 					"Lose",
@@ -899,7 +1030,9 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 					BoardBonusAmount: resolution.Session.LastBoardBonusAmount,
 					SlotIndex: resolution.Session.LastResolvedBoardSlotIndex,
 					IsLucky5Active: false,
-					CurrentBonusAmount: resolution.Session.BoardBonusTotal);
+					CurrentBonusAmount: resolution.Session.BoardBonusTotal,
+					StateVersion: cursor.StateVersion,
+					SequenceNumber: cursor.SequenceNumber);
 				break;
 		}
 		InvalidateCaches(userId, round.MachineId);
@@ -916,12 +1049,17 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		if (round.IsPayoutSettled)
 		{
 			var earlyStatus = session.IsMachineClosed ? "MachineClosed" : "Cashout";
-			return new DoubleUpResultDto(roundId, earlyStatus, 0, session.MachineCredits);
+			var earlyCursor = await store.GetOrInitializeCabinetStateCursorAsync(userId, round.MachineId);
+			return new DoubleUpResultDto(roundId, earlyStatus, 0, session.MachineCredits,
+				StateVersion: earlyCursor.StateVersion,
+				SequenceNumber: earlyCursor.SequenceNumber);
 		}
 
+		CabinetStateCursor cursor;
 		if (round.DoubleUpSession != null && !round.DoubleUpSession.IsTerminal)
 		{
 			await FinalizeDoubleUpAsync(round, session, cashoutAmount);
+			cursor = await store.AdvanceCabinetStateCursorAsync(userId, round.MachineId);
 		}
 		else if (round.DoubleUpSession == null)
 		{
@@ -954,10 +1092,17 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 			});
 
 			await store.SaveRoundAsync(round);
+			cursor = await store.AdvanceCabinetStateCursorAsync(userId, round.MachineId);
+		}
+		else
+		{
+			cursor = await store.GetOrInitializeCabinetStateCursorAsync(userId, round.MachineId);
 		}
 		var status = session.IsMachineClosed ? "MachineClosed" : "Cashout";
 		InvalidateCaches(userId, round.MachineId);
-		return new DoubleUpResultDto(roundId, status, cashoutAmount, session.MachineCredits);
+		return new DoubleUpResultDto(roundId, status, cashoutAmount, session.MachineCredits,
+			StateVersion: cursor.StateVersion,
+			SequenceNumber: cursor.SequenceNumber);
 	}
 
 	public async Task<DoubleUpResultDto> TakeHalfAsync(Guid userId, Guid roundId, CancellationToken cancellationToken)
@@ -1016,6 +1161,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		}
 
 		await store.SaveRoundAsync(round);
+		var cursor = await store.AdvanceCabinetStateCursorAsync(userId, round.MachineId);
 
 		var noise = GenerateNoise(round.RoundEntropySeed, 0);
 		var switchesRemaining = round.DoubleUpSession is null
@@ -1032,7 +1178,9 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 			BoardHandRank: round.DoubleUpSession?.BoardHandRank?.ToString(),
 			BoardBonusAmount: round.DoubleUpSession?.LastBoardBonusAmount ?? 0,
 			SlotIndex: round.DoubleUpSession?.LastResolvedBoardSlotIndex ?? 0,
-			CurrentBonusAmount: round.DoubleUpSession?.BoardBonusTotal);
+			CurrentBonusAmount: round.DoubleUpSession?.BoardBonusTotal,
+			StateVersion: cursor.StateVersion,
+			SequenceNumber: cursor.SequenceNumber);
 	}
 
 	public async Task<JackpotInfoDto> ChangeJackpotRankAsync(int machineId, int rank, CancellationToken cancellationToken)
@@ -1269,12 +1417,18 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 
 			try
 			{
+				var previousCursor = await store.GetOrInitializeCabinetStateCursorAsync(userId, command.MachineId);
+				var previousVersion = previousCursor.StateVersion;
 				await ExecuteCabinetCommandAsync(userId, command, cancellationToken);
 				var mutatesCabinetState = MutatesCabinetState(command.CommandType);
 				CabinetStateCursor cursor;
 				if (mutatesCabinetState)
 				{
-					cursor = await store.AdvanceCabinetStateCursorAsync(userId, command.MachineId);
+					cursor = await store.GetOrInitializeCabinetStateCursorAsync(userId, command.MachineId);
+					if (cursor.StateVersion == previousVersion)
+					{
+						cursor = await store.AdvanceCabinetStateCursorAsync(userId, command.MachineId);
+					}
 				}
 				else
 				{
@@ -1828,6 +1982,8 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		string phase;
 		if (duSession is not null && !duSession.IsTerminal)
 			phase = "DoubleUp";
+		else if (duSession is not null && duSession.IsTerminal)
+			phase = "DoubleUpEnded";
 		else if (state.Phase == RoundPhase.Dealt)
 			phase = "Dealt";
 		else
@@ -1846,9 +2002,11 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 
 		// Double-up snapshot
 		DoubleUpStateDto? duDto = null;
-		if (duSession is not null && !duSession.IsTerminal)
+		if (duSession is not null)
 		{
-			var switchesRemaining = duSession.Options.MaxSwitchesPerRound - duSession.SwitchCountInRound;
+			var switchesRemaining = duSession.IsTerminal
+				? 0
+				: duSession.Options.MaxSwitchesPerRound - duSession.SwitchCountInRound;
 			var multiplier = !duSession.IsNoLoseActive
 				? 1
 				: duSession.LuckyHitCount <= 1
@@ -1902,22 +2060,22 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 			stateVersion = cursor.StateVersion;
 			sequenceNumber = cursor.SequenceNumber;
 		}
-		return new
+		var result = new Dictionary<string, object>
 		{
-			machineId,
-			activeRounds,
-			activeSessions,
-			observedRtp = ledger.ObservedRtp,
-			targetRtp = ledger.TargetRtp,
-			baseRtp = ledger.CapitalIn > 0 ? Math.Round(ledger.BaseCapitalOut / ledger.CapitalIn, 4) : 0m,
-			phase = ledger.LastDistributionMode.ToString(),
-			lastPayoutScale = ledger.LastPayoutScale,
-			consecutiveLosses = ledger.ConsecutiveLosses,
-			roundsSinceMediumWin = ledger.RoundsSinceMediumWin,
-			cooldownRemaining = ledger.CooldownRoundsRemaining,
-			netSinceLastClose = ledger.NetSinceLastClose,
-			roundsSinceLucky5Hit = ledger.RoundsSinceLucky5Hit,
-			jackpots = new
+			["machineId"] = machineId,
+			["activeRounds"] = activeRounds,
+			["activeSessions"] = activeSessions,
+			["observedRtp"] = ledger.ObservedRtp,
+			["targetRtp"] = ledger.TargetRtp,
+			["baseRtp"] = ledger.CapitalIn > 0 ? Math.Round(ledger.BaseCapitalOut / ledger.CapitalIn, 4) : 0m,
+			["phase"] = ledger.LastDistributionMode.ToString(),
+			["lastPayoutScale"] = ledger.LastPayoutScale,
+			["consecutiveLosses"] = ledger.ConsecutiveLosses,
+			["roundsSinceMediumWin"] = ledger.RoundsSinceMediumWin,
+			["cooldownRemaining"] = ledger.CooldownRoundsRemaining,
+			["netSinceLastClose"] = ledger.NetSinceLastClose,
+			["roundsSinceLucky5Hit"] = ledger.RoundsSinceLucky5Hit,
+			["jackpots"] = new
 			{
 				fullHouse = ledger.JackpotFullHouse,
 				fullHouseRank = ledger.JackpotFullHouseRank,
@@ -1929,10 +2087,11 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 				machineSerie = ledger.MachineSerie,
 				machineKent = ledger.MachineKent
 			},
-			timestampUtc = DateTime.UtcNow,
-			stateVersion,
-			sequenceNumber
+			["timestampUtc"] = DateTime.UtcNow,
+			["state_version"] = stateVersion,
+			["sequence_number"] = sequenceNumber
 		};
+		return result;
 	}
 
 	public async Task<(long StateVersion, long SequenceNumber)> GetCabinetStateCursorAsync(Guid userId, int machineId, CancellationToken cancellationToken)
@@ -2824,4 +2983,3 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		};
 	}
 }
-

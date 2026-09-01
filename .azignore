@@ -1,0 +1,71 @@
+# Azure azd / Container Apps build context ignore file for Lucky5 v8.
+#
+# This is a large multi-tool monorepo (decompiled game archives, AI tool scratch
+# folders, node_modules, screenshots, etc.). Only the .NET server under `server/`
+# and the root build files are needed to build the Lucky5.Api container image.
+# Everything else is excluded to keep `azd up` / `azd deploy` uploads small.
+#
+# Pattern semantics match .gitignore.
+
+/*
+
+!/server
+!/server/**
+!/Dockerfile
+!/azure.yaml
+!/Directory.Build.props
+!/global.json
+!/nuget.config
+!/.azignore
+
+# Re-exclude build artifacts and local dev state under server/.
+server/**/bin/
+server/**/obj/
+server/**/node_modules/
+server/**/.vscode/
+server/**/.vs/
+
+# Explicitly exclude all AI agent state directories.
+.history/
+.vexp/
+.cursor/
+.kiro/
+.windsurf/
+.zed/
+.contextstream/
+.antigravity/
+.agentsroom/
+.goals/
+.brain/
+.openclaw/
+.cagent/
+.agent-runtime/
+.codex/
+.opencode/
+.agent-jobs/
+.comp/
+.claude/
+.gemini/
+.continue/
+.trae/
+.memory/
+.github/copilot/
+.github/skills/
+.github/instructions/
+playpoker/
+ai9/
+Ai9/
+goldenpoker/
+analysis/
+mediafiles/
+ai999_frames/
+pagesource_output/
+db-context-enrichment/
+genai-for-developers/
+azd-ai-starter-basic/
+guestbook-*/
+build/
+attached_assets/
+tmp/
+.plans/
+artifacts/

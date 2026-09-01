@@ -212,7 +212,7 @@
             machineId: _safeNumber(w.machineId, 0),
             phase: w.gameState || 'idle',
             cards: Array.isArray(w.cards) ? w.cards.map(c => c ? _clone(c) : c) : [],
-            holds: w.holdIndexes ? Array.from(w.holdIndexes) : [],
+            holds: w.holdIndexes ? Array.from(w.holdIndexes).sort((a, b) => a - b) : [],
             bet: _safeNumber(w.currentBet, 0),
             winMeter: _safeNumber(w.winAmount, 0),
             doubleUpState: {

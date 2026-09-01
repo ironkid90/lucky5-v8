@@ -181,11 +181,11 @@ public class GameController(IGameService gameService) : ControllerBase
     }
 
     [HttpPost("double-up/swap")]
-    public async Task<ActionResult<ApiResponse<DoubleUpResultDto>>> SwapDoubleUpCard([FromBody] CashoutDoubleUpRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<ApiResponse<DoubleUpResultDto>>> SwapDoubleUpCard([FromBody] SwapDoubleUpCardRequest request, CancellationToken cancellationToken)
     {
         try
         {
-            var result = await gameService.SwapDoubleUpCardAsync(UserId, request.RoundId, 0, cancellationToken);
+            var result = await gameService.SwapDoubleUpCardAsync(UserId, request.RoundId, request.SwapPosition, cancellationToken);
             return Ok(ApiResponse<DoubleUpResultDto>.Ok(result, traceId: HttpContext.TraceIdentifier));
         }
         catch (InvalidOperationException ex)
@@ -214,6 +214,52 @@ public class GameController(IGameService gameService) : ControllerBase
         try
         {
             var result = await gameService.CashoutDoubleUpAsync(UserId, request.RoundId, cancellationToken);
+            return Ok(ApiResponse<DoubleUpResultDto>.Ok(result, traceId: HttpContext.TraceIdentifier));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new ApiResponse<DoubleUpResultDto>(false, ex.Message, null, [], HttpContext.TraceIdentifier));
+        }
+    }
+
+    // ── Seamless state sync: additional DU endpoints to match frontend game-config.js routes ──
+    // The frontend (game.js) calls these routes during double-up. Without them, Take Score,
+    // Take Half, and Switch Dealer all 404, making double-up unplayable.
+
+    [HttpPost("double-up/cashout")]
+    public async Task<ActionResult<ApiResponse<DoubleUpResultDto>>> CashoutDoubleUp([FromBody] CashoutDoubleUpRequest request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await gameService.CashoutDoubleUpAsync(UserId, request.RoundId, cancellationToken);
+            return Ok(ApiResponse<DoubleUpResultDto>.Ok(result, traceId: HttpContext.TraceIdentifier));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new ApiResponse<DoubleUpResultDto>(false, ex.Message, null, [], HttpContext.TraceIdentifier));
+        }
+    }
+
+    [HttpPost("double-up/take-half")]
+    public async Task<ActionResult<ApiResponse<DoubleUpResultDto>>> TakeHalfDoubleUpAlias([FromBody] TakeHalfRequest request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await gameService.TakeHalfAsync(UserId, request.RoundId, cancellationToken);
+            return Ok(ApiResponse<DoubleUpResultDto>.Ok(result, traceId: HttpContext.TraceIdentifier));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new ApiResponse<DoubleUpResultDto>(false, ex.Message, null, [], HttpContext.TraceIdentifier));
+        }
+    }
+
+    [HttpPost("double-up/switch")]
+    public async Task<ActionResult<ApiResponse<DoubleUpResultDto>>> SwitchDoubleUpDealer([FromBody] SwitchDealerRequest request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await gameService.SwitchDealerAsync(UserId, request.RoundId, cancellationToken);
             return Ok(ApiResponse<DoubleUpResultDto>.Ok(result, traceId: HttpContext.TraceIdentifier));
         }
         catch (InvalidOperationException ex)

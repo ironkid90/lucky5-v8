@@ -707,22 +707,21 @@
    6. TIMING CONSTANTS — Configured in game-config.js
    ───────────────────────────────────────────────────────────────────────────── */
 
-/* Timing is NOT CSS-driven; it lives in game-config.js:
-   - dealStaggerMs: time between card reveals (deal phase)
-   - drawStaggerMs: time between card replacements (draw phase)
-   - countUpMinMs / countUpMaxMs: drain-to-credits animation duration
-   - jackpotFillMinMs / jackpotFillMaxMs: jackpot fill animation
-   
+/* Timing is NOT CSS-driven; it lives in game-config.js and is VSYNC-locked
+   at 60Hz (see mem.md "VSYNC-Locked Timing" for the authoritative summary):
+   - staggerFrames: ONE global stagger driving all card reveals (deal, draw,
+     DU page turns) — currently 11 frames (~183ms) here, 12 in wildwitch.
+   - dealBaseFrames / dealDurationFrames: pre-deal pause + thump settle time.
+   - drawStaggerFrames / drawRevealStartFrames: draw phase, identical timing
+     to the deal phase by design (deal and redeal must feel the same).
+   - countUpMinMs / countUpMaxMs: drain-to-credits animation duration.
+   - jackpotFillMinMs / jackpotFillMaxMs: jackpot fill animation.
+
    These are already set in game-config.js and should NOT be changed here.
    If AI9 timing differs, update game-config.js TIMING block directly.
-   
-   Current v8 values (2026-06-27 calibration):
-   - dealStaggerMs: 350ms (Calibrated to AI9 reference)
-   - drawStaggerMs: 100ms
-   - countUpMinMs: 1000ms, countUpMaxMs: 65000ms
-   
-   AI9 reference: ~1000ms per card in video (likely player pacing, not animation).
-   OPEN ITEM: Frame-step both recordings to lock exact stagger values.
+   Legacy *Ms getters (dealStaggerMs, drawStaggerMs, etc.) are computed from
+   the frame values for backward compatibility with game.js fallback paths —
+   do not hand-edit them.
 */
 
 /* ─────────────────────────────────────────────────────────────────────────────

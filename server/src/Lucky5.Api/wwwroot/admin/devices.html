@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Cabinet Devices - Lucky5 Admin</title>
+    <link rel="stylesheet" href="css/admin.css" />
+</head>
+<body>
+    <div class="admin-shell">
+        <aside class="admin-sidebar">
+            <div class="admin-sidebar-brand">
+                <span class="admin-sidebar-brand-mark">L5</span>
+                <span class="admin-sidebar-brand-text">
+                    Lucky5 Admin
+                    <small>Back office</small>
+                </span>
+            </div>
+
+            <ul class="admin-nav">
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="overview.html">
+                        <span class="admin-nav-icon">&#9632;</span>
+                        Overview
+                    </a>
+                </li>
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="users.html">
+                        <span class="admin-nav-icon">&#9670;</span>
+                        Users
+                    </a>
+                </li>
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="machines.html">
+                        <span class="admin-nav-icon">&#9636;</span>
+                        Machines
+                    </a>
+                </li>
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="agents.html">
+                        <span class="admin-nav-icon">&#9679;</span>
+                        Agents
+                    </a>
+                </li>
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="devices.html">
+                        <span class="admin-nav-icon">&#9673;</span>
+                        Cabinet Devices
+                    </a>
+                </li>
+                <li class="admin-nav-item">
+                    <a class="admin-nav-link" href="content.html">
+                        <span class="admin-nav-icon">&#9998;</span>
+                        Content
+                    </a>
+                </li>
+            </ul>
+
+            <div class="admin-sidebar-footer">Lucky5 v8 &middot; Admin Dashboard</div>
+        </aside>
+
+        <div class="admin-main">
+            <header class="admin-topbar">
+                <div class="admin-topbar-title">Cabinet Devices</div>
+                <div class="admin-topbar-right">
+                    <div class="admin-user-chip">
+                        <span class="admin-user-avatar" id="admin-user-avatar">A</span>
+                        <span id="admin-username">admin</span>
+                    </div>
+                    <button class="admin-btn admin-btn-sm" id="admin-logout-btn" type="button">Log out</button>
+                </div>
+            </header>
+
+            <main class="admin-content">
+                <div class="admin-page-header">
+                    <div>
+                        <h1>Cabinet Devices</h1>
+                        <p>Provision, monitor, and revoke physical/virtual cabinet device credentials.</p>
+                    </div>
+                    <button class="admin-btn admin-btn-primary" id="admin-provision-btn" type="button">+ Provision device</button>
+                </div>
+
+                <div id="admin-devices-loading" class="admin-loading-state">
+                    <span class="admin-spinner"></span>
+                    <span>Loading devices&hellip;</span>
+                </div>
+
+                <div id="admin-devices-error" class="admin-error-state" style="display:none;"></div>
+
+                <div id="admin-devices-empty" class="admin-empty-state" style="display:none;">
+                    <h3>No devices found</h3>
+                    <p>Provision a new cabinet device to get started.</p>
+                </div>
+
+                <div id="admin-devices-table-wrap" class="admin-table-wrap" style="display:none;">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Machine</th>
+                                <th>Display Name</th>
+                                <th>Serial Number</th>
+                                <th>Status</th>
+                                <th>Last Seen</th>
+                                <th>Active Sessions</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-devices-tbody">
+                        </tbody>
+                    </table>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <div class="admin-modal-overlay" id="admin-provision-modal">
+        <div class="admin-modal">
+            <div class="admin-modal-header">
+                <h2>Provision Cabinet Device</h2>
+                <button class="admin-modal-close" id="admin-provision-modal-close" type="button">&times;</button>
+            </div>
+            <form id="admin-provision-form">
+                <div class="admin-form-group">
+                    <label class="admin-label" for="admin-provision-machine-id">Machine ID</label>
+                    <input class="admin-input" id="admin-provision-machine-id" type="number" name="machineId" required min="1" step="1" />
+                </div>
+                <div class="admin-form-group">
+                    <label class="admin-label" for="admin-provision-display-name">Display Name</label>
+                    <input class="admin-input" id="admin-provision-display-name" type="text" name="displayName" required maxlength="120" placeholder="e.g. Cabinet A1" />
+                </div>
+                <div class="admin-form-group">
+                    <label class="admin-label" for="admin-provision-serial">Serial Number</label>
+                    <input class="admin-input" id="admin-provision-serial" type="text" name="serialNumber" required maxlength="120" placeholder="e.g. SN-0001" />
+                </div>
+                <div class="admin-form-actions">
+                    <button class="admin-btn" id="admin-provision-cancel" type="button">Cancel</button>
+                    <button class="admin-btn admin-btn-primary" id="admin-provision-submit" type="submit">Provision</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="admin-modal-overlay" id="admin-secret-modal">
+        <div class="admin-modal">
+            <div class="admin-modal-header">
+                <h2>One-Time Secret</h2>
+                <button class="admin-modal-close" id="admin-secret-modal-close" type="button">&times;</button>
+            </div>
+            <p style="margin:0 0 12px;color:var(--admin-text-muted);font-size:13px;">
+                Store this secret securely. It will <strong>not</strong> be shown again after you dismiss this dialog.
+            </p>
+            <div class="admin-form-group">
+                <label class="admin-label" for="admin-secret-value">Device Secret</label>
+                <textarea class="admin-textarea" id="admin-secret-value" readonly rows="3" style="font-family:monospace;font-size:13px;"></textarea>
+            </div>
+            <div class="admin-form-actions">
+                <button class="admin-btn" id="admin-secret-cancel" type="button">Close</button>
+                <button class="admin-btn admin-btn-primary" id="admin-secret-copy" type="button">Copy to Clipboard</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="admin-modal-overlay" id="admin-revoke-modal">
+        <div class="admin-modal">
+            <div class="admin-modal-header">
+                <h2>Revoke Cabinet Device</h2>
+                <button class="admin-modal-close" id="admin-revoke-modal-close" type="button">&times;</button>
+            </div>
+            <p style="margin:0 0 14px;color:var(--admin-text-muted);font-size:13px;">
+                You are about to revoke device <strong id="admin-revoke-device-label"></strong>. This action cannot be undone.
+            </p>
+            <form id="admin-revoke-form">
+                <input type="hidden" id="admin-revoke-device-id" />
+                <div class="admin-form-group">
+                    <label class="admin-label" for="admin-revoke-reason">Reason for revocation</label>
+                    <textarea class="admin-textarea" id="admin-revoke-reason" name="reason" required maxlength="500" placeholder="e.g. Device decommissioned, lost, or replaced"></textarea>
+                </div>
+                <div class="admin-form-actions">
+                    <button class="admin-btn" id="admin-revoke-cancel" type="button">Cancel</button>
+                    <button class="admin-btn admin-btn-danger" id="admin-revoke-submit" type="submit">Revoke Device</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/admin-api.js"></script>
+    <script src="js/admin-shell.js"></script>
+    <script>
+        (function () {
+            'use strict';
+
+            var loadingEl = document.getElementById('admin-devices-loading');
+            var errorEl = document.getElementById('admin-devices-error');
+            var emptyEl = document.getElementById('admin-devices-empty');
+            var tableWrapEl = document.getElementById('admin-devices-table-wrap');
+            var tbodyEl = document.getElementById('admin-devices-tbody');
+
+            var provisionModal = document.getElementById('admin-provision-modal');
+            var provisionForm = document.getElementById('admin-provision-form');
+            var secretModal = document.getElementById('admin-secret-modal');
+            var revokeModal = document.getElementById('admin-revoke-modal');
+            var revokeForm = document.getElementById('admin-revoke-form');
+
+            function showModal(el) { if (el) el.classList.add('is-open'); }
+            function hideModal(el) { if (el) el.classList.remove('is-open'); }
+            function showBlock(el) { if (el) el.style.display = ''; }
+            function hideBlock(el) { if (el) el.style.display = 'none'; }
+
+            function formatDate(value) {
+                if (!value) return '—';
+                var d = new Date(value);
+                if (isNaN(d.getTime())) return '—';
+                return d.toLocaleString();
+            }
+
+            function renderDevices(devices) {
+                tbodyEl.innerHTML = '';
+                devices.forEach(function (device) {
+                    var tr = document.createElement('tr');
+
+                    var isRevoked = !!device.isRevoked;
+                    var statusBadge = isRevoked
+                        ? '<span class="admin-badge admin-badge-danger">Revoked</span>'
+                        : '<span class="admin-badge admin-badge-success">Active</span>';
+
+                    var actionHtml;
+                    if (isRevoked) {
+                        actionHtml = '<span class="admin-text-muted" style="font-size:12px;">—</span>';
+                    } else {
+                        actionHtml = '<button class="admin-btn admin-btn-sm admin-btn-danger js-admin-revoke" type="button" data-id="' + device.deviceId + '">Revoke</button>';
+                    }
+
+                    tr.innerHTML =
+                        '<td style="font-family:monospace;font-size:12px;">' + escapeHtml(device.deviceId) + '</td>' +
+                        '<td>' + escapeHtml(String(device.machineId)) + '</td>' +
+                        '<td>' + escapeHtml(device.machineName || device.displayName || '—') + '</td>' +
+                        '<td style="font-family:monospace;font-size:12px;">' + escapeHtml(device.serialNumber || '—') + '</td>' +
+                        '<td>' + statusBadge + '</td>' +
+                        '<td style="font-size:12px;">' + escapeHtml(formatDate(device.lastSeenUtc)) + '</td>' +
+                        '<td>' + escapeHtml(String(device.activeSessionCount || 0)) + '</td>' +
+                        '<td class="admin-table-actions">' + actionHtml + '</td>';
+
+                    tr.dataset.revokeLabel = device.machineName || device.displayName || device.serialNumber || device.deviceId;
+
+                    tbodyEl.appendChild(tr);
+                });
+
+                document.querySelectorAll('.js-admin-revoke').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        var tr = btn.closest('tr');
+                        var label = tr ? tr.dataset.revokeLabel : btn.getAttribute('data-id');
+                        openRevokeModal(btn.getAttribute('data-id'), label);
+                    });
+                });
+            }
+
+            function escapeHtml(str) {
+                return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+            }
+
+            function showError(message) {
+                if (errorEl) {
+                    errorEl.textContent = message || 'An unexpected error occurred.';
+                    showBlock(errorEl);
+                }
+            }
+
+            function hideError() {
+                hideBlock(errorEl);
+            }
+
+            function loadDevices() {
+                hideError();
+                hideBlock(emptyEl);
+                hideBlock(tableWrapEl);
+                showBlock(loadingEl);
+
+                window.AdminApi.listCabinetDevices()
+                    .then(function (data) {
+                        hideBlock(loadingEl);
+                        var devices = Array.isArray(data) ? data : [];
+                        if (devices.length === 0) {
+                            showBlock(emptyEl);
+                        } else {
+                            renderDevices(devices);
+                            showBlock(tableWrapEl);
+                        }
+                    })
+                    .catch(function (err) {
+                        hideBlock(loadingEl);
+                        hideBlock(emptyEl);
+                        hideBlock(tableWrapEl);
+                        showError(err && err.message ? err.message : 'Failed to load cabinet devices.');
+                    });
+            }
+
+            function openProvisionModal() {
+                provisionForm.reset();
+                hideError();
+                showModal(provisionModal);
+            }
+
+            function closeProvisionModal() {
+                hideModal(provisionModal);
+            }
+
+            function submitProvisionForm(ev) {
+                ev.preventDefault();
+                var machineId = parseInt(provisionForm.elements['machineId'].value, 10);
+                var displayName = (provisionForm.elements['displayName'].value || '').trim();
+                var serialNumber = (provisionForm.elements['serialNumber'].value || '').trim();
+
+                if (!machineId || machineId <= 0 || !displayName || !serialNumber) {
+                    window.AdminShell.showToast('Please fill in all fields.', 'error');
+                    return;
+                }
+
+                var submitBtn = document.getElementById('admin-provision-submit');
+                submitBtn.disabled = true;
+
+                window.AdminApi.provisionCabinetDevice({ machineId: machineId, displayName: displayName, serialNumber: serialNumber })
+                    .then(function (result) {
+                        closeProvisionModal();
+                        var secret = (result && result.deviceSecret) ? result.deviceSecret : '';
+                        if (!secret) {
+                            window.AdminShell.showToast('Device provisioned, but no secret was returned.', 'error');
+                            loadDevices();
+                            return;
+                        }
+                        document.getElementById('admin-secret-value').value = secret;
+                        showModal(secretModal);
+                        loadDevices();
+                    })
+                    .catch(function (err) {
+                        window.AdminShell.showToast(err && err.message ? err.message : 'Provisioning failed.', 'error');
+                    })
+                    .finally(function () {
+                        submitBtn.disabled = false;
+                    });
+            }
+
+            function closeSecretModal() {
+                document.getElementById('admin-secret-value').value = '';
+                hideModal(secretModal);
+            }
+
+            function copySecretToClipboard() {
+                var textarea = document.getElementById('admin-secret-value');
+                var secret = textarea.value;
+                if (!secret) return;
+
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(secret).then(function () {
+                        window.AdminShell.showToast('Secret copied to clipboard.', 'success');
+                    }).catch(function () {
+                        fallbackCopy(textarea);
+                    });
+                } else {
+                    fallbackCopy(textarea);
+                }
+            }
+
+            function fallbackCopy(textarea) {
+                textarea.select();
+                textarea.setSelectionRange(0, 99999);
+                try {
+                    document.execCommand('copy');
+                    window.AdminShell.showToast('Secret copied to clipboard.', 'success');
+                } catch (_) {
+                    window.AdminShell.showToast('Failed to copy. Please copy manually.', 'error');
+                }
+            }
+
+            function openRevokeModal(deviceId, label) {
+                document.getElementById('admin-revoke-device-label').textContent = label || deviceId;
+                revokeForm.reset();
+                document.getElementById('admin-revoke-device-id').value = deviceId;
+                hideError();
+                showModal(revokeModal);
+            }
+
+            function closeRevokeModal() {
+                hideModal(revokeModal);
+            }
+
+            function submitRevokeForm(ev) {
+                ev.preventDefault();
+                var deviceId = document.getElementById('admin-revoke-device-id').value;
+                var reason = (revokeForm.elements['reason'].value || '').trim();
+
+                if (!reason) {
+                    window.AdminShell.showToast('Please provide a reason for revocation.', 'error');
+                    return;
+                }
+
+                var submitBtn = document.getElementById('admin-revoke-submit');
+                submitBtn.disabled = true;
+
+                window.AdminApi.revokeCabinetDevice(deviceId, { reason: reason })
+                    .then(function () {
+                        closeRevokeModal();
+                        window.AdminShell.showToast('Device revoked successfully.', 'success');
+                        loadDevices();
+                    })
+                    .catch(function (err) {
+                        window.AdminShell.showToast(err && err.message ? err.message : 'Revocation failed.', 'error');
+                    })
+                    .finally(function () {
+                        submitBtn.disabled = false;
+                    });
+            }
+
+            document.getElementById('admin-provision-btn').addEventListener('click', openProvisionModal);
+            document.getElementById('admin-provision-modal-close').addEventListener('click', closeProvisionModal);
+            document.getElementById('admin-provision-cancel').addEventListener('click', closeProvisionModal);
+            provisionForm.addEventListener('submit', submitProvisionForm);
+
+            document.getElementById('admin-secret-modal-close').addEventListener('click', closeSecretModal);
+            document.getElementById('admin-secret-cancel').addEventListener('click', closeSecretModal);
+            document.getElementById('admin-secret-copy').addEventListener('click', copySecretToClipboard);
+
+            document.getElementById('admin-revoke-modal-close').addEventListener('click', closeRevokeModal);
+            document.getElementById('admin-revoke-cancel').addEventListener('click', closeRevokeModal);
+            revokeForm.addEventListener('submit', submitRevokeForm);
+
+            provisionModal.addEventListener('click', function (ev) {
+                if (ev.target === provisionModal) hideModal(provisionModal);
+            });
+            secretModal.addEventListener('click', function (ev) {
+                if (ev.target === secretModal) hideModal(secretModal);
+            });
+            revokeModal.addEventListener('click', function (ev) {
+                if (ev.target === revokeModal) hideModal(revokeModal);
+            });
+
+            document.addEventListener('keydown', function (ev) {
+                if (ev.key === 'Escape') {
+                    if (provisionModal.classList.contains('is-open')) hideModal(provisionModal);
+                    if (secretModal.classList.contains('is-open')) hideModal(secretModal);
+                    if (revokeModal.classList.contains('is-open')) hideModal(revokeModal);
+                }
+            });
+
+            loadDevices();
+        })();
+    </script>
+</body>
+</html>
