@@ -40,7 +40,7 @@ public sealed class SessionCleanupService : BackgroundService
         {
             try
             {
-                CleanupStaleRounds();
+                await CleanupStaleRoundsAsync(stoppingToken);
             }
             catch (Exception ex)
             {
@@ -51,7 +51,7 @@ public sealed class SessionCleanupService : BackgroundService
         }
     }
 
-    private void CleanupStaleRounds()
+    private async Task CleanupStaleRoundsAsync(CancellationToken cancellationToken)
     {
         var now = DateTime.UtcNow;
         var staleRounds = _store.ActiveRounds
@@ -69,8 +69,6 @@ public sealed class SessionCleanupService : BackgroundService
 
         foreach (var (roundId, round) in staleRounds)
         {
-            _store.ActiveRounds.TryRemove(roundId, out _);
-
             // If the round had pending winnings or an active DU session,
             // use CashOutAsync to properly settle DU credits and zero out
             // the session (prevents double-settlement if player reconnects).
@@ -78,7 +76,7 @@ public sealed class SessionCleanupService : BackgroundService
             {
                 try
                 {
-                    _ = gameService.CashOutAsync(round.UserId, round.MachineId, CancellationToken.None, bypassRules: true);
+                    await gameService.CashOutAsync(round.UserId, round.MachineId, cancellationToken, bypassRules: true);
                     _logger.LogInformation("Settled stale round {RoundId} to user {UserId} via CashOut",
                         roundId, round.UserId);
                 }
@@ -88,6 +86,8 @@ public sealed class SessionCleanupService : BackgroundService
                         roundId, round.UserId);
                 }
             }
+
+            _store.ActiveRounds.TryRemove(roundId, out _);
         }
     }
 }
