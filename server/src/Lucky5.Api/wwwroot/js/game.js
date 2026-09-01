@@ -1010,6 +1010,54 @@ function showMessage(text, type) {
     msg.className = type || '';
 }
 
+function _registerStoreDomSubscriptions() {
+    if (typeof CabinetClientStores === 'undefined') return;
+
+    CabinetClientStores.auth.subscribe((state) => {
+        updateMenuVisibility();
+        updateLobbyUsername();
+        const lobbyBal = document.getElementById('lobby-balance');
+        const lobbyWalBal = document.getElementById('lobby-wallet-bal');
+        const walletBal = document.getElementById('wallet-balance');
+        const fmt = formatNum(state.walletBalance);
+        if (lobbyBal) lobbyBal.textContent = fmt;
+        if (lobbyWalBal) lobbyWalBal.textContent = fmt;
+        if (walletBal) walletBal.textContent = fmt;
+    });
+
+    CabinetClientStores.game.subscribe((state, prev) => {
+        if (!prev) return;
+        if (state.bet !== prev.bet) {
+            updateStakeDisplay();
+            updatePaytable();
+        }
+        if (state.winMeter !== prev.winMeter) {
+            updateWinIndicator(state.winMeter);
+            updateWinAmountDisplay(state.winMeter, getFourOfAKindSlotTag());
+        }
+        if (state.phase !== prev.phase) {
+            setButtonStates();
+        }
+        if (state.holds !== prev.holds) {
+            const slots = $$('.card-slot');
+            const holdBtns = $$('.cab-hold');
+            slots.forEach((slot, i) => {
+                slot.classList.toggle('held', state.holds.includes(i));
+            });
+            holdBtns.forEach((btn, i) => {
+                btn.classList.toggle('active', state.holds.includes(i));
+            });
+            if (window.CabinetStage) {
+                for (let i = 0; i < 5; i++) CabinetStage.setHold(i, state.holds.includes(i));
+            }
+            updateIdleOverlayVisibility();
+        }
+        if (state.doubleUpState !== prev.doubleUpState) {
+            updateDoubleUpInfoPanel();
+        }
+    });
+}
+
 let _autoRetryTimer = null;
 let _autoRetryCount = 0;
 
@@ -1994,6 +2042,36 @@ function restoreRoundFromSnapshot(snapshot) {
     updateStakeDisplay();
     updatePaytable(currentHandRank);
     updateBonusBar(currentHandRank);
+
+    if (typeof CabinetClientStores !== 'undefined') {
+        CabinetClientStores.setGamePhase(phase === 'Dealt' ? 'hold' : phase === 'DoubleUp' ? 'doubleup' : 'idle');
+        CabinetClientStores.setGameBet(currentBet);
+        CabinetClientStores.setGameCards(cards);
+        CabinetClientStores.setGameHolds(Array.from(holdIndexes));
+        CabinetClientStores.setGameWinMeter(phase === 'Dealt' ? 0 : snapshot.pendingWinAmount || 0);
+        if (snapshot.doubleUpSession) {
+            const du = snapshot.doubleUpSession;
+            CabinetClientStores.setGameDoubleUpState({
+                dealerCard: du.dealerCard,
+                currentAmount: du.currentAmount,
+                switchesRemaining: du.switchesRemaining,
+                isNoLoseActive: du.isNoLoseActive,
+                luckyMultiplier: du.luckyMultiplier,
+                trail: du.cardTrail,
+                started: true
+            });
+        } else {
+            CabinetClientStores.setGameDoubleUpState({
+                dealerCard: null,
+                currentAmount: 0,
+                switchesRemaining: 0,
+                isNoLoseActive: false,
+                luckyMultiplier: 1,
+                trail: [],
+                started: false
+            });
+        }
+    }
 
     if (phase === 'Dealt') {
         winAmount = 0;
@@ -3252,9 +3330,6 @@ async function setupSignalR() {
         if (snapshot) {
             if (snapshot.state_version !== undefined) clientStateVersion = snapshot.state_version;
             if (snapshot.sequence_number !== undefined) clientSequenceNumber = snapshot.sequence_number;
-            // Version guard: reject stale snapshots that predate what we've already applied
-            const sv = snapshot.state_version ?? 0;
-            if (sv > 0 && sv < _lastAppliedStateVersion) return;
             const roundSnapshot = buildRoundSnapshotFromCabinetSnapshot(snapshot);
             if (roundSnapshot) {
                 restoreRoundFromSnapshot(roundSnapshot);
@@ -3268,9 +3343,6 @@ async function setupSignalR() {
             const snapshot = replay.Snapshot;
             if (snapshot.state_version !== undefined) clientStateVersion = snapshot.state_version;
             if (snapshot.sequence_number !== undefined) clientSequenceNumber = snapshot.sequence_number;
-            // Version guard: reject stale snapshots
-            const sv = snapshot.state_version ?? 0;
-            if (sv > 0 && sv < _lastAppliedStateVersion) return;
             const roundSnapshot = buildRoundSnapshotFromCabinetSnapshot(snapshot);
             if (roundSnapshot) {
                 restoreRoundFromSnapshot(roundSnapshot);
