@@ -843,7 +843,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		if (session.IsTerminal && session.TerminalOutcome == Lucky5DoubleUpOutcome.MachineClosed)
 		{
 			await FinalizeDoubleUpAsync(round, sessionBank, session.CashoutCredits);
-			var closedCursor = await store.AdvanceCabinetStateCursorAsync(userId, round.MachineId);
+			var cursor = await store.AdvanceCabinetStateCursorAsync(userId, round.MachineId);
 			InvalidateCaches(userId, round.MachineId);
 			return new DoubleUpResultDto(roundId, "MachineClosed", session.CashoutCredits, sessionBank.MachineCredits,
 				DealerCard: ToCleanRoomDto(session.DealerCard),
@@ -858,8 +858,8 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 				SlotIndex: session.LastResolvedBoardSlotIndex,
 				IsLucky5Active: session.IsNoLoseActive,
 				CurrentBonusAmount: session.BoardBonusTotal,
-				StateVersion: closedCursor.StateVersion,
-				SequenceNumber: closedCursor.SequenceNumber);
+				StateVersion: cursor.StateVersion,
+				SequenceNumber: cursor.SequenceNumber);
 		}
 
 		var cursor = await store.AdvanceCabinetStateCursorAsync(userId, round.MachineId);
