@@ -130,6 +130,63 @@ public class InMemoryDataStoreAdapter : IDataStore
         return Task.FromResult(_store.Offers.ToList());
     }
 
+    public Task<Offer?> GetOfferAsync(int id)
+    {
+        var offer = _store.Offers.FirstOrDefault(o => o.Id == id);
+        return Task.FromResult<Offer?>(offer);
+    }
+
+    public Task<Offer> CreateOfferAsync(Offer offer)
+    {
+        return _store.CreateOfferAsync(offer);
+    }
+
+    public Task UpdateOfferAsync(Offer offer)
+    {
+        _store.UpdateOfferAsync(offer).GetAwaiter().GetResult();
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteOfferAsync(int id)
+    {
+        _store.DeleteOfferAsync(id).GetAwaiter().GetResult();
+        return Task.CompletedTask;
+    }
+
+    public Task<TermsDocument?> GetTermsAsync()
+    {
+        return _store.GetTermsAsync();
+    }
+
+    public Task UpdateTermsAsync(TermsDocument terms)
+    {
+        _store.UpdateTermsAsync(terms).GetAwaiter().GetResult();
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteTermsAsync()
+    {
+        _store.DeleteTermsAsync().GetAwaiter().GetResult();
+        return Task.CompletedTask;
+    }
+
+    public Task<Dictionary<string, string>> GetAppSettingsAsync()
+    {
+        return _store.GetAppSettingsAsync();
+    }
+
+    public Task UpdateAppSettingAsync(string key, string value)
+    {
+        _store.UpdateAppSettingAsync(key, value).GetAwaiter().GetResult();
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteAppSettingAsync(string key)
+    {
+        _store.DeleteAppSettingAsync(key).GetAwaiter().GetResult();
+        return Task.CompletedTask;
+    }
+
     public Task<MachineSessionState?> GetMachineSessionAsync(Guid userId, int machineId)
     {
         var session = _store.MachineSessions.Values

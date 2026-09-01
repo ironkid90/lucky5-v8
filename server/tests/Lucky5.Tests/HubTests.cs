@@ -1,6 +1,8 @@
 namespace Lucky5.Tests;
 
+using System.Collections.Concurrent;
 using System.Security.Claims;
+using System.Threading;
 using Lucky5.Application.Contracts;
 using Lucky5.Application.Dtos;
 using Lucky5.Application.Requests;
@@ -24,6 +26,8 @@ public static class HubTests
         await LobbyMachinesUpdatedEmittedOnJoinMachineAsync(failures);
         await LobbyMachinesUpdatedEmittedOnLeaveMachineAsync(failures);
         await LobbyMachinesUpdatedEmittedOnSpectatorJoinAsync(failures);
+        await JoinMachineReclaimsSeatForPendingDisconnectOwnerAsync(failures);
+        await JoinMachineDoesNotClearOtherUsersPendingDisconnectAsync(failures);
     }
 
     private static async Task GetAvailableMachinesReturnsMachineListAsync(List<string> failures)
@@ -103,7 +107,7 @@ public static class HubTests
         groupsProperty?.SetValue(hub, groupManagerMock.Object);
 
         gameServiceMock
-            .Setup(x => x.GetMachinesAsync(It.IsAny<CancellationToken>()))
+            .Setup(x => x.GetLobbyMachinesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<MachineListingDto>());
 
         await hub.JoinMachine(1);
@@ -145,7 +149,7 @@ public static class HubTests
         groupsProperty?.SetValue(hub, groupManagerMock.Object);
 
         gameServiceMock
-            .Setup(x => x.GetMachinesAsync(It.IsAny<CancellationToken>()))
+            .Setup(x => x.GetLobbyMachinesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<MachineListingDto>());
 
         await hub.LeaveMachine(1);
@@ -401,7 +405,7 @@ public static class HubTests
         groupsProperty?.SetValue(hub, groupManagerMock.Object);
 
         gameServiceMock
-            .Setup(x => x.GetMachinesAsync(It.IsAny<CancellationToken>()))
+            .Setup(x => x.GetLobbyMachinesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<MachineListingDto>());
 
         await hub.JoinMachine(1);
@@ -443,7 +447,7 @@ public static class HubTests
         groupsProperty?.SetValue(hub, groupManagerMock.Object);
 
         gameServiceMock
-            .Setup(x => x.GetMachinesAsync(It.IsAny<CancellationToken>()))
+            .Setup(x => x.GetLobbyMachinesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<MachineListingDto>());
 
         await hub.LeaveMachine(1);
@@ -487,7 +491,7 @@ public static class HubTests
         groupsProperty?.SetValue(hub, groupManagerMock.Object);
 
         gameServiceMock
-            .Setup(x => x.GetMachinesAsync(It.IsAny<CancellationToken>()))
+            .Setup(x => x.GetLobbyMachinesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<MachineListingDto>());
 
         await hub.JoinMachineAsSpectator(1);
@@ -504,6 +508,143 @@ public static class HubTests
         if (!condition)
         {
             failures.Add(message);
+        }
+    }
+
+    private static async Task JoinMachineReclaimsSeatForPendingDisconnectOwnerAsync(List<string> failures)
+    {
+        var gameServiceMock = new Mock<IGameService>();
+        gameServiceMock.Setup(x => x.GetLobbyMachinesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<MachineListingDto>());
+
+        var registry = new ConnectionRegistry();
+        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry, new Mock<ISpectatorTracker>().Object);
+
+        var hubClientsMock = new Mock<IHubCallerClients>();
+        var allMock = new Mock<IClientProxy>();
+        var callerMock = new Mock<ISingleClientProxy>();
+        var groupClientMock = new Mock<IClientProxy>();
+        var groupManagerMock = new Mock<IGroupManager>();
+        hubClientsMock.Setup(x => x.All).Returns(allMock.Object);
+        hubClientsMock.Setup(x => x.Caller).Returns(callerMock.Object);
+        hubClientsMock.Setup(x => x.Group(It.IsAny<string>())).Returns(groupClientMock.Object);
+
+        var reconnectingUserId = Guid.NewGuid();
+        var reconnectingConnectionId = "reconnect-connection";
+        var hubContextMock = new Mock<HubCallerContext>();
+        var user = new ClaimsPrincipal(new ClaimsIdentity(new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, reconnectingUserId.ToString())
+        }));
+        hubContextMock.Setup(x => x.User).Returns(user);
+        hubContextMock.Setup(x => x.ConnectionId).Returns(reconnectingConnectionId);
+        hubContextMock.Setup(x => x.ConnectionAborted).Returns(CancellationToken.None);
+        hubContextMock.Setup(x => x.Items).Returns(new Dictionary<object, object?>());
+
+        typeof(Hub).GetProperty("Context")?.SetValue(hub, hubContextMock.Object);
+        typeof(Hub).GetProperty("Clients")?.SetValue(hub, hubClientsMock.Object);
+        typeof(Hub).GetProperty("Groups")?.SetValue(hub, groupManagerMock.Object);
+
+        const int machineId = 9901;
+        var occupancyField = typeof(CarrePokerGameHub).GetField("MachineOccupancy", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        var pendingField = typeof(CarrePokerGameHub).GetField("PendingDisconnects", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        var occupancy = (ConcurrentDictionary<int, string>)occupancyField!.GetValue(null)!;
+        var pendingDisconnects = (ConcurrentDictionary<int, (Guid UserId, Timer Timer)>)pendingField!.GetValue(null)!;
+
+        var timer = new Timer(_ => { }, null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+        occupancy[machineId] = "old-connection";
+        pendingDisconnects[machineId] = (reconnectingUserId, timer);
+
+        try
+        {
+            await hub.JoinMachine(machineId);
+            var claimed = occupancy.TryGetValue(machineId, out var currentConnectionId) && currentConnectionId == reconnectingConnectionId;
+            var pendingCleared = !pendingDisconnects.ContainsKey(machineId);
+            Assert(failures, "JoinMachine should reclaim lock when same user reconnects during grace period", claimed && pendingCleared);
+        }
+        catch
+        {
+            Assert(failures, "JoinMachine should reclaim lock when same user reconnects during grace period", false);
+        }
+        finally
+        {
+            occupancy.TryRemove(machineId, out _);
+            if (pendingDisconnects.TryRemove(machineId, out var leftover))
+            {
+                leftover.Timer.Dispose();
+            }
+            timer.Dispose();
+        }
+    }
+
+    private static async Task JoinMachineDoesNotClearOtherUsersPendingDisconnectAsync(List<string> failures)
+    {
+        var gameServiceMock = new Mock<IGameService>();
+        gameServiceMock.Setup(x => x.GetLobbyMachinesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<MachineListingDto>());
+
+        var registry = new ConnectionRegistry();
+        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry, new Mock<ISpectatorTracker>().Object);
+
+        var hubClientsMock = new Mock<IHubCallerClients>();
+        var allMock = new Mock<IClientProxy>();
+        var callerMock = new Mock<ISingleClientProxy>();
+        var groupClientMock = new Mock<IClientProxy>();
+        var groupManagerMock = new Mock<IGroupManager>();
+        hubClientsMock.Setup(x => x.All).Returns(allMock.Object);
+        hubClientsMock.Setup(x => x.Caller).Returns(callerMock.Object);
+        hubClientsMock.Setup(x => x.Group(It.IsAny<string>())).Returns(groupClientMock.Object);
+
+        var currentUserId = Guid.NewGuid();
+        var hubContextMock = new Mock<HubCallerContext>();
+        var user = new ClaimsPrincipal(new ClaimsIdentity(new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, currentUserId.ToString())
+        }));
+        hubContextMock.Setup(x => x.User).Returns(user);
+        hubContextMock.Setup(x => x.ConnectionId).Returns("different-user-connection");
+        hubContextMock.Setup(x => x.ConnectionAborted).Returns(CancellationToken.None);
+        hubContextMock.Setup(x => x.Items).Returns(new Dictionary<object, object?>());
+
+        typeof(Hub).GetProperty("Context")?.SetValue(hub, hubContextMock.Object);
+        typeof(Hub).GetProperty("Clients")?.SetValue(hub, hubClientsMock.Object);
+        typeof(Hub).GetProperty("Groups")?.SetValue(hub, groupManagerMock.Object);
+
+        const int machineId = 9902;
+        var occupancyField = typeof(CarrePokerGameHub).GetField("MachineOccupancy", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        var pendingField = typeof(CarrePokerGameHub).GetField("PendingDisconnects", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        var occupancy = (ConcurrentDictionary<int, string>)occupancyField!.GetValue(null)!;
+        var pendingDisconnects = (ConcurrentDictionary<int, (Guid UserId, Timer Timer)>)pendingField!.GetValue(null)!;
+
+        var ownerUserId = Guid.NewGuid();
+        var timer = new Timer(_ => { }, null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+        occupancy[machineId] = "owner-connection";
+        pendingDisconnects[machineId] = (ownerUserId, timer);
+
+        var blocked = false;
+        Exception? unexpected = null;
+        try
+        {
+            await hub.JoinMachine(machineId);
+        }
+        catch (HubException)
+        {
+            blocked = true;
+        }
+        catch (Exception ex)
+        {
+            unexpected = ex;
+        }
+        finally
+        {
+            var pendingPreserved = pendingDisconnects.TryGetValue(machineId, out var pending) && pending.UserId == ownerUserId;
+            Assert(failures, "JoinMachine should keep pending disconnect for original owner when another user attempts join", blocked && pendingPreserved && unexpected is null);
+            occupancy.TryRemove(machineId, out _);
+            if (pendingDisconnects.TryRemove(machineId, out var leftover))
+            {
+                leftover.Timer.Dispose();
+            }
+            timer.Dispose();
         }
     }
 }

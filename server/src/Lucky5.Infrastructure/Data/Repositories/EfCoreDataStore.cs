@@ -114,6 +114,94 @@ public class EfCoreDataStore : IDataStore
         return await _context.Offers.ToListAsync();
     }
 
+    public async Task<Offer?> GetOfferAsync(int id)
+    {
+        return await _context.Offers.FindAsync(id);
+    }
+
+    public async Task<Offer> CreateOfferAsync(Offer offer)
+    {
+        if (offer.Id <= 0) _context.Offers.Add(offer);
+        else _context.Offers.Update(offer);
+
+        await _context.SaveChangesAsync();
+        return offer;
+    }
+
+    public async Task UpdateOfferAsync(Offer offer)
+    {
+        var existing = await _context.Offers.FindAsync(offer.Id);
+        if (existing != null)
+        {
+            existing.Title = offer.Title;
+            existing.Description = offer.Description;
+            existing.BonusAmount = offer.BonusAmount;
+            await _context.SaveChangesAsync();
+        }
+    }
+
+    public async Task DeleteOfferAsync(int id)
+    {
+        var existing = await _context.Offers.FindAsync(id);
+        if (existing != null)
+        {
+            _context.Offers.Remove(existing);
+            await _context.SaveChangesAsync();
+        }
+    }
+
+    public async Task<TermsDocument?> GetTermsAsync()
+    {
+        return await _context.TermsDocuments.FirstOrDefaultAsync();
+    }
+
+    public async Task UpdateTermsAsync(TermsDocument terms)
+    {
+        var existing = await _context.TermsDocuments.FirstOrDefaultAsync();
+        if (existing != null)
+        {
+            existing.Version = terms.Version;
+            existing.BodyMarkdown = terms.BodyMarkdown;
+            existing.UpdatedUtc = DateTime.UtcNow;
+        }
+        else
+        {
+            _context.TermsDocuments.Add(terms);
+        }
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task DeleteTermsAsync()
+    {
+        var existing = await _context.TermsDocuments.FirstOrDefaultAsync();
+        if (existing != null)
+        {
+            _context.TermsDocuments.Remove(existing);
+            await _context.SaveChangesAsync();
+        }
+    }
+
+    public async Task<Dictionary<string, string>> GetAppSettingsAsync()
+    {
+        return await _context.AppSettings.ToDictionaryAsync(s => s.Key, s => s.Value);
+    }
+
+    public async Task UpdateAppSettingAsync(string key, string value)
+    {
+        _context.AppSettings.Update(new AppSetting { Key = key, Value = value });
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task DeleteAppSettingAsync(string key)
+    {
+        var existing = await _context.AppSettings.FindAsync(key);
+        if (existing != null)
+        {
+            _context.AppSettings.Remove(existing);
+            await _context.SaveChangesAsync();
+        }
+    }
+
     public async Task<MachineSessionState?> GetMachineSessionAsync(Guid userId, int machineId)
     {
         return await _context.MachineSessions

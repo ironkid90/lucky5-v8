@@ -131,6 +131,14 @@ let heartbeatInterval = null;
 let lastNetworkError = null;
 let isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
 
+// ── SEAMLESS STATE SYNC ───────────────────────────────────────────────────
+// Deferred server snapshot: when the active player is mid-action (animation,
+// DU round, drain), server pushes are queued and applied on the next safe
+// frame instead of interrupting the flow. This is the same pattern modern
+// multiplayer games use — never interrupt the player's current interaction.
+let _deferredServerSnapshot = null;
+let _lastAppliedStateVersion = 0;
+
 // ── INPUT LOCKS ────────────────────────────────────────────────────────────
 // Prevents double-click / rapid-fire during animations and transitions.
 // _actionLock blocks deal/draw/DU-entry; jackpotDrainActive blocks all input
@@ -644,8 +652,20 @@ function parseCabinetCard(cardLike) {
     };
 }
 
-function normalizeCabinetJackpots(snapshotJackpot) {
+function normalizeCabinetJackpots(snapshotJackpot, snapshotMachine) {
     if (!snapshotJackpot) return null;
+
+    // machine_serial / machine_serie / machine_kent live on the snapshot's
+    // "machine" sub-object (CabinetMachineStateDto), not on "jackpot"
+    // (CabinetJackpotDto). Prefer the machine object, but keep the legacy
+    // lookup on snapshotJackpot as a fallback in case an older/alternate
+    // snapshot shape ever nests them there.
+    const machineSerialValue = readCabinetField(snapshotMachine, 'machineSerial', 'machine_serial')
+        ?? readCabinetField(snapshotJackpot, 'machineSerial', 'machine_serial');
+    const machineSerieValue = readCabinetField(snapshotMachine, 'machineSerie', 'machine_serie')
+        ?? readCabinetField(snapshotJackpot, 'machineSerie', 'machine_serie');
+    const machineKentValue = readCabinetField(snapshotMachine, 'machineKent', 'machine_kent')
+        ?? readCabinetField(snapshotJackpot, 'machineKent', 'machine_kent');
 
     const activeSlot = String(readCabinetField(snapshotJackpot, 'activeFourOfAKindSlot', 'active_four_of_a_kind_slot') || 'A').toUpperCase();
     return {
@@ -655,9 +675,9 @@ function normalizeCabinetJackpots(snapshotJackpot) {
         fourOfAKindB: parseCabinetNumber(readCabinetField(snapshotJackpot, 'fourOfAKindB', 'four_of_a_kind_b')),
         activeFourOfAKindSlot: activeSlot === 'B' ? 1 : 0,
         straightFlush: parseCabinetNumber(readCabinetField(snapshotJackpot, 'straightFlush', 'straight_flush')),
-        machineSerial: String(readCabinetField(snapshotJackpot, 'machineSerial', 'machine_serial') || machineSerial || ''),
-        machineSerie: String(readCabinetField(snapshotJackpot, 'machineSerie', 'machine_serie') || machineSerie || ''),
-        machineKent: String(readCabinetField(snapshotJackpot, 'machineKent', 'machine_kent') || machineKent || '')
+        machineSerial: String(machineSerialValue ?? machineSerial ?? ''),
+        machineSerie: String(machineSerieValue ?? machineSerie ?? ''),
+        machineKent: String(machineKentValue ?? machineKent ?? '')
     };
 }
 
@@ -679,7 +699,7 @@ function applyCabinetSnapshot(snapshot) {
     const presentation = readCabinetField(snapshot, 'presentation') || {};
     const evaluation = readCabinetField(snapshot, 'evaluation') || {};
     const sessionState = readCabinetField(snapshot, 'session') || {};
-    const normalizedJackpots = normalizeCabinetJackpots(readCabinetField(snapshot, 'jackpot'));
+    const normalizedJackpots = normalizeCabinetJackpots(readCabinetField(snapshot, 'jackpot'), readCabinetField(snapshot, 'machine'));
 
     const version = readCabinetField(snapshot, 'stateVersion', 'state_version', 'version');
     const sequence = readCabinetField(snapshot, 'sequenceNumber', 'sequence_number', 'sequence');
@@ -841,6 +861,28 @@ async function fetchMachineSession() {
 
 async function fetchActiveRoundState() {
     return await apiCall('GET', getMachineActiveRoundPath());
+}
+
+// Seamless reconnection: fetch the authoritative cabinet snapshot and restore
+// the full round state from it — including DU session, dealer card, trail, and
+// switches remaining. This is the single recovery path used after reconnect,
+// ensuring DU state is never lost (previously the fallback only fetched the
+// active round, which could miss DU state).
+async function fetchAndRestoreFromSnapshot() {
+    try {
+        const snapshot = await fetchCabinetSnapshot();
+        if (snapshot) {
+            const roundSnapshot = buildRoundSnapshotFromCabinetSnapshot(snapshot);
+            if (roundSnapshot) {
+                restoreRoundFromSnapshot(roundSnapshot);
+                _lastAppliedStateVersion = clientStateVersion;
+                return true;
+            }
+        }
+    } catch (e) {
+        console.warn('[Reconnect] fetchAndRestoreFromSnapshot failed:', e);
+    }
+    return false;
 }
 
 async function fetchCabinetSnapshot() {
@@ -1147,6 +1189,10 @@ function getLuckyActiveBannerText() {
 
 function canStartDoubleUpFromWin() {
     return gameState === 'win' && roundDoubleUpAvailable && winAmount > 0 && !duSessionStarted;
+}
+
+function isDoubleUpMode() {
+    return gameState === 'doubleup' || gameState === 'du-waiting' || duSessionStarted;
 }
 
 function showWinActionMessage() {
@@ -2166,6 +2212,7 @@ async function doDeal() {
                             await new Promise(r => CabinetClock.delayMs(1500, r));
                             jackpotDrainActive = false;
                             _actionLock = false;
+                            _flushDeferredServerSnapshot();
                             if (window.CabinetState) CabinetState.setPresentationLocked(false);
                             // Re-enable buttons after jackpot collection
                             document.querySelectorAll('.cab-btn').forEach(b => b.style.pointerEvents = '');
@@ -2539,6 +2586,7 @@ async function doDoubleUp(guess) {
                         updatePaytable(currentHandRank);
                         setButtonStates();
                         _actionLock = false;
+                        _flushDeferredServerSnapshot();
                         if (window.CabinetState) CabinetState.setPresentationLocked(false);
                     }
                 });
@@ -2572,6 +2620,7 @@ async function doDoubleUp(guess) {
                     await fetchMachineSession();
                     refreshIdleMachineState();
                     _actionLock = false;
+                    _flushDeferredServerSnapshot();
                     if (window.CabinetState) CabinetState.setPresentationLocked(false);
                 });
             } else if (result.status === 'MachineClosed') {
@@ -2606,6 +2655,7 @@ async function doDoubleUp(guess) {
                         showMessage(getMachineCloseMessage(), 'win');
                     }
                     _actionLock = false;
+                    _flushDeferredServerSnapshot();
                     if (window.CabinetState) CabinetState.setPresentationLocked(false);
                 })();
             } else {
@@ -2639,6 +2689,7 @@ async function doDoubleUp(guess) {
                         if (duCallToken !== myToken) return;
                         exitDoubleUp();
                         _actionLock = false;
+                        _flushDeferredServerSnapshot();
                         if (window.CabinetState) CabinetState.setPresentationLocked(false);
                     });
                 } else {
@@ -2649,6 +2700,7 @@ async function doDoubleUp(guess) {
                         if (duCallToken !== myToken) return;
                         exitDoubleUp();
                         _actionLock = false;
+                        _flushDeferredServerSnapshot();
                         if (window.CabinetState) CabinetState.setPresentationLocked(false);
                     });
                 }
@@ -2661,6 +2713,7 @@ async function doDoubleUp(guess) {
             if (duCallToken !== myToken) return;
             exitDoubleUp();
             _actionLock = false;
+            _flushDeferredServerSnapshot();
             if (window.CabinetState) CabinetState.setPresentationLocked(false);
         });
     }
@@ -2732,6 +2785,7 @@ function exitDoubleUp() {
     duCallToken = null;
     _actionLock = false;
     jackpotDrainActive = false;
+    _flushDeferredServerSnapshot();
     if (window.CabinetState) CabinetState.setPresentationLocked(false);
     // Re-enable all buttons after DU exit
     document.querySelectorAll('.cab-btn').forEach(b => b.style.pointerEvents = '');
@@ -3125,12 +3179,36 @@ async function setupSignalR() {
             if (state.jackpots || state.Jackpot) {
                 updateJackpotDisplay(state.jackpots || state.Jackpot);
             }
-            if (isSpectatorMode) {
+            // Seamless state sync: active players now receive server pushes too.
+            // When mid-action (animation/lock), defer application to avoid interrupting
+            // the player's flow. When idle, apply immediately — this keeps the client
+            // in sync with server-authoritative state (machine close, admin actions, etc).
+            if (state.gameState || state.game_state) {
                 const roundSnapshot = buildRoundSnapshotFromCabinetSnapshot(state);
-                if (roundSnapshot) {
-                    restoreRoundFromSnapshot(roundSnapshot);
+                if (_actionLock || jackpotDrainActive || isSpectatorMode) {
+                    // Spectators always apply immediately (no action lock).
+                    // Active players defer when mid-action.
+                    if (isSpectatorMode) {
+                        if (roundSnapshot) {
+                            restoreRoundFromSnapshot(roundSnapshot);
+                        } else {
+                            resetGameRuntimeState({ clearSelection: false });
+                        }
+                    } else if (roundSnapshot) {
+                        // Defer: keep only the latest snapshot (discard stale ones)
+                        _deferredServerSnapshot = roundSnapshot;
+                    }
                 } else {
-                    resetGameRuntimeState({ clearSelection: false });
+                    // Version guard: reject stale snapshots that predate what we've applied
+                    if (clientStateVersion > 0 && clientStateVersion < _lastAppliedStateVersion) {
+                        return;
+                    }
+                    if (roundSnapshot) {
+                        restoreRoundFromSnapshot(roundSnapshot);
+                        _lastAppliedStateVersion = clientStateVersion;
+                    } else {
+                        resetGameRuntimeState({ clearSelection: false });
+                    }
                 }
             }
         }
@@ -3156,12 +3234,32 @@ async function setupSignalR() {
         }
     });
 
+    // Flush any deferred server snapshot when the action lock releases.
+    // Called at the end of every action that clears _actionLock.
+    function _flushDeferredServerSnapshot() {
+        if (_deferredServerSnapshot && !_actionLock && !jackpotDrainActive) {
+            const snap = _deferredServerSnapshot;
+            _deferredServerSnapshot = null;
+            // Version guard: reject stale snapshots that predate what we've already applied
+            if (clientStateVersion >= _lastAppliedStateVersion) {
+                restoreRoundFromSnapshot(snap);
+                _lastAppliedStateVersion = clientStateVersion;
+            }
+        }
+    }
+
     hubConnection.on('CabinetSnapshotEvent', (snapshot) => {
         if (snapshot) {
             if (snapshot.state_version !== undefined) clientStateVersion = snapshot.state_version;
             if (snapshot.sequence_number !== undefined) clientSequenceNumber = snapshot.sequence_number;
+            // Version guard: reject stale snapshots that predate what we've already applied
+            const sv = snapshot.state_version ?? 0;
+            if (sv > 0 && sv < _lastAppliedStateVersion) return;
             const roundSnapshot = buildRoundSnapshotFromCabinetSnapshot(snapshot);
-            if (roundSnapshot) restoreRoundFromSnapshot(roundSnapshot);
+            if (roundSnapshot) {
+                restoreRoundFromSnapshot(roundSnapshot);
+                _lastAppliedStateVersion = sv > 0 ? sv : _lastAppliedStateVersion;
+            }
         }
     });
 
@@ -3170,8 +3268,14 @@ async function setupSignalR() {
             const snapshot = replay.Snapshot;
             if (snapshot.state_version !== undefined) clientStateVersion = snapshot.state_version;
             if (snapshot.sequence_number !== undefined) clientSequenceNumber = snapshot.sequence_number;
+            // Version guard: reject stale snapshots
+            const sv = snapshot.state_version ?? 0;
+            if (sv > 0 && sv < _lastAppliedStateVersion) return;
             const roundSnapshot = buildRoundSnapshotFromCabinetSnapshot(snapshot);
-            if (roundSnapshot) restoreRoundFromSnapshot(roundSnapshot);
+            if (roundSnapshot) {
+                restoreRoundFromSnapshot(roundSnapshot);
+                _lastAppliedStateVersion = sv > 0 ? sv : _lastAppliedStateVersion;
+            }
         }
     });
 
@@ -3220,22 +3324,29 @@ async function setupSignalR() {
             console.log('[SignalR] Reconnected successfully.');
             hideNetworkErrorBanner();
             if (machineId > 0) {
-                try { 
+                try {
                     if (isSpectatorMode) {
                         await invokeHub('JoinMachineAsSpectator', machineId);
                     } else {
+                        // Primary path: ReconnectSync returns a CabinetReplay with
+                        // a full snapshot. The CabinetReplayEvent/CabinetSnapshotEvent
+                        // handlers restore DU state from it.
                         await invokeHub('ReconnectSync', machineId, clientStateVersion, clientSequenceNumber);
                     }
                 } catch (err) {
-                    console.error('ReconnectSync failed, falling back to JoinMachine:', err);
+                    console.error('ReconnectSync failed, falling back to snapshot restore:', err);
                     try {
-                        await invokeHub('JoinMachine', machineId);
-                        // After fallback JoinMachine, fetch active round to restore DU state
-                        const activeRound = await fetchActiveRoundState();
-                        if (activeRound) {
-                            restoreRoundFromSnapshot(activeRound);
-                        } else if (gameState === 'doubleup' || gameState === 'du-waiting') {
-                            // DU state was lost — reset to idle
+                        if (isSpectatorMode) {
+                            isSpectatorMode = false;
+                        }
+                        // Fallback: always fetch the authoritative cabinet snapshot
+                        // to restore full state including DU. This guarantees the player
+                        // resumes exactly where they left off — no lost DU sessions.
+                        await joinMachine(machineId);
+                        const restored = await fetchAndRestoreFromSnapshot();
+                        if (!restored && (gameState === 'doubleup' || gameState === 'du-waiting')) {
+                            // Snapshot didn't contain a recoverable round but we were
+                            // in DU — reset to idle gracefully.
                             exitDoubleUp();
                             refreshIdleMachineState('SESSION RECOVERED', 'win');
                         }

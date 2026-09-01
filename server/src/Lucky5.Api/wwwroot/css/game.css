@@ -1704,6 +1704,13 @@ body {
     border: 1px solid #666;
 }
 
+.game-card-badge.watching {
+    background: linear-gradient(180deg, #06c, #04a);
+    color: #fff;
+    border: 1px solid #08c;
+    box-shadow: 0 0 6px rgba(0,100,255,0.3);
+}
+
 .lobby-wallet-summary {
     background: linear-gradient(180deg, rgba(50,32,14,0.95) 0%, rgba(20,12,4,0.98) 100%);
     border: 2px solid #8B6914;

@@ -26,6 +26,18 @@ public interface IDataStore
     Task<List<Machine>> GetMachinesAsync();
     Task<Machine?> GetMachineAsync(int machineId);
     Task<List<Offer>> GetOffersAsync();
+    Task<Offer?> GetOfferAsync(int id);
+    Task<Offer> CreateOfferAsync(Offer offer);
+    Task UpdateOfferAsync(Offer offer);
+    Task DeleteOfferAsync(int id);
+
+    Task<TermsDocument?> GetTermsAsync();
+    Task UpdateTermsAsync(TermsDocument terms);
+    Task DeleteTermsAsync();
+
+    Task<Dictionary<string, string>> GetAppSettingsAsync();
+    Task UpdateAppSettingAsync(string key, string value);
+    Task DeleteAppSettingAsync(string key);
 
     Task<MachineSessionState?> GetMachineSessionAsync(Guid userId, int machineId);
     Task<MachineSessionState?> GetMachineSessionByIdAsync(Guid sessionId);

@@ -1,12 +1,20 @@
 # Lucky5 v8 Project Memory — Single Source of Truth
 
-## Architecture
+## Architecture & PC Build Environment
 
 - **Primary client**: vanilla HTML/CSS/JS cabinet in `server/src/Lucky5.Api/wwwroot/`
 - **Backend authority**: .NET 10 under `server/src/Lucky5.Domain/Game/CleanRoom/` (deterministic RNG, payouts, jackpots, credits, recovery, double-up)
-- **Launch**: `./dev.ps1` → <http://localhost:5051>
-- **Tests**: `dotnet run --project server/tests/Lucky5.Tests/Lucky5.Tests.csproj`
-- **Persistence**: in-memory by default
+- **Launch**: `.\dev.ps1` → <http://localhost:5051>
+- **Build API & Tests**: `dotnet build server/Lucky5.sln`
+- **Full Regression Suite**: `dotnet run --project server/tests/Lucky5.Tests/Lucky5.Tests.csproj` (includes 100,000-round Monte Carlo RTP simulation)
+- **Unit Tests**: `dotnet test server/Lucky5.sln`
+- **Persistence**: in-memory by default (Redis/Postgres configured via appsettings)
+
+### Windows PC Build Invariants (Crucial)
+- **.NET SDK Pinning**: `global.json` is pinned to SDK `10.0.302`. (Do not remove: SDK 10.0.400 on this machine has corrupted null-byte files).
+- **Workload Resolver**: `Directory.Build.props` explicitly sets `<MSBuildEnableWorkloadResolver>false</MSBuildEnableWorkloadResolver>` to bypass corrupted workload manifests (`10.0.111`).
+- **NuGet Source**: `nuget.config` in repo root ensures `nuget.org` package feeds resolve properly.
+- **Fast Local Dev Startup**: `appsettings.Development.json` sets `ConnectionStrings:Redis` and `REDIS:CONNECTION` to `""` so local startup is instantaneous (~2s) rather than timing out on Redis connection attempts.
 
 ## Visual Target
 

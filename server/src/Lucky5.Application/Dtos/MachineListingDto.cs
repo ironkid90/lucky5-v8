@@ -1,6 +1,6 @@
 namespace Lucky5.Application.Dtos;
 
-public sealed record LobbyMachineInfo(int MachineId, bool IsOccupied, int? OccupantUserId, int SpectatorCount);
+public sealed record LobbyMachineInfo(int MachineId, bool IsOccupied, int? OccupantUserId, int SpectatorCount, string? OccupiedByUsername = null, int IdleSecondsRemaining = 0, DateTime? ReservedUntilUtc = null);
 
 public sealed record MachineListingDto(
     int Id,

@@ -23,6 +23,7 @@ public sealed class GameServiceSimple : IGameService
     public Task<IReadOnlyList<string>> GetGamesAsync(CancellationToken cancellationToken) => inner.GetGamesAsync(cancellationToken);
     public Task<PlayerLobbyDto> GetLobbyAsync(Guid userId, CancellationToken cancellationToken) => inner.GetLobbyAsync(userId, cancellationToken);
     public Task<IReadOnlyList<MachineListingDto>> GetMachinesAsync(CancellationToken cancellationToken) => inner.GetMachinesAsync(cancellationToken);
+    public Task<IReadOnlyList<MachineListingDto>> GetLobbyMachinesAsync(Guid userId, CancellationToken cancellationToken) => inner.GetLobbyMachinesAsync(userId, cancellationToken);
     public Task<DefaultRulesDto> GetDefaultRulesAsync(CancellationToken cancellationToken) => inner.GetDefaultRulesAsync(cancellationToken);
     public Task<MachineSessionDto> GetMachineSessionAsync(Guid userId, int machineId, CancellationToken cancellationToken) => inner.GetMachineSessionAsync(userId, machineId, cancellationToken);
     public Task<MachineSessionDto> CashInAsync(Guid userId, int machineId, decimal amount, CancellationToken cancellationToken) => inner.CashInAsync(userId, machineId, amount, cancellationToken);
