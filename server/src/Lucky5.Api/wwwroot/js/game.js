@@ -3433,6 +3433,9 @@ async function setupSignalR() {
         if (snapshot) {
             if (snapshot.state_version !== undefined) clientStateVersion = snapshot.state_version;
             if (snapshot.sequence_number !== undefined) clientSequenceNumber = snapshot.sequence_number;
+            // Version guard: reject stale snapshots that predate what we've already applied
+            const sv = snapshot.state_version ?? 0;
+            if (sv > 0 && sv < _lastAppliedStateVersion) return;
             const roundSnapshot = buildRoundSnapshotFromCabinetSnapshot(snapshot);
             if (roundSnapshot) {
                 restoreRoundFromSnapshot(roundSnapshot);
@@ -3446,6 +3449,9 @@ async function setupSignalR() {
             const snapshot = replay.Snapshot;
             if (snapshot.state_version !== undefined) clientStateVersion = snapshot.state_version;
             if (snapshot.sequence_number !== undefined) clientSequenceNumber = snapshot.sequence_number;
+            // Version guard: reject stale snapshots
+            const sv = snapshot.state_version ?? 0;
+            if (sv > 0 && sv < _lastAppliedStateVersion) return;
             const roundSnapshot = buildRoundSnapshotFromCabinetSnapshot(snapshot);
             if (roundSnapshot) {
                 restoreRoundFromSnapshot(roundSnapshot);
