@@ -297,9 +297,9 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 					_ = await DrawCoreAsync(userId, new DrawRequest(latestRound.RoundId, []), CancellationToken.None);
 					latestRound = await store.GetRoundAsync(latestRound.RoundId);
 				}
-				catch (InvalidOperationException)
+				catch (Exception ex) when (ex is InvalidOperationException or KeyNotFoundException)
 				{
-					// Draw cannot proceed (e.g., machine closed, credits exhausted).
+					// Draw cannot proceed (e.g., machine closed, credits exhausted, round not found).
 					// Mark round as completed with zero payout so cashout can proceed.
 					latestRound.IsCompleted = true;
 					latestRound.WinAmount = 0;
@@ -907,7 +907,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		if (session.IsTerminal && session.TerminalOutcome == Lucky5DoubleUpOutcome.MachineClosed)
 		{
 			await FinalizeDoubleUpAsync(round, sessionBank, session.CashoutCredits);
-			var closedCursor = await store.AdvanceCabinetStateCursorAsync(userId, round.MachineId);
+			var cursor = await store.AdvanceCabinetStateCursorAsync(userId, round.MachineId);
 			InvalidateCaches(userId, round.MachineId);
 			return new DoubleUpResultDto(roundId, "MachineClosed", session.CashoutCredits, sessionBank.MachineCredits,
 				DealerCard: ToCleanRoomDto(session.DealerCard),
@@ -922,8 +922,8 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 				SlotIndex: session.LastResolvedBoardSlotIndex,
 				IsLucky5Active: session.IsNoLoseActive,
 				CurrentBonusAmount: session.BoardBonusTotal,
-				StateVersion: closedCursor.StateVersion,
-				SequenceNumber: closedCursor.SequenceNumber);
+				StateVersion: cursor.StateVersion,
+				SequenceNumber: cursor.SequenceNumber);
 		}
 
 		var cursor = await store.AdvanceCabinetStateCursorAsync(userId, round.MachineId);

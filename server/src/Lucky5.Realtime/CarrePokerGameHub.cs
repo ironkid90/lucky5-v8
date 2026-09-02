@@ -484,6 +484,13 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
 
         var result = await gameService.TakeHalfAsync(userId, roundId, Context.ConnectionAborted);
         await Clients.Caller.SendAsync(DoubleUpWinEvent, result, Context.ConnectionAborted);
+
+        // Broadcast machine state to group and spectators — take-half changes credits
+        var duMachineId = TryGetCurrentMachineId(out var mId) ? mId : 0;
+        if (duMachineId > 0)
+        {
+            await BroadcastMachineStateAsync(duMachineId, Clients.Groups(GroupName(duMachineId), SpectatorGroupName(duMachineId)), Context.ConnectionAborted, userId);
+        }
     }
 
     public Task Heartbeat()

@@ -15,6 +15,7 @@ using Microsoft.Extensions.Logging;
 /// and the machine remains locked indefinitely.
 /// Uses IGameService.CashOutAsync to ensure DU credits are properly settled
 /// and machine credits are zeroed out (preventing double-settlement on reconnect).
+/// Creates a service scope per cleanup iteration to safely resolve the scoped IGameService.
 /// </summary>
 public sealed class SessionCleanupService : BackgroundService
 {

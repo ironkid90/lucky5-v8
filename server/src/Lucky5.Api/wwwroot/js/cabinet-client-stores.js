@@ -112,15 +112,12 @@
     }
 
     function initAuthFromStorage() {
-        const token = typeof sessionStorage !== 'undefined'
-            ? sessionStorage.getItem('lucky5_token') || null
+        const storage = typeof window !== 'undefined' && window.sessionStorage
+            ? window.sessionStorage
             : null;
-        const username = typeof sessionStorage !== 'undefined'
-            ? sessionStorage.getItem('lucky5_username') || ''
-            : '';
-        const role = typeof sessionStorage !== 'undefined'
-            ? String(sessionStorage.getItem('lucky5_role') || 'player').trim().toLowerCase()
-            : 'player';
+        const token = storage ? storage.getItem('lucky5_token') || null : null;
+        const username = storage ? storage.getItem('lucky5_username') || '' : '';
+        const role = storage ? String(storage.getItem('lucky5_role') || 'player').trim().toLowerCase() : 'player';
         authStore.setState({
             user: { username, role },
             token,
