@@ -649,17 +649,29 @@ public sealed class CarrePokerGameHub(
                 {
                     seatReclaimed = true;
                 }
-                else if (reclaimedPendingSeat
-                    || !registry.TryGetUserId(occupyingConnectionId, out var occupyingUserId)
-                    || occupyingUserId == userId)
+                else
                 {
-                    // Our own pending seat, a dead occupant connection, or another
-                    // connection of the SAME user (covers the race where this
-                    // reconnect is processed before the old connection's
-                    // OnDisconnectedAsync). A live seat owned by a different user
-                    // is never stolen here.
-                    MachineOccupancy[machineId] = Context.ConnectionId;
-                    seatReclaimed = true;
+                    // A pending grace entry owned by a DIFFERENT user protects the
+                    // original owner's session — never steal the seat or replace
+                    // their settlement token, even if the old occupant connection
+                    // is already gone from the registry.
+                    var anotherUserHasPendingGrace =
+                        PendingDisconnects.TryGetValue(machineId, out var graceEntry) &&
+                        graceEntry.UserId != userId;
+
+                    if (!anotherUserHasPendingGrace &&
+                        (reclaimedPendingSeat
+                            || !registry.TryGetUserId(occupyingConnectionId, out var occupyingUserId)
+                            || occupyingUserId == userId))
+                    {
+                        // Our own pending seat, a dead occupant connection, or another
+                        // connection of the SAME user (covers the race where this
+                        // reconnect is processed before the old connection's
+                        // OnDisconnectedAsync). A live seat owned by a different user
+                        // is never stolen here.
+                        MachineOccupancy[machineId] = Context.ConnectionId;
+                        seatReclaimed = true;
+                    }
                 }
             }
             else
@@ -680,11 +692,20 @@ public sealed class CarrePokerGameHub(
                 //     OnDisconnectedAsync adopts the entry by replacing the timer with
                 //     a real grace-period countdown (no scan-remove-add race).
                 var reclaimTimer = new Timer(static _ => { }, null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
-                if (PendingDisconnects.TryGetValue(machineId, out var previousEntry))
+                if (PendingDisconnects.TryGetValue(machineId, out var previousEntry) && previousEntry.UserId == userId)
                 {
                     previousEntry.Timer.Dispose();
+                    PendingDisconnects[machineId] = (userId, reclaimTimer);
                 }
-                PendingDisconnects[machineId] = (userId, reclaimTimer);
+                else if (!PendingDisconnects.ContainsKey(machineId))
+                {
+                    PendingDisconnects[machineId] = (userId, reclaimTimer);
+                }
+                else
+                {
+                    // Another user's pending grace entry — never overwrite it.
+                    reclaimTimer.Dispose();
+                }
 
                 await Groups.AddToGroupAsync(Context.ConnectionId, GroupName(machineId));
             }
