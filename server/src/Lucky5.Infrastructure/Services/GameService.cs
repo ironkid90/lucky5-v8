@@ -24,6 +24,29 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 	private static readonly EngineConfig EngineCfg = EngineConfig.Default;
 	private static readonly ConcurrentDictionary<string, SemaphoreSlim> CabinetCommandLocks = new(StringComparer.OrdinalIgnoreCase);
 	private static readonly ConcurrentDictionary<Guid, DoubleUpStartLock> DoubleUpStartLocks = new();
+	// Per-(user, machine) mutation gate. All credit/round-mutating entry points
+	// (cash-in/out, deal, draw, double-up lifecycle, reset) serialize on this gate
+	// so concurrent requests — double-clicks, network retries, multi-tab play, hub
+	// and REST paths racing — can never interleave read-modify-write sequences on
+	// the shared session/round/ledger entities. Without this, two concurrent
+	// TakeHalf or cashout calls both pass their guard checks and double-pay.
+	private static readonly ConcurrentDictionary<string, SemaphoreSlim> SessionMutationGates = new(StringComparer.Ordinal);
+
+	private static string SessionGateKey(Guid userId, int machineId) => $"{userId:N}:{machineId}";
+
+	private static async Task<T> WithSessionGateAsync<T>(Guid userId, int machineId, CancellationToken cancellationToken, Func<Task<T>> action)
+	{
+		var gate = SessionMutationGates.GetOrAdd(SessionGateKey(userId, machineId), static _ => new SemaphoreSlim(1, 1));
+		await gate.WaitAsync(cancellationToken);
+		try
+		{
+			return await action();
+		}
+		finally
+		{
+			gate.Release();
+		}
+	}
 	private static readonly JsonSerializerOptions CabinetJsonOptions = new(JsonSerializerDefaults.Web)
 	{
 		PropertyNameCaseInsensitive = true
@@ -194,7 +217,11 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		return dto;
 	}
 
-	public async Task<MachineSessionDto> CashInAsync(Guid userId, int machineId, decimal amount, CancellationToken cancellationToken)
+	public Task<MachineSessionDto> CashInAsync(Guid userId, int machineId, decimal amount, CancellationToken cancellationToken)
+		=> WithSessionGateAsync(userId, machineId, cancellationToken,
+			() => CashInCoreAsync(userId, machineId, amount, cancellationToken));
+
+	private async Task<MachineSessionDto> CashInCoreAsync(Guid userId, int machineId, decimal amount, CancellationToken cancellationToken)
 	{
 		var profile = await RequireProfileAsync(userId);
 		var machine = await RequireMachineAsync(machineId);
@@ -244,7 +271,11 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		return await ToMachineSessionDtoAsync(userId, session, profile.WalletBalance);
 	}
 
-	public async Task<MachineSessionDto> CashOutAsync(Guid userId, int machineId, CancellationToken cancellationToken, bool bypassRules = false)
+	public Task<MachineSessionDto> CashOutAsync(Guid userId, int machineId, CancellationToken cancellationToken, bool bypassRules = false)
+		=> WithSessionGateAsync(userId, machineId, cancellationToken,
+			() => CashOutCoreAsync(userId, machineId, cancellationToken, bypassRules));
+
+	private async Task<MachineSessionDto> CashOutCoreAsync(Guid userId, int machineId, CancellationToken cancellationToken, bool bypassRules)
 	{
 		var profile = await RequireProfileAsync(userId);
 		var session = await RequireMachineSessionAsync(userId, machineId, createIfMissing: false);
@@ -261,7 +292,9 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 			{
 				try
 				{
-					_ = await DrawAsync(userId, new DrawRequest(latestRound.RoundId, []), CancellationToken.None);
+					// Gate already held by CashOutCoreAsync — call the core draw
+					// directly to avoid re-acquiring the per-session gate.
+					_ = await DrawCoreAsync(userId, new DrawRequest(latestRound.RoundId, []), CancellationToken.None);
 					latestRound = await store.GetRoundAsync(latestRound.RoundId);
 				}
 				catch (InvalidOperationException)
@@ -316,7 +349,11 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		return await ToMachineSessionDtoAsync(userId, session, profile.WalletBalance);
 	}
 
-	public async Task<DealResultDto> DealAsync(Guid userId, DealRequest request, CancellationToken cancellationToken)
+	public Task<DealResultDto> DealAsync(Guid userId, DealRequest request, CancellationToken cancellationToken)
+		=> WithSessionGateAsync(userId, request.MachineId, cancellationToken,
+			() => DealCoreAsync(userId, request, cancellationToken));
+
+	private async Task<DealResultDto> DealCoreAsync(Guid userId, DealRequest request, CancellationToken cancellationToken)
 	{
 		var machine = await RequireMachineAsync(request.MachineId);
 		var session = await RequireMachineSessionAsync(userId, request.MachineId, createIfMissing: true);
@@ -433,6 +470,17 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 	}
 
 	public async Task<DrawResultDto> DrawAsync(Guid userId, DrawRequest request, CancellationToken cancellationToken)
+	{
+		// Discover the machine for the gate key, then re-load and re-validate the
+		// round inside the gate (concurrent state may have changed in between).
+		var probe = await store.GetRoundAsync(request.RoundId);
+		if (probe == null || probe.UserId != userId)
+			throw new KeyNotFoundException("Round not found");
+		return await WithSessionGateAsync(userId, probe.MachineId, cancellationToken,
+			() => DrawCoreAsync(userId, request, cancellationToken));
+	}
+
+	private async Task<DrawResultDto> DrawCoreAsync(Guid userId, DrawRequest request, CancellationToken cancellationToken)
 	{
 		var round = await store.GetRoundAsync(request.RoundId);
 		if (round == null || round.UserId != userId)
@@ -641,11 +689,18 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 
 	public async Task<DoubleUpResultDto> StartDoubleUpAsync(Guid userId, Guid roundId, CancellationToken cancellationToken)
 	{
+		// Round lock FIRST: concurrent starts for the same round must block before
+		// reading the round (regression-tested serialization contract). The session
+		// gate is taken inside — lock order is always round lock → session gate.
 		var startLock = await AcquireDoubleUpStartLockAsync(roundId, cancellationToken);
 
 		try
 		{
-			return await StartDoubleUpCoreAsync(userId, roundId, cancellationToken);
+			var probe = await store.GetRoundAsync(roundId);
+			if (probe == null || probe.UserId != userId)
+				throw new KeyNotFoundException("Round not found");
+			return await WithSessionGateAsync(userId, probe.MachineId, cancellationToken,
+				() => StartDoubleUpCoreAsync(userId, roundId, cancellationToken));
 		}
 		finally
 		{
@@ -815,6 +870,15 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 
 	public async Task<DoubleUpResultDto> SwitchDealerAsync(Guid userId, Guid roundId, CancellationToken cancellationToken)
 	{
+		var probe = await store.GetRoundAsync(roundId);
+		if (probe == null || probe.UserId != userId)
+			throw new KeyNotFoundException("Round not found");
+		return await WithSessionGateAsync(userId, probe.MachineId, cancellationToken,
+			() => SwitchDealerCoreAsync(userId, roundId, cancellationToken));
+	}
+
+	private async Task<DoubleUpResultDto> SwitchDealerCoreAsync(Guid userId, Guid roundId, CancellationToken cancellationToken)
+	{
 		var round = await store.GetRoundAsync(roundId);
 		if (round == null || round.UserId != userId)
 			throw new KeyNotFoundException("Round not found");
@@ -883,6 +947,15 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 
 	public async Task<DoubleUpResultDto> SwapDoubleUpCardAsync(Guid userId, Guid roundId, int swapPosition, CancellationToken cancellationToken)
 	{
+		var probe = await store.GetRoundAsync(roundId);
+		if (probe == null || probe.UserId != userId)
+			throw new KeyNotFoundException("Round not found");
+		return await WithSessionGateAsync(userId, probe.MachineId, cancellationToken,
+			() => SwapDoubleUpCardCoreAsync(userId, roundId, swapPosition, cancellationToken));
+	}
+
+	private async Task<DoubleUpResultDto> SwapDoubleUpCardCoreAsync(Guid userId, Guid roundId, int swapPosition, CancellationToken cancellationToken)
+	{
 		var round = await store.GetRoundAsync(roundId);
 		if (round == null || round.UserId != userId)
 			throw new KeyNotFoundException("Round not found");
@@ -920,6 +993,15 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 	}
 
 	public async Task<DoubleUpResultDto> GuessDoubleUpAsync(Guid userId, Guid roundId, string guess, CancellationToken cancellationToken)
+	{
+		var probe = await store.GetRoundAsync(roundId);
+		if (probe == null || probe.UserId != userId)
+			throw new KeyNotFoundException("Round not found");
+		return await WithSessionGateAsync(userId, probe.MachineId, cancellationToken,
+			() => GuessDoubleUpCoreAsync(userId, roundId, guess, cancellationToken));
+	}
+
+	private async Task<DoubleUpResultDto> GuessDoubleUpCoreAsync(Guid userId, Guid roundId, string guess, CancellationToken cancellationToken)
 	{
 		var round = await store.GetRoundAsync(roundId);
 		if (round == null || round.UserId != userId)
@@ -1041,6 +1123,15 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 
 	public async Task<DoubleUpResultDto> CashoutDoubleUpAsync(Guid userId, Guid roundId, CancellationToken cancellationToken)
 	{
+		var probe = await store.GetRoundAsync(roundId);
+		if (probe == null || probe.UserId != userId)
+			throw new KeyNotFoundException("Round not found");
+		return await WithSessionGateAsync(userId, probe.MachineId, cancellationToken,
+			() => CashoutDoubleUpCoreAsync(userId, roundId, cancellationToken));
+	}
+
+	private async Task<DoubleUpResultDto> CashoutDoubleUpCoreAsync(Guid userId, Guid roundId, CancellationToken cancellationToken)
+	{
 		var round = await store.GetRoundAsync(roundId);
 		if (round == null || round.UserId != userId)
 			throw new KeyNotFoundException("Round not found");
@@ -1106,6 +1197,15 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 	}
 
 	public async Task<DoubleUpResultDto> TakeHalfAsync(Guid userId, Guid roundId, CancellationToken cancellationToken)
+	{
+		var probe = await store.GetRoundAsync(roundId);
+		if (probe == null || probe.UserId != userId)
+			throw new KeyNotFoundException("Round not found");
+		return await WithSessionGateAsync(userId, probe.MachineId, cancellationToken,
+			() => TakeHalfCoreAsync(userId, roundId, cancellationToken));
+	}
+
+	private async Task<DoubleUpResultDto> TakeHalfCoreAsync(Guid userId, Guid roundId, CancellationToken cancellationToken)
 	{
 		var round = await store.GetRoundAsync(roundId);
 		if (round == null || round.UserId != userId)
@@ -2100,7 +2200,11 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		return (cursor.StateVersion, cursor.SequenceNumber);
 	}
 
-	public async Task<object> ResetMachineAsync(Guid userId, int machineId, CancellationToken cancellationToken)
+	public Task<object> ResetMachineAsync(Guid userId, int machineId, CancellationToken cancellationToken)
+		=> WithSessionGateAsync(userId, machineId, cancellationToken,
+			() => ResetMachineCoreAsync(userId, machineId, cancellationToken));
+
+	private async Task<object> ResetMachineCoreAsync(Guid userId, int machineId, CancellationToken cancellationToken)
 	{
 		var profile = await RequireProfileAsync(userId);
 		await RequireMachineAsync(machineId);

@@ -2,6 +2,8 @@ namespace Lucky5.Realtime.Services;
 
 using Lucky5.Domain.Entities;
 using Lucky5.Application.Contracts;
+using Lucky5.Infrastructure.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -16,15 +18,18 @@ using Microsoft.Extensions.Logging;
 /// </summary>
 public sealed class SessionCleanupService : BackgroundService
 {
-    private readonly IGameService _gameService;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly InMemoryDataStore _store;
     private readonly ILogger<SessionCleanupService> _logger;
     private static readonly TimeSpan CleanupInterval = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan StaleRoundThreshold = TimeSpan.FromMinutes(10);
 
-    public SessionCleanupService(IGameService gameService, InMemoryDataStore store, ILogger<SessionCleanupService> logger)
+    // IGameService is scoped; this hosted service is a singleton, so it must
+    // create a scope per settlement instead of injecting IGameService directly
+    // (doing so crashes the host at startup under scope validation).
+    public SessionCleanupService(IServiceScopeFactory scopeFactory, InMemoryDataStore store, ILogger<SessionCleanupService> logger)
     {
-        _gameService = gameService;
+        _scopeFactory = scopeFactory;
         _store = store;
         _logger = logger;
     }
@@ -70,18 +75,24 @@ public sealed class SessionCleanupService : BackgroundService
             // the session (prevents double-settlement if player reconnects).
             if (round.WinAmount > 0m && !round.IsPayoutSettled)
             {
-                try
-                {
-                    _ = _gameService.CashOutAsync(round.UserId, round.MachineId, CancellationToken.None, bypassRules: true);
-                    _logger.LogInformation("Settled stale round {RoundId} to user {UserId} via CashOut",
-                        roundId, round.UserId);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to settle stale round {RoundId} for user {UserId}",
-                        roundId, round.UserId);
-                }
+                _ = SettleRoundAsync(round.UserId, round.MachineId, roundId);
             }
+        }
+    }
+
+    private async Task SettleRoundAsync(Guid userId, int machineId, Guid roundId)
+    {
+        try
+        {
+            // Own scope: the settlement outlives the cleanup tick.
+            await using var scope = _scopeFactory.CreateAsyncScope();
+            var gameService = scope.ServiceProvider.GetRequiredService<IGameService>();
+            await gameService.CashOutAsync(userId, machineId, CancellationToken.None, bypassRules: true);
+            _logger.LogInformation("Settled stale round {RoundId} to user {UserId} via CashOut", roundId, userId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to settle stale round {RoundId} for user {UserId}", roundId, userId);
         }
     }
 }

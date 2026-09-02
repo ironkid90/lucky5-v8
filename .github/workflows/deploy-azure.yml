@@ -1,0 +1,304 @@
+# Lucky5 v8 → Azure Container Apps CI/CD
+# ================================================================
+# Triggered on every push to the default branch and on every pull
+# request. Pull requests run a build + test only; pushes to the
+# default branch additionally build the container image and deploy
+# the new revision to Azure Container Apps.
+#
+# Required GitHub repository secrets:
+#   AZURE_CLIENT_ID         Azure AD app (service principal) ID
+#   AZURE_TENANT_ID         Azure AD tenant ID
+#   AZURE_SUBSCRIPTION_ID   Azure subscription ID
+#   AZURE_RESOURCE_GROUP    e.g. lucky5-v8-rg
+#   AZURE_LOCATION          e.g. westeurope
+#   AZURE_ACR_NAME          e.g. lucky5v8acr (globally unique, alphanumeric)
+#
+# First-time setup (one-time):
+#   1. Create the deployer app registration:
+#        az ad app create --display-name lucky5-v8-github-deployer
+#        APP_ID=$(az ad app list --display-name lucky5-v8-github-deployer --query "[0].appId" -o tsv)
+#        az ad sp create --id $APP_ID
+#   2. Create the resource group and grant the app Contributor on it:
+#        az group create --name lucky5-v8-rg --location westeurope
+#        az role assignment create --assignee $APP_ID --role Contributor \
+#          --scope /subscriptions/$SUBSCRIPTION_ID/resourceGroups/lucky5-v8-rg
+#   3. Add a federated credential for GitHub OIDC (replace OWNER/REPO):
+#        az ad app federated-credential create --id $APP_ID --parameters '{
+#          "name": "github-main",
+#          "issuer": "https://token.actions.githubusercontent.com",
+#          "subject": "repo:OWNER/REPO:ref:refs/heads/main",
+#          "audiences": ["api://AzureADTokenExchange"] }'
+#   4. Set the GitHub repository secrets listed above.
+#
+# See AZURE_DEPLOYMENT.md next to this file for the full guide.
+# ================================================================
+
+name: Build and Deploy to Azure Container Apps
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  DOCKER_BUILDKIT: '1'
+  SERVICE_NAME: lucky5-v8
+
+jobs:
+  # ────────────────────────────────────────────────────────────────────
+  # 1. Test: restore, build, and run the regression test suite on every
+  #    push and PR. Gates the deploy job on success.
+  # ────────────────────────────────────────────────────────────────────
+  test:
+    name: Build & Test (Lucky5.Tests)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('server/**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore solution
+        run: dotnet restore server/Lucky5.sln
+
+      - name: Build (Release, no-restore)
+        run: dotnet build server/Lucky5.sln -c Release --no-restore
+
+      - name: Run regression tests
+        run: |
+          dotnet test server/tests/Lucky5.Tests/Lucky5.Tests.csproj \
+            -c Release --no-build --logger "console;verbosity=normal"
+
+  # ────────────────────────────────────────────────────────────────────
+  # 2. Deploy: builds the container image in ACR (no local Docker
+  #    required) and upserts the Container App declaratively. Azure Files
+  #    provides the durable snapshot directory; replicas are pinned to 1
+  #    for in-memory correctness (matches the Cloud Run strategy).
+  # ────────────────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to Azure Container Apps
+    needs: test
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'   # required for OIDC federated login
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Log in to Azure (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Ensure providers and CLI extension (idempotent)
+        run: |
+          az provider register --namespace Microsoft.App --wait >/dev/null 2>&1 || true
+          az provider register --namespace Microsoft.OperationalInsights --wait >/dev/null 2>&1 || true
+          az extension add --name containerapp --upgrade --yes >/dev/null 2>&1 || true
+
+      - name: Ensure resource group and ACR exist
+        run: |
+          az group create \
+            --name "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --location "${{ secrets.AZURE_LOCATION }}" -o none
+          if ! az acr show --name "${{ secrets.AZURE_ACR_NAME }}" \
+                --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" >/dev/null 2>&1; then
+            az acr create --name "${{ secrets.AZURE_ACR_NAME }}" \
+              --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+              --location "${{ secrets.AZURE_LOCATION }}" \
+              --sku Basic -o none
+          fi
+
+      - name: Build image in ACR
+        id: build
+        run: |
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          az acr build \
+            --registry "${{ secrets.AZURE_ACR_NAME }}" \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --image "${{ env.SERVICE_NAME }}:${SHORT_SHA}" \
+            --image "${{ env.SERVICE_NAME }}:latest" \
+            --file Dockerfile .
+          echo "image=${{ secrets.AZURE_ACR_NAME }}.azurecr.io/${{ env.SERVICE_NAME }}:${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure pull identity with AcrPull
+        id: pullid
+        run: |
+          RG="${{ secrets.AZURE_RESOURCE_GROUP }}"
+          ID_NAME="${{ env.SERVICE_NAME }}-pull"
+          if ! az identity show --name "$ID_NAME" --resource-group "$RG" >/dev/null 2>&1; then
+            az identity create --name "$ID_NAME" --resource-group "$RG" \
+              --location "${{ secrets.AZURE_LOCATION }}" -o none
+          fi
+          PULL_ID=$(az identity show --name "$ID_NAME" --resource-group "$RG" --query id -o tsv)
+          PULL_PRINCIPAL=$(az identity show --name "$ID_NAME" --resource-group "$RG" --query principalId -o tsv)
+          ACR_ID=$(az acr show --name "${{ secrets.AZURE_ACR_NAME }}" --resource-group "$RG" --query id -o tsv)
+          az role assignment create --assignee "$PULL_PRINCIPAL" --role AcrPull --scope "$ACR_ID" -o none || true
+          echo "id=$PULL_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure storage account + Azure Files share (state snapshots)
+        id: storage
+        run: |
+          RG="${{ secrets.AZURE_RESOURCE_GROUP }}"
+          SA_NAME=$(echo "${{ secrets.AZURE_ACR_NAME }}state" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9' | cut -c1-24)
+          if ! az storage account show --name "$SA_NAME" --resource-group "$RG" >/dev/null 2>&1; then
+            az storage account create --name "$SA_NAME" --resource-group "$RG" \
+              --location "${{ secrets.AZURE_LOCATION }}" \
+              --sku Standard_LRS --kind StorageV2 -o none
+          fi
+          az storage share create --name lucky5-state --account-name "$SA_NAME" -o none
+          echo "sa=$SA_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure Container Apps environment with Azure Files storage
+        id: acaenv
+        run: |
+          RG="${{ secrets.AZURE_RESOURCE_GROUP }}"
+          ENV_NAME="${{ env.SERVICE_NAME }}-env"
+          SA_NAME="${{ steps.storage.outputs.sa }}"
+          SA_KEY=$(az storage account keys list --account-name "$SA_NAME" \
+                   --resource-group "$RG" --query "[0].value" -o tsv)
+          if ! az containerapp env show --name "$ENV_NAME" --resource-group "$RG" >/dev/null 2>&1; then
+            az containerapp env create --name "$ENV_NAME" --resource-group "$RG" \
+              --location "${{ secrets.AZURE_LOCATION }}" -o none
+          fi
+          az containerapp env storage set --name "$ENV_NAME" --resource-group "$RG" \
+            --storage-name lucky5state \
+            --azure-file-account-name "$SA_NAME" \
+            --azure-file-account-key "$SA_KEY" \
+            --azure-file-share-name lucky5-state \
+            --access-mode ReadWrite -o none
+          ENV_ID=$(az containerapp env show --name "$ENV_NAME" --resource-group "$RG" --query id -o tsv)
+          echo "id=$ENV_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve JWT signing key (existing app secret or freshly generated)
+        id: jwt
+        run: |
+          RG="${{ secrets.AZURE_RESOURCE_GROUP }}"
+          APP_NAME="${{ env.SERVICE_NAME }}"
+          JWT_KEY=""
+          if az containerapp show --name "$APP_NAME" --resource-group "$RG" >/dev/null 2>&1; then
+            JWT_KEY=$(az containerapp secret show --name "$APP_NAME" --resource-group "$RG" \
+                      --name jwt-signing-key --query value -o tsv 2>/dev/null || echo "")
+          fi
+          if [ -z "$JWT_KEY" ]; then
+            JWT_KEY=$(head -c 48 /dev/urandom | base64)
+          fi
+          echo "::add-mask::$JWT_KEY"
+          echo "key=$JWT_KEY" >> "$GITHUB_OUTPUT"
+
+      - name: Render container app manifest
+        run: |
+          cat > /tmp/lucky5-app.yaml <<EOF
+          name: ${SERVICE_NAME}
+          type: Microsoft.App/containerApps
+          location: ${LOCATION}
+          identity:
+            type: UserAssigned
+            userAssignedIdentities:
+              "${PULL_IDENTITY_ID}": {}
+          properties:
+            environmentId: ${ENV_ID}
+            configuration:
+              ingress:
+                external: true
+                targetPort: 8080
+              registries:
+                - server: ${ACR_NAME}.azurecr.io
+                  identity: ${PULL_IDENTITY_ID}
+              secrets:
+                - name: jwt-signing-key
+                  value: ${JWT_KEY}
+            template:
+              containers:
+                - name: ${SERVICE_NAME}
+                  image: ${IMAGE}
+                  resources:
+                    cpu: 0.5
+                    memory: 1.0Gi
+                  env:
+                    - name: LUCKY5_STATE_DIR
+                      value: /mnt/state
+                    - name: ASPNETCORE_ENVIRONMENT
+                      value: Production
+                    - name: JWT__SIGNING_KEY
+                      secretRef: jwt-signing-key
+                  volumeMounts:
+                    - volumeName: lucky5state
+                      mountPath: /mnt/state
+              volumes:
+                - name: lucky5state
+                  storageType: AzureFile
+                  storageName: lucky5state
+              scale:
+                minReplicas: 1
+                maxReplicas: 1
+          EOF
+          echo "Manifest rendered."
+        env:
+          SERVICE_NAME: ${{ env.SERVICE_NAME }}
+          LOCATION: ${{ secrets.AZURE_LOCATION }}
+          PULL_IDENTITY_ID: ${{ steps.pullid.outputs.id }}
+          ENV_ID: ${{ steps.acaenv.outputs.id }}
+          ACR_NAME: ${{ secrets.AZURE_ACR_NAME }}
+          JWT_KEY: ${{ steps.jwt.outputs.key }}
+          IMAGE: ${{ steps.build.outputs.image }}
+
+      - name: Create or update the Container App
+        run: |
+          RG="${{ secrets.AZURE_RESOURCE_GROUP }}"
+          APP_NAME="${{ env.SERVICE_NAME }}"
+          if az containerapp show --name "$APP_NAME" --resource-group "$RG" >/dev/null 2>&1; then
+            az containerapp update --name "$APP_NAME" --resource-group "$RG" \
+              --yaml /tmp/lucky5-app.yaml -o none
+          else
+            az containerapp create --name "$APP_NAME" --resource-group "$RG" \
+              --yaml /tmp/lucky5-app.yaml -o none
+          fi
+
+      - name: Print app URL and verify health endpoint
+        id: health
+        run: |
+          URL="https://$(az containerapp show --name "${{ env.SERVICE_NAME }}" \
+              --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+              --query properties.configuration.ingress.fqdn -o tsv)"
+          echo "App URL: $URL"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          for i in $(seq 1 12); do
+            if curl -fsS "$URL/health/live" >/dev/null 2>&1; then
+              echo "Health check passed on attempt $i"
+              exit 0
+            fi
+            echo "Waiting for revision to come up (attempt $i)..."
+            sleep 5
+          done
+          echo "::warning::Health check did not pass within 60s; service may still be starting."
+          exit 0
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "### Azure deploy summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **App**: \`${{ env.SERVICE_NAME }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Resource group**: \`${{ secrets.AZURE_RESOURCE_GROUP }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Image**: \`${{ steps.build.outputs.image }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **URL**: ${{ steps.health.outputs.url }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Commit**: \`${{ github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"

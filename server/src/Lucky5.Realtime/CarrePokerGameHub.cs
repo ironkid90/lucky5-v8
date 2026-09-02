@@ -46,6 +46,11 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
 
     private static string SpectatorGroupName(int machineId) => $"machine:spectate:{machineId}";
 
+    // Public group-name accessors so non-hub senders (REST controllers via
+    // IMachineStateNotifier) target the exact same groups.
+    public static string MachineGroupNamePublic(int machineId) => GroupName(machineId);
+    public static string SpectatorGroupNamePublic(int machineId) => SpectatorGroupName(machineId);
+
     public override Task OnConnectedAsync()
     {
         if (TryGetUserId(out var userId))
@@ -69,15 +74,42 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
 
         if (TryGetCurrentMachineId(out var machineId))
         {
+            // Race guard: the player may have ALREADY reconnected on a new
+            // connection and reclaimed the seat before this disconnect callback
+            // ran (server-side disconnect detection via keep-alive timeout is
+            // slower than the client's automatic reconnect). If a live
+            // connection of the same user now holds the seat, do not arm the
+            // auto-cashout timer — the session is continuing just fine.
+            var seatReclaimedBySameUser =
+                MachineOccupancy.TryGetValue(machineId, out var currentOccupant) &&
+                currentOccupant != Context.ConnectionId &&
+                registry.TryGetUserId(currentOccupant, out var occupantUserId) &&
+                TryGetUserId(out var disconnectedUserId) &&
+                occupantUserId == disconnectedUserId;
+
+            if (!seatReclaimedBySameUser)
+            {
             // Don't immediately release the machine lock. Instead, start a grace-period
             // timer. If the same player reconnects within the window, they resume their
             // session (DU, win settlement, etc.). If the timer expires, the machine
             // is released and the player's credits are auto-cashed out to their wallet.
-            var timer = new Timer(async _ =>
+            var timer = new Timer(async _timerState =>
             {
                 // Grace period expired — auto-cashout and release the machine lock.
-                PendingDisconnects.TryRemove(machineId, out var _);
-                MachineOccupancy.TryRemove(machineId, out var _);
+                PendingDisconnects.TryRemove(machineId, out _);
+
+                // Final liveness check: if the seat is now held by a live
+                // connection (player reconnected but the reclaim raced past the
+                // cancel), skip the auto-cashout instead of yanking the credits
+                // out from under an active session.
+                if (MachineOccupancy.TryGetValue(machineId, out var occupantAtFire) &&
+                    occupantAtFire != Context.ConnectionId &&
+                    registry.TryGetUserId(occupantAtFire, out var occupantStillLive))
+                {
+                    return;
+                }
+
+                MachineOccupancy.TryRemove(machineId, out _);
 
                 // Auto-cashout: return remaining machine credits to player's wallet
                 try
@@ -103,6 +135,7 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
 
             // Machine still appears occupied to other players during the grace period.
             // The lobby shows "Reconnecting" state.
+            }
         }
 
         if (Context.Items.TryGetValue("spectate-machine-id", out var specObj) && specObj is int specMachineId)
@@ -477,6 +510,55 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
 
         if (TryGetUserId(out var userId))
         {
+            // The player is back — cancel the pending-disconnect auto-cashout
+            // timer. Without this, a player who recovers via ReconnectSync (the
+            // primary client reconnect path) still gets cashed out and loses
+            // their seat when the grace-period timer fires mid-session.
+            var reclaimedPendingSeat = false;
+            if (PendingDisconnects.TryGetValue(machineId, out var pending) &&
+                pending.UserId == userId &&
+                PendingDisconnects.TryRemove(machineId, out var removedPending))
+            {
+                removedPending.Timer.Dispose();
+                reclaimedPendingSeat = true;
+            }
+
+            // Reclaim the seat for this connection. SignalR reconnects with a NEW
+            // connection id and group memberships do not survive reconnects, so
+            // both the occupancy map and the group must be refreshed — otherwise
+            // the seat points at a dead connection (machine looks occupied forever,
+            // or freed by the timer while the player is still playing).
+            var seatReclaimed = false;
+            if (MachineOccupancy.TryGetValue(machineId, out var occupyingConnectionId))
+            {
+                if (occupyingConnectionId == Context.ConnectionId)
+                {
+                    seatReclaimed = true;
+                }
+                else if (reclaimedPendingSeat
+                    || !registry.TryGetUserId(occupyingConnectionId, out var occupyingUserId)
+                    || occupyingUserId == userId)
+                {
+                    // Our own pending seat, a dead occupant connection, or another
+                    // connection of the SAME user (covers the race where this
+                    // reconnect is processed before the old connection's
+                    // OnDisconnectedAsync). A live seat owned by a different user
+                    // is never stolen here.
+                    MachineOccupancy[machineId] = Context.ConnectionId;
+                    seatReclaimed = true;
+                }
+            }
+            else
+            {
+                MachineOccupancy[machineId] = Context.ConnectionId;
+                seatReclaimed = true;
+            }
+
+            if (seatReclaimed)
+            {
+                await Groups.AddToGroupAsync(Context.ConnectionId, GroupName(machineId));
+            }
+
             var replay = await gameService.GetCabinetReplayAsync(userId, machineId, lastStateVersion, lastSequenceNumber, Context.ConnectionAborted);
             await Clients.Caller.SendAsync(CabinetReplayEvent, replay, Context.ConnectionAborted);
             if (replay.Snapshot is not null)

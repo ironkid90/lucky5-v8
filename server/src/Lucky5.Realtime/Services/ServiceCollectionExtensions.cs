@@ -7,6 +7,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddLucky5Realtime(this IServiceCollection services)
     {
         services.AddSingleton<ConnectionRegistry>();
+        services.AddSingleton<Lucky5.Application.Contracts.IMachineStateNotifier, MachineStateNotifier>();
         services.AddHostedService<HeartbeatMonitorService>();
         services.AddHostedService<SessionCleanupService>();
         return services;
