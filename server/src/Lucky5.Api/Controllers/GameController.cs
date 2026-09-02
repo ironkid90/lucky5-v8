@@ -1,4 +1,4 @@
-using Lucky5.Api.Models;
+﻿using Lucky5.Api.Models;
 using Lucky5.Application.Contracts;
 using Lucky5.Application.Dtos;
 using Lucky5.Application.Requests;
@@ -50,7 +50,7 @@ public class GameController(IGameService gameService, IMachineStateNotifier mach
         try
         {
             var session = await gameService.CashInAsync(UserId, machineId, request.Amount, cancellationToken);
-            await machineStateNotifier.MachineStateChangedAsync(machineId, UserId);
+            _ = machineStateNotifier.MachineStateChangedAsync(machineId, UserId);
             return Ok(ApiResponse<MachineSessionDto>.Ok(session, traceId: HttpContext.TraceIdentifier));
         }
         catch (InvalidOperationException ex)
@@ -65,7 +65,7 @@ public class GameController(IGameService gameService, IMachineStateNotifier mach
         try
         {
             var session = await gameService.CashOutAsync(UserId, machineId, cancellationToken, bypassRules: isExit || bypassRules);
-            await machineStateNotifier.MachineStateChangedAsync(machineId, UserId);
+            _ = machineStateNotifier.MachineStateChangedAsync(machineId, UserId);
             return Ok(ApiResponse<MachineSessionDto>.Ok(session, traceId: HttpContext.TraceIdentifier));
         }
         catch (InvalidOperationException ex)
@@ -117,7 +117,7 @@ public class GameController(IGameService gameService, IMachineStateNotifier mach
         try
         {
             var result = await gameService.DealAsync(UserId, request, cancellationToken);
-            await machineStateNotifier.MachineStateChangedAsync(request.MachineId, UserId);
+            _ = machineStateNotifier.MachineStateChangedAsync(request.MachineId, UserId);
             return Ok(ApiResponse<DealResultDto>.Ok(result, traceId: HttpContext.TraceIdentifier));
         }
         catch (InvalidOperationException ex)
@@ -133,7 +133,7 @@ public class GameController(IGameService gameService, IMachineStateNotifier mach
         try
         {
             var result = await gameService.DrawAsync(UserId, request, cancellationToken);
-            await machineStateNotifier.MachineStateChangedForRoundAsync(request.RoundId, UserId);
+            _ = machineStateNotifier.MachineStateChangedForRoundAsync(request.RoundId, UserId);
             return Ok(ApiResponse<DrawResultDto>.Ok(result, traceId: HttpContext.TraceIdentifier));
         }
         catch (InvalidOperationException ex)
@@ -148,7 +148,7 @@ public class GameController(IGameService gameService, IMachineStateNotifier mach
         try
         {
             var result = await gameService.StartDoubleUpAsync(UserId, request.RoundId, cancellationToken);
-            await machineStateNotifier.MachineStateChangedForRoundAsync(request.RoundId, UserId);
+            _ = machineStateNotifier.MachineStateChangedForRoundAsync(request.RoundId, UserId);
             return Ok(ApiResponse<DoubleUpResultDto>.Ok(result, traceId: HttpContext.TraceIdentifier));
         }
         catch (InvalidOperationException ex)
@@ -163,7 +163,7 @@ public class GameController(IGameService gameService, IMachineStateNotifier mach
         try
         {
             var result = await gameService.GuessDoubleUpAsync(UserId, request.RoundId, request.Guess, cancellationToken);
-            await machineStateNotifier.MachineStateChangedForRoundAsync(request.RoundId, UserId);
+            _ = machineStateNotifier.MachineStateChangedForRoundAsync(request.RoundId, UserId);
             return Ok(ApiResponse<DoubleUpResultDto>.Ok(result, traceId: HttpContext.TraceIdentifier));
         }
         catch (InvalidOperationException ex)
@@ -178,7 +178,7 @@ public class GameController(IGameService gameService, IMachineStateNotifier mach
         try
         {
             var result = await gameService.TakeHalfAsync(UserId, request.RoundId, cancellationToken);
-            await machineStateNotifier.MachineStateChangedForRoundAsync(request.RoundId, UserId);
+            _ = machineStateNotifier.MachineStateChangedForRoundAsync(request.RoundId, UserId);
             return Ok(ApiResponse<DoubleUpResultDto>.Ok(result, traceId: HttpContext.TraceIdentifier));
         }
         catch (InvalidOperationException ex)
@@ -193,7 +193,7 @@ public class GameController(IGameService gameService, IMachineStateNotifier mach
         try
         {
             var result = await gameService.SwapDoubleUpCardAsync(UserId, request.RoundId, request.SwapPosition, cancellationToken);
-            await machineStateNotifier.MachineStateChangedForRoundAsync(request.RoundId, UserId);
+            _ = machineStateNotifier.MachineStateChangedForRoundAsync(request.RoundId, UserId);
             return Ok(ApiResponse<DoubleUpResultDto>.Ok(result, traceId: HttpContext.TraceIdentifier));
         }
         catch (InvalidOperationException ex)
@@ -208,7 +208,7 @@ public class GameController(IGameService gameService, IMachineStateNotifier mach
         try
         {
             var result = await gameService.CashoutDoubleUpAsync(UserId, request.RoundId, cancellationToken);
-            await machineStateNotifier.MachineStateChangedForRoundAsync(request.RoundId, UserId);
+            _ = machineStateNotifier.MachineStateChangedForRoundAsync(request.RoundId, UserId);
             return Ok(ApiResponse<DoubleUpResultDto>.Ok(result, traceId: HttpContext.TraceIdentifier));
         }
         catch (InvalidOperationException ex)
@@ -223,7 +223,7 @@ public class GameController(IGameService gameService, IMachineStateNotifier mach
         try
         {
             var result = await gameService.CashoutDoubleUpAsync(UserId, request.RoundId, cancellationToken);
-            await machineStateNotifier.MachineStateChangedForRoundAsync(request.RoundId, UserId);
+            _ = machineStateNotifier.MachineStateChangedForRoundAsync(request.RoundId, UserId);
             return Ok(ApiResponse<DoubleUpResultDto>.Ok(result, traceId: HttpContext.TraceIdentifier));
         }
         catch (InvalidOperationException ex)
@@ -232,7 +232,7 @@ public class GameController(IGameService gameService, IMachineStateNotifier mach
         }
     }
 
-    // ── Seamless state sync: additional DU endpoints to match frontend game-config.js routes ──
+    // â”€â”€ Seamless state sync: additional DU endpoints to match frontend game-config.js routes â”€â”€
     // The frontend (game.js) calls these routes during double-up. Without them, Take Score,
     // Take Half, and Switch Dealer all 404, making double-up unplayable.
 
@@ -242,7 +242,7 @@ public class GameController(IGameService gameService, IMachineStateNotifier mach
         try
         {
             var result = await gameService.CashoutDoubleUpAsync(UserId, request.RoundId, cancellationToken);
-            await machineStateNotifier.MachineStateChangedForRoundAsync(request.RoundId, UserId);
+            _ = machineStateNotifier.MachineStateChangedForRoundAsync(request.RoundId, UserId);
             return Ok(ApiResponse<DoubleUpResultDto>.Ok(result, traceId: HttpContext.TraceIdentifier));
         }
         catch (InvalidOperationException ex)
@@ -257,7 +257,7 @@ public class GameController(IGameService gameService, IMachineStateNotifier mach
         try
         {
             var result = await gameService.TakeHalfAsync(UserId, request.RoundId, cancellationToken);
-            await machineStateNotifier.MachineStateChangedForRoundAsync(request.RoundId, UserId);
+            _ = machineStateNotifier.MachineStateChangedForRoundAsync(request.RoundId, UserId);
             return Ok(ApiResponse<DoubleUpResultDto>.Ok(result, traceId: HttpContext.TraceIdentifier));
         }
         catch (InvalidOperationException ex)
@@ -272,7 +272,7 @@ public class GameController(IGameService gameService, IMachineStateNotifier mach
         try
         {
             var result = await gameService.SwitchDealerAsync(UserId, request.RoundId, cancellationToken);
-            await machineStateNotifier.MachineStateChangedForRoundAsync(request.RoundId, UserId);
+            _ = machineStateNotifier.MachineStateChangedForRoundAsync(request.RoundId, UserId);
             return Ok(ApiResponse<DoubleUpResultDto>.Ok(result, traceId: HttpContext.TraceIdentifier));
         }
         catch (InvalidOperationException ex)

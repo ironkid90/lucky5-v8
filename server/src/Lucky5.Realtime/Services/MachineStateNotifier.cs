@@ -38,9 +38,7 @@ public sealed class MachineStateNotifier(
             await using var scope = scopeFactory.CreateAsyncScope();
             var gameService = scope.ServiceProvider.GetRequiredService<IGameService>();
             var payload = await BuildPayloadAsync(gameService, machineId, userId);
-            await hub.Clients
-                .Groups(CarrePokerGameHub.MachineGroupNamePublic(machineId), CarrePokerGameHub.SpectatorGroupNamePublic(machineId))
-                .SendAsync(MachineStateUpdatedEvent, payload, CancellationToken.None);
+            await FanOutAsync(machineId, payload);
         }
         catch (Exception ex)
         {
@@ -60,14 +58,71 @@ public sealed class MachineStateNotifier(
 
             var gameService = scope.ServiceProvider.GetRequiredService<IGameService>();
             var payload = await BuildPayloadAsync(gameService, round.MachineId, userId);
-            await hub.Clients
-                .Groups(CarrePokerGameHub.MachineGroupNamePublic(round.MachineId), CarrePokerGameHub.SpectatorGroupNamePublic(round.MachineId))
-                .SendAsync(MachineStateUpdatedEvent, payload, CancellationToken.None);
+            await FanOutAsync(round.MachineId, payload);
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Machine state broadcast failed for round {RoundId}", roundId);
         }
+    }
+
+    private async Task FanOutAsync(int machineId, object payload)
+    {
+        // The machine group (the seated player's own connections) receives the
+        // full payload. Spectators receive a sanitized copy: cards, DU state and
+        // machine credits are cabinet-visible (a bystander sees them on a
+        // physical machine), but wallet balance, credit balance, lifetime
+        // cash-in, and session identity are private to the player.
+        var spectatorPayload = SanitizeForSpectators(payload);
+
+        // CancellationToken.None is intentional: the broadcast is fire-and-forget
+        // from the controller and must outlive the originating request — aborting
+        // fan-out when the acting player's HTTP request completes would drop
+        // spectator updates on every quick disconnect.
+        await hub.Clients
+            .Group(CarrePokerGameHub.MachineGroupNamePublic(machineId))
+            .SendAsync(MachineStateUpdatedEvent, payload, CancellationToken.None);
+        await hub.Clients
+            .Group(CarrePokerGameHub.SpectatorGroupNamePublic(machineId))
+            .SendAsync(MachineStateUpdatedEvent, spectatorPayload, CancellationToken.None);
+    }
+
+    private static readonly string[] PrivateCreditFields = ["wallet_balance", "credit_balance", "total_cash_in"];
+    private static readonly string[] PrivateSessionFields = ["authenticated_user_id", "session_id"];
+
+    private static object SanitizeForSpectators(object payload)
+    {
+        if (payload is not IDictionary<string, object> dict)
+        {
+            return payload;
+        }
+
+        var copy = new Dictionary<string, object>(dict);
+        RedactJsonElementFields(copy, "credits", PrivateCreditFields);
+        RedactJsonElementFields(copy, "session", PrivateSessionFields);
+        return copy;
+    }
+
+    private static void RedactJsonElementFields(Dictionary<string, object> dict, string sectionKey, string[] fields)
+    {
+        if (!dict.TryGetValue(sectionKey, out var sectionObj)
+            || sectionObj is not JsonElement section
+            || section.ValueKind != JsonValueKind.Object)
+        {
+            return;
+        }
+
+        var sanitized = new Dictionary<string, object>();
+        foreach (var property in section.EnumerateObject())
+        {
+            if (fields.Any(f => property.NameEquals(f)))
+            {
+                sanitized[property.Name] = "0";
+                continue;
+            }
+            sanitized[property.Name] = property.Value;
+        }
+        dict[sectionKey] = sanitized;
     }
 
     private static async Task<object> BuildPayloadAsync(IGameService gameService, int machineId, Guid? userId)

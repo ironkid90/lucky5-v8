@@ -8,8 +8,17 @@ using Lucky5.Application.Dtos;
 using Lucky5.Application.Requests;
 using Lucky5.Realtime.Services;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.DependencyInjection;
 
-public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegistry registry, ISpectatorTracker spectatorTracker) : Hub
+// IGameService is scoped to the hub invocation; scopeFactory and hubContext are
+// singletons and are the only services the disconnect grace-period timer may use
+// after the hub instance is disposed.
+public sealed class CarrePokerGameHub(
+    IGameService gameService,
+    ConnectionRegistry registry,
+    ISpectatorTracker spectatorTracker,
+    IServiceScopeFactory scopeFactory,
+    IHubContext<CarrePokerGameHub> hubContext) : Hub
 {
     // Legacy v1 events (deprecated, kept for backward compatibility during migration)
     private const string MachineStateUpdatedEvent = "MachineStateUpdated";
@@ -89,21 +98,35 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
 
             if (!seatReclaimedBySameUser)
             {
+            // Capture everything the timer needs NOW. Hub Context/Clients and the
+            // scoped gameService are disposed when this callback returns, so the
+            // timer may only use captured locals and singleton services
+            // (scopeFactory, hubContext, registry).
+            var disconnectedConnectionId = Context.ConnectionId;
+
             // Don't immediately release the machine lock. Instead, start a grace-period
             // timer. If the same player reconnects within the window, they resume their
             // session (DU, win settlement, etc.). If the timer expires, the machine
             // is released and the player's credits are auto-cashed out to their wallet.
-            var timer = new Timer(async _timerState =>
+            Timer? timer = null;
+            timer = new Timer(async _timerState =>
             {
-                // Grace period expired — auto-cashout and release the machine lock.
-                PendingDisconnects.TryRemove(machineId, out _);
+                // Generation guard: only remove the entry THIS timer armed. A newer
+                // disconnect for the same machine installs a replacement entry — a
+                // late-firing older timer must not consume it and cash out the
+                // replacement session in the middle of its own grace period.
+                var myEntry = new KeyValuePair<int, (Guid UserId, Timer Timer)>(machineId, (userId, timer!));
+                if (!((ICollection<KeyValuePair<int, (Guid UserId, Timer Timer)>>)PendingDisconnects).Remove(myEntry))
+                {
+                    return; // reclaimed on reconnect, or replaced by a newer disconnect
+                }
 
                 // Final liveness check: if the seat is now held by a live
                 // connection (player reconnected but the reclaim raced past the
                 // cancel), skip the auto-cashout instead of yanking the credits
                 // out from under an active session.
                 if (MachineOccupancy.TryGetValue(machineId, out var occupantAtFire) &&
-                    occupantAtFire != Context.ConnectionId &&
+                    occupantAtFire != disconnectedConnectionId &&
                     registry.TryGetUserId(occupantAtFire, out var occupantStillLive))
                 {
                     return;
@@ -114,7 +137,9 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
                 // Auto-cashout: return remaining machine credits to player's wallet
                 try
                 {
-                    await gameService.CashOutAsync(userId, machineId, CancellationToken.None, bypassRules: true);
+                    await using var scope = scopeFactory.CreateAsyncScope();
+                    var scopedGameService = scope.ServiceProvider.GetRequiredService<IGameService>();
+                    await scopedGameService.CashOutAsync(userId, machineId, CancellationToken.None, bypassRules: true);
                 }
                 catch (Exception ex)
                 {
@@ -122,13 +147,22 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
                     Console.WriteLine($"[AutoCashout] Failed for user {userId} on machine {machineId}: {ex.Message}");
                 }
 
-                _ = Clients.All.SendAsync(MachineStatusChangedEvent,
+                _ = hubContext.Clients.All.SendAsync(MachineStatusChangedEvent,
                     new { machineId, isOccupied = false, playerId = (int?)null, gameId = 0 },
                     CancellationToken.None);
-                _ = Clients.All.SendAsync(UserStatusChangedEvent,
+                _ = hubContext.Clients.All.SendAsync(UserStatusChangedEvent,
                     new { userId = GetMemberId(userId), state = "Idle" },
                     CancellationToken.None);
-                _ = BroadcastLobbyMachinesUpdatedAsync(CancellationToken.None);
+                try
+                {
+                    await using var scope = scopeFactory.CreateAsyncScope();
+                    var scopedGameService = scope.ServiceProvider.GetRequiredService<IGameService>();
+                    await BroadcastLobbyMachinesUpdatedCoreAsync(scopedGameService, registry, hubContext.Clients.All, CancellationToken.None);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[AutoCashout] Lobby broadcast failed for machine {machineId}: {ex.Message}");
+                }
             }, null, SessionPauseGracePeriod, Timeout.InfiniteTimeSpan);
 
             PendingDisconnects[machineId] = (userId, timer);
@@ -590,9 +624,19 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
         await target.SendAsync(MachineStateUpdatedEvent, state, cancellationToken);
     }
 
-    private async Task BroadcastLobbyMachinesUpdatedAsync(CancellationToken cancellationToken)
+    private Task BroadcastLobbyMachinesUpdatedAsync(CancellationToken cancellationToken)
+        => BroadcastLobbyMachinesUpdatedCoreAsync(gameService, registry, Clients.All, cancellationToken);
+
+    // Static core so post-disposal callers (the grace-period timer, which cannot
+    // touch hub Clients or the hub-scoped gameService) can broadcast through
+    // IHubContext with a freshly scoped game service.
+    private static async Task BroadcastLobbyMachinesUpdatedCoreAsync(
+        IGameService scopedGameService,
+        ConnectionRegistry connectionRegistry,
+        IClientProxy target,
+        CancellationToken cancellationToken)
     {
-        var lobbyMachines = await gameService.GetLobbyMachinesAsync(Guid.Empty, cancellationToken);
+        var lobbyMachines = await scopedGameService.GetLobbyMachinesAsync(Guid.Empty, cancellationToken);
 
         var result = new List<LobbyMachineInfo>();
         foreach (var machine in lobbyMachines)
@@ -600,14 +644,14 @@ public sealed class CarrePokerGameHub(IGameService gameService, ConnectionRegist
             int? occupantUserId = null;
             var isOccupied = MachineOccupancy.ContainsKey(machine.Id);
             if (isOccupied && MachineOccupancy.TryGetValue(machine.Id, out var connectionId)
-                && registry.TryGetUserId(connectionId, out var occUserId))
+                && connectionRegistry.TryGetUserId(connectionId, out var occUserId))
             {
                 occupantUserId = GetMemberId(occUserId);
             }
             result.Add(new LobbyMachineInfo(machine.Id, isOccupied, occupantUserId, machine.SpectatorCount, machine.OccupiedByUsername, machine.IdleSecondsRemaining, machine.ReservedUntilUtc));
         }
 
-        await Clients.All.SendAsync(LobbyMachinesUpdatedEvent, result, cancellationToken);
+        await target.SendAsync(LobbyMachinesUpdatedEvent, result, cancellationToken);
     }
 
     private Task EmitErrorAsync(string code, string message)

@@ -196,7 +196,7 @@ jobs:
           JWT_KEY=""
           if az containerapp show --name "$APP_NAME" --resource-group "$RG" >/dev/null 2>&1; then
             JWT_KEY=$(az containerapp secret show --name "$APP_NAME" --resource-group "$RG" \
-                      --name jwt-signing-key --query value -o tsv 2>/dev/null || echo "")
+                      --secret-name jwt-signing-key --query value -o tsv 2>/dev/null || echo "")
           fi
           if [ -z "$JWT_KEY" ]; then
             JWT_KEY=$(head -c 48 /dev/urandom | base64)

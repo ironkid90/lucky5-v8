@@ -1,3 +1,4 @@
+#requires -Version 7.0
 <#
 .SYNOPSIS
     One-click local deploy of Lucky5 v8 to Azure Container Apps.
@@ -27,11 +28,17 @@ param(
     [string] $Location       = $(if ($env:AZURE_LOCATION) { $env:AZURE_LOCATION } else { 'westeurope' }),
     [string] $AcrName        = $env:AZURE_ACR_NAME,
     [string] $ServiceName    = 'lucky5-v8',
-    [string] $ImageTag       = $(git rev-parse --short HEAD 2>$null ?? 'local')
+    [string] $ImageTag       = ''
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+# Default the image tag to the short SHA of the current commit (when available).
+if ([string]::IsNullOrWhiteSpace($ImageTag)) {
+    $ImageTag = (git rev-parse --short HEAD 2>$null)
+    if ([string]::IsNullOrWhiteSpace($ImageTag)) { $ImageTag = 'local' }
+}
 
 function Step([string] $Message) { Write-Host "`n=== $Message ===" -ForegroundColor Cyan }
 
@@ -119,7 +126,7 @@ $JwtKey = $null
 az containerapp show --name $ServiceName --resource-group $ResourceGroup --output none 2>$null
 $appExists = ($LASTEXITCODE -eq 0)
 if ($appExists) {
-    $JwtKey = az containerapp secret show --name $ServiceName --resource-group $ResourceGroup --name jwt-signing-key --query value -o tsv 2>$null
+    $JwtKey = az containerapp secret show --name $ServiceName --resource-group $ResourceGroup --secret-name jwt-signing-key --query value -o tsv 2>$null
 }
 if (-not $JwtKey) {
     $bytes = New-Object byte[] 48

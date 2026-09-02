@@ -30,21 +30,66 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 	// and REST paths racing — can never interleave read-modify-write sequences on
 	// the shared session/round/ledger entities. Without this, two concurrent
 	// TakeHalf or cashout calls both pass their guard checks and double-pay.
-	private static readonly ConcurrentDictionary<string, SemaphoreSlim> SessionMutationGates = new(StringComparer.Ordinal);
+	// Gates are reference-counted and evicted at zero so a long-running process
+	// does not accumulate one semaphore per historical user-machine pair.
+	private static readonly ConcurrentDictionary<string, SessionMutationGate> SessionMutationGates = new(StringComparer.Ordinal);
+
+	private sealed class SessionMutationGate
+	{
+		public SemaphoreSlim Gate { get; } = new(1, 1);
+		public object SyncRoot { get; } = new();
+		public int ReferenceCount { get; set; }
+	}
 
 	private static string SessionGateKey(Guid userId, int machineId) => $"{userId:N}:{machineId}";
 
 	private static async Task<T> WithSessionGateAsync<T>(Guid userId, int machineId, CancellationToken cancellationToken, Func<Task<T>> action)
 	{
-		var gate = SessionMutationGates.GetOrAdd(SessionGateKey(userId, machineId), static _ => new SemaphoreSlim(1, 1));
-		await gate.WaitAsync(cancellationToken);
+		var key = SessionGateKey(userId, machineId);
+		SessionMutationGate gate;
+		while (true)
+		{
+			gate = SessionMutationGates.GetOrAdd(key, static _ => new SessionMutationGate());
+			lock (gate.SyncRoot)
+			{
+				if (SessionMutationGates.TryGetValue(key, out var current) && ReferenceEquals(current, gate))
+				{
+					gate.ReferenceCount++;
+					break;
+				}
+				// Lost a removal race — the fetched gate is being disposed; retry
+				// to pick up (or create) the live one.
+			}
+		}
+
 		try
 		{
-			return await action();
+			await gate.Gate.WaitAsync(cancellationToken);
+			try
+			{
+				return await action();
+			}
+			finally
+			{
+				gate.Gate.Release();
+			}
 		}
 		finally
 		{
-			gate.Release();
+			var dispose = false;
+			lock (gate.SyncRoot)
+			{
+				gate.ReferenceCount--;
+				if (gate.ReferenceCount == 0)
+				{
+					SessionMutationGates.TryRemove(key, out _);
+					dispose = true;
+				}
+			}
+			if (dispose)
+			{
+				gate.Gate.Dispose();
+			}
 		}
 	}
 	private static readonly JsonSerializerOptions CabinetJsonOptions = new(JsonSerializerDefaults.Web)
@@ -907,7 +952,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		if (session.IsTerminal && session.TerminalOutcome == Lucky5DoubleUpOutcome.MachineClosed)
 		{
 			await FinalizeDoubleUpAsync(round, sessionBank, session.CashoutCredits);
-			var cursor = await store.AdvanceCabinetStateCursorAsync(userId, round.MachineId);
+			var closedCursor = await store.AdvanceCabinetStateCursorAsync(userId, round.MachineId);
 			InvalidateCaches(userId, round.MachineId);
 			return new DoubleUpResultDto(roundId, "MachineClosed", session.CashoutCredits, sessionBank.MachineCredits,
 				DealerCard: ToCleanRoomDto(session.DealerCard),
@@ -922,8 +967,8 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 				SlotIndex: session.LastResolvedBoardSlotIndex,
 				IsLucky5Active: session.IsNoLoseActive,
 				CurrentBonusAmount: session.BoardBonusTotal,
-				StateVersion: cursor.StateVersion,
-				SequenceNumber: cursor.SequenceNumber);
+				StateVersion: closedCursor.StateVersion,
+				SequenceNumber: closedCursor.SequenceNumber);
 		}
 
 		var cursor = await store.AdvanceCabinetStateCursorAsync(userId, round.MachineId);

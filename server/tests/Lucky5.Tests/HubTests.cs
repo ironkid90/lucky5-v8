@@ -1,4 +1,4 @@
-namespace Lucky5.Tests;
+﻿namespace Lucky5.Tests;
 
 using System.Collections.Concurrent;
 using System.Security.Claims;
@@ -9,10 +9,17 @@ using Lucky5.Application.Requests;
 using Lucky5.Realtime;
 using Lucky5.Realtime.Services;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.DependencyInjection;
 using Moq;
 
 public static class HubTests
 {
+    // Hubs are transient; the disconnect grace-period timer only touches these
+    // singleton-typed dependencies after the hub is disposed, and the 5-minute
+    // timer never fires inside a test run — bare mocks are sufficient.
+    private static CarrePokerGameHub CreateHub(IGameService gameService, ConnectionRegistry registry, ISpectatorTracker spectatorTracker)
+        => new(gameService, registry, spectatorTracker, new Mock<IServiceScopeFactory>().Object, new Mock<IHubContext<CarrePokerGameHub>>().Object);
+
     public static async Task RunAsync(List<string> failures)
     {
         await GetAvailableMachinesReturnsMachineListAsync(failures);
@@ -34,7 +41,7 @@ public static class HubTests
     {
         var gameServiceMock = new Mock<IGameService>();
         var registry = new ConnectionRegistry();
-        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry, new Mock<ISpectatorTracker>().Object);
+        var hub = CreateHub(gameServiceMock.Object, registry, new Mock<ISpectatorTracker>().Object);
 
         var hubClientsMock = new Mock<IHubCallerClients>();
         var callerMock = new Mock<ISingleClientProxy>();
@@ -75,7 +82,7 @@ public static class HubTests
         var registry = new ConnectionRegistry();
         var spectatorTrackerMock = new Mock<ISpectatorTracker>();
         spectatorTrackerMock.Setup(x => x.GetLobbySnapshot()).Returns(new List<LobbyMachineInfo>());
-        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry, spectatorTrackerMock.Object);
+        var hub = CreateHub(gameServiceMock.Object, registry, spectatorTrackerMock.Object);
 
         var hubClientsMock = new Mock<IHubCallerClients>();
         var allMock = new Mock<IClientProxy>();
@@ -125,7 +132,7 @@ public static class HubTests
         var registry = new ConnectionRegistry();
         var spectatorTrackerMock = new Mock<ISpectatorTracker>();
         spectatorTrackerMock.Setup(x => x.GetLobbySnapshot()).Returns(new List<LobbyMachineInfo>());
-        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry, spectatorTrackerMock.Object);
+        var hub = CreateHub(gameServiceMock.Object, registry, spectatorTrackerMock.Object);
 
         var hubClientsMock = new Mock<IHubCallerClients>();
         var allMock = new Mock<IClientProxy>();
@@ -165,7 +172,7 @@ public static class HubTests
     {
         var gameServiceMock = new Mock<IGameService>();
         var registry = new ConnectionRegistry();
-        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry, new Mock<ISpectatorTracker>().Object);
+        var hub = CreateHub(gameServiceMock.Object, registry, new Mock<ISpectatorTracker>().Object);
 
         var hubClientsMock = new Mock<IHubCallerClients>();
         var allMock = new Mock<IClientProxy>();
@@ -202,7 +209,7 @@ public static class HubTests
     {
         var gameServiceMock = new Mock<IGameService>();
         var registry = new ConnectionRegistry();
-        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry, new Mock<ISpectatorTracker>().Object);
+        var hub = CreateHub(gameServiceMock.Object, registry, new Mock<ISpectatorTracker>().Object);
 
         var hubClientsMock = new Mock<IHubCallerClients>();
         var allMock = new Mock<IClientProxy>();
@@ -239,7 +246,7 @@ public static class HubTests
     {
         var gameServiceMock = new Mock<IGameService>();
         var registry = new ConnectionRegistry();
-        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry, new Mock<ISpectatorTracker>().Object);
+        var hub = CreateHub(gameServiceMock.Object, registry, new Mock<ISpectatorTracker>().Object);
 
         var hubClientsMock = new Mock<IHubCallerClients>();
         var callerMock = new Mock<ISingleClientProxy>();
@@ -283,7 +290,7 @@ public static class HubTests
     {
         var gameServiceMock = new Mock<IGameService>();
         var registry = new ConnectionRegistry();
-        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry, new Mock<ISpectatorTracker>().Object);
+        var hub = CreateHub(gameServiceMock.Object, registry, new Mock<ISpectatorTracker>().Object);
 
         var hubClientsMock = new Mock<IHubCallerClients>();
         var callerMock = new Mock<ISingleClientProxy>();
@@ -327,7 +334,7 @@ public static class HubTests
     {
         var gameServiceMock = new Mock<IGameService>();
         var registry = new ConnectionRegistry();
-        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry, new Mock<ISpectatorTracker>().Object);
+        var hub = CreateHub(gameServiceMock.Object, registry, new Mock<ISpectatorTracker>().Object);
 
         var hubClientsMock = new Mock<IHubCallerClients>();
         var callerMock = new Mock<ISingleClientProxy>();
@@ -373,7 +380,7 @@ public static class HubTests
         var registry = new ConnectionRegistry();
         var spectatorTrackerMock = new Mock<ISpectatorTracker>();
         spectatorTrackerMock.Setup(x => x.GetLobbySnapshot()).Returns(new List<LobbyMachineInfo>());
-        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry, spectatorTrackerMock.Object);
+        var hub = CreateHub(gameServiceMock.Object, registry, spectatorTrackerMock.Object);
 
         var hubClientsMock = new Mock<IHubCallerClients>();
         var allMock = new Mock<IClientProxy>();
@@ -423,7 +430,7 @@ public static class HubTests
         var registry = new ConnectionRegistry();
         var spectatorTrackerMock = new Mock<ISpectatorTracker>();
         spectatorTrackerMock.Setup(x => x.GetLobbySnapshot()).Returns(new List<LobbyMachineInfo>());
-        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry, spectatorTrackerMock.Object);
+        var hub = CreateHub(gameServiceMock.Object, registry, spectatorTrackerMock.Object);
 
         var hubClientsMock = new Mock<IHubCallerClients>();
         var allMock = new Mock<IClientProxy>();
@@ -465,7 +472,7 @@ public static class HubTests
         var registry = new ConnectionRegistry();
         var spectatorTrackerMock = new Mock<ISpectatorTracker>();
         spectatorTrackerMock.Setup(x => x.GetLobbySnapshot()).Returns(new List<LobbyMachineInfo>());
-        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry, spectatorTrackerMock.Object);
+        var hub = CreateHub(gameServiceMock.Object, registry, spectatorTrackerMock.Object);
 
         var hubClientsMock = new Mock<IHubCallerClients>();
         var allMock = new Mock<IClientProxy>();
@@ -518,7 +525,7 @@ public static class HubTests
             .ReturnsAsync(new List<MachineListingDto>());
 
         var registry = new ConnectionRegistry();
-        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry, new Mock<ISpectatorTracker>().Object);
+        var hub = CreateHub(gameServiceMock.Object, registry, new Mock<ISpectatorTracker>().Object);
 
         var hubClientsMock = new Mock<IHubCallerClients>();
         var allMock = new Mock<IClientProxy>();
@@ -584,7 +591,7 @@ public static class HubTests
             .ReturnsAsync(new List<MachineListingDto>());
 
         var registry = new ConnectionRegistry();
-        var hub = new CarrePokerGameHub(gameServiceMock.Object, registry, new Mock<ISpectatorTracker>().Object);
+        var hub = CreateHub(gameServiceMock.Object, registry, new Mock<ISpectatorTracker>().Object);
 
         var hubClientsMock = new Mock<IHubCallerClients>();
         var allMock = new Mock<IClientProxy>();
