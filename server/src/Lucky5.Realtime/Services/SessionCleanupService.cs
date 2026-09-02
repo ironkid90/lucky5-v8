@@ -83,8 +83,11 @@ public sealed class SessionCleanupService : BackgroundService
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Failed to settle stale round {RoundId} for user {UserId}",
+                    // Keep the round in ActiveRounds so the next cleanup tick
+                    // retries the settlement instead of dropping it silently.
+                    _logger.LogWarning(ex, "Failed to settle stale round {RoundId} for user {UserId}; will retry next sweep",
                         roundId, round.UserId);
+                    continue;
                 }
             }
 
