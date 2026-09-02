@@ -137,7 +137,64 @@ let isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
 // frame instead of interrupting the flow. This is the same pattern modern
 // multiplayer games use — never interrupt the player's current interaction.
 let _deferredServerSnapshot = null;
+// Version of the currently deferred snapshot. Tracked separately from
+// clientStateVersion so the flush guard compares against the version the
+// deferred snapshot was actually built from — not whatever arrived last.
+let _deferredServerSnapshotVersion = 0;
 let _lastAppliedStateVersion = 0;
+
+// Flush any deferred server snapshot when the action lock releases.
+// Called at the end of every action that clears _actionLock.
+// Top-level: invoked from doDeal/doDoubleUp/exitDoubleUp, so it must NOT live
+// inside setupSignalR (a nested declaration is invisible to those callers).
+function _flushDeferredServerSnapshot() {
+    if (!_deferredServerSnapshot) return;
+    if (_isPresentationBusy()) return;
+    const snap = _deferredServerSnapshot;
+    const snapVersion = _deferredServerSnapshotVersion;
+    _deferredServerSnapshot = null;
+    _deferredServerSnapshotVersion = 0;
+    // Version guard: apply only snapshots newer than what is on screen.
+    // Equal versions mean "same state already rendered" — skip the re-render.
+    if (snapVersion <= _lastAppliedStateVersion) return;
+    if (snap === _RESET_SENTINEL) {
+        // resetGameRuntimeState zeroes the version trackers — re-stamp after.
+        resetGameRuntimeState({ clearSelection: false });
+        _lastAppliedStateVersion = snapVersion;
+        return;
+    }
+    restoreRoundFromSnapshot(snap);
+    _lastAppliedStateVersion = snapVersion;
+}
+
+// Discard a queued server snapshot without applying it. Used when the local
+// client has just completed an authoritative action (e.g. exiting double-up
+// after a server-confirmed cashout) — the deferred snapshot predates that
+// action and applying it would resurrect stale state.
+function _discardDeferredServerSnapshot() {
+    _deferredServerSnapshot = null;
+    _deferredServerSnapshotVersion = 0;
+}
+
+// Number of card-stage animations currently running (deal/draw choreography).
+let _stageAnimations = 0;
+
+// Deferred-snapshot sentinel for "server says machine went idle/closed" pushes
+// that arrive mid-animation (no round snapshot to build).
+const _RESET_SENTINEL = Object.freeze({ __reset: true });
+
+// True while any animation or in-flight action owns the screen. Server pushes
+// received during these windows are deferred and flushed on the next stable
+// frame so they never stomp mid-flight choreography.
+function _isPresentationBusy() {
+    return _actionLock
+        || jackpotDrainActive
+        || takeScoreAnimating
+        || _stageAnimations > 0
+        || duCallToken !== null
+        || gameState === 'dealing'
+        || gameState === 'drawing';
+}
 
 // ── INPUT LOCKS ────────────────────────────────────────────────────────────
 // Prevents double-click / rapid-fire during animations and transitions.
@@ -352,25 +409,33 @@ function hasCabinetStage() {
 }
 
 function renderDealStage(cardData, onComplete) {
+    _stageAnimations++;
+    const done = () => {
+        _stageAnimations = Math.max(0, _stageAnimations - 1);
+        if (onComplete) onComplete();
+        _flushDeferredServerSnapshot();
+    };
     if (hasCabinetStage()) {
-        CabinetStage.dealCards(cardData, onComplete);
+        CabinetStage.dealCards(cardData, done);
         return;
     }
     renderCards(cardData, true);
-    if (onComplete) {
-        window.CabinetClock.delayMs(T.dealBaseMs + (4 * T.dealStaggerMs) + T.dealAnimDurationMs + 160, onComplete);
-    }
+    window.CabinetClock.delayMs(T.dealBaseMs + (4 * T.dealStaggerMs) + T.dealAnimDurationMs + 160, done);
 }
 
 function renderDrawStage(cardData, held, onComplete) {
+    _stageAnimations++;
+    const done = () => {
+        _stageAnimations = Math.max(0, _stageAnimations - 1);
+        if (onComplete) onComplete();
+        _flushDeferredServerSnapshot();
+    };
     if (hasCabinetStage()) {
-        CabinetStage.drawCards(cardData, held, onComplete);
+        CabinetStage.drawCards(cardData, held, done);
         return;
     }
     renderCards(cardData, false);
-    if (onComplete) {
-        window.CabinetClock.delayMs(T.dealBaseMs + (4 * T.dealStaggerMs) + T.dealAnimDurationMs + 160, onComplete);
-    }
+    window.CabinetClock.delayMs(T.dealBaseMs + (4 * T.dealStaggerMs) + T.dealAnimDurationMs + 160, done);
 }
 
 function normalizeDoubleUpTrailEntry(entry) {
@@ -591,6 +656,8 @@ function resetGameRuntimeState({ clearSelection = false } = {}) {
     machineJoined = false;
     clientStateVersion = 0;
     clientSequenceNumber = 0;
+    _lastAppliedStateVersion = 0;
+    _discardDeferredServerSnapshot();
 
     if (clearSelection) {
         clearCurrentMachineSelection();
@@ -911,6 +978,18 @@ async function cashOutMachine() {
     return session;
 }
 
+// Record the state version of any REST mutation result we apply locally, so the
+// realtime push the server broadcasts for that same mutation is recognized as
+// already-applied and skipped (prevents snapshot restore stomping choreographed
+// local animation with an identical re-render).
+function _noteAppliedStateVersion(source) {
+    const appliedVersion = Number(source?.stateVersion ?? source?.StateVersion ?? 0);
+    if (Number.isFinite(appliedVersion) && appliedVersion > 0) {
+        if (appliedVersion > clientStateVersion) clientStateVersion = appliedVersion;
+        if (appliedVersion > _lastAppliedStateVersion) _lastAppliedStateVersion = appliedVersion;
+    }
+}
+
 function syncMachineCreditsFromResponse(source) {
     const rawCredits = source?.machineCredits
         ?? source?.machineCreditsAfterRound
@@ -921,6 +1000,7 @@ function syncMachineCreditsFromResponse(source) {
     if (Number.isFinite(nextBalance)) {
         balance = nextBalance;
     }
+    _noteAppliedStateVersion(source);
     updateCredits();
     return balance;
 }
@@ -1239,7 +1319,10 @@ function canStartDoubleUpFromWin() {
     return gameState === 'win' && roundDoubleUpAvailable && winAmount > 0 && !duSessionStarted;
 }
 
-function isDoubleUpMode() {
+// Game-state authoritative double-up check. Distinct from the global
+// isDoubleUpMode() exported by cabinet-stage-vnext.js (UI-stage flag, which
+// loads after this file and would shadow a same-named declaration here).
+function isDoubleUpSessionActive() {
     return gameState === 'doubleup' || gameState === 'du-waiting' || duSessionStarted;
 }
 
@@ -1523,7 +1606,7 @@ function scheduleIdleSelectorReveal(onReveal) {
     );
 
     idleOverlayTimer = window.CabinetClock.delayMs(holdMs, () => {
-        if (gameState === 'idle' && holdIndexes.size === 0 && !isDoubleUpMode()) {
+        if (gameState === 'idle' && holdIndexes.size === 0 && !isDoubleUpSessionActive()) {
             hideIdleOverlay();
             if (typeof onReveal === 'function') {
                 onReveal();
@@ -1533,7 +1616,7 @@ function scheduleIdleSelectorReveal(onReveal) {
 }
 
 function updateIdleOverlayVisibility() {
-    if (gameState !== 'idle' || holdIndexes.size > 0 || isDoubleUpMode()) {
+    if (gameState !== 'idle' || holdIndexes.size > 0 || isDoubleUpSessionActive()) {
         hideIdleOverlay();
         clearIdleOverlayTimer();
     }
@@ -1787,6 +1870,7 @@ async function doSwitchDealer() {
 
     try {
         const result = await apiCall('POST', GAME_CONFIG.api.duSwitch, { roundId });
+        _noteAppliedStateVersion(result);
         syncDoubleUpPanelState(result);
         winAmount = result.currentAmount;
         duDealerCard = result.dealerCard;
@@ -2563,8 +2647,10 @@ async function startDoubleUpFlow() {
         return;
     }
 
+    _actionLock = true;
     try {
         const result = await apiCall('POST', GAME_CONFIG.api.duStart, { roundId });
+        _noteAppliedStateVersion(result);
         duSessionStarted = true;
         syncDoubleUpPanelState(result);
         duDealerCard = result.dealerCard;
@@ -2592,11 +2678,15 @@ async function startDoubleUpFlow() {
             roundDoubleUpAvailable = false;
             showWinActionMessage();
             setButtonStates();
+            _actionLock = false;
+            _flushDeferredServerSnapshot();
             return;
         }
 
         showMessage(e.message, 'lose');
     }
+    _actionLock = false;
+    _flushDeferredServerSnapshot();
 }
 
 async function doDoubleUp(guess) {
@@ -2627,6 +2717,7 @@ async function doDoubleUp(guess) {
         CabinetClock.delayMs(T.duRevealDelayMs, () => {
             if (duCallToken !== myToken) return;
 
+            _noteAppliedStateVersion(result);
             syncDoubleUpPanelState(result, { preserveMultiplier: true });
             duDealerCard = result.dealerCard;  // Update dealer card: challenger becomes new dealer on win
             renderDoubleUpCards(duDealerCard, false, result.challengerCard, {
@@ -2664,6 +2755,10 @@ async function doDoubleUp(guess) {
                         updatePaytable(currentHandRank);
                         setButtonStates();
                         _actionLock = false;
+                        // DU is idle again (awaiting the next pick) — clear the
+                        // call token so _isPresentationBusy() goes false and
+                        // external pushes apply without waiting for DU exit.
+                        duCallToken = null;
                         _flushDeferredServerSnapshot();
                         if (window.CabinetState) CabinetState.setPresentationLocked(false);
                     }
@@ -2698,6 +2793,7 @@ async function doDoubleUp(guess) {
                     await fetchMachineSession();
                     refreshIdleMachineState();
                     _actionLock = false;
+                    duCallToken = null;
                     _flushDeferredServerSnapshot();
                     if (window.CabinetState) CabinetState.setPresentationLocked(false);
                 });
@@ -2733,6 +2829,7 @@ async function doDoubleUp(guess) {
                         showMessage(getMachineCloseMessage(), 'win');
                     }
                     _actionLock = false;
+                    duCallToken = null;
                     _flushDeferredServerSnapshot();
                     if (window.CabinetState) CabinetState.setPresentationLocked(false);
                 })();
@@ -2863,7 +2960,10 @@ function exitDoubleUp() {
     duCallToken = null;
     _actionLock = false;
     jackpotDrainActive = false;
-    _flushDeferredServerSnapshot();
+    // Discard (don't flush) any deferred snapshot: exiting DU follows a
+    // server-confirmed action, so the queued snapshot predates this state and
+    // applying it would resurrect stale DU/win amounts mid-cleanup.
+    _discardDeferredServerSnapshot();
     if (window.CabinetState) CabinetState.setPresentationLocked(false);
     // Re-enable all buttons after DU exit
     document.querySelectorAll('.cab-btn').forEach(b => b.style.pointerEvents = '');
@@ -3101,6 +3201,7 @@ async function mainTakeScore() {
     } finally {
         takeScoreAnimating = false;
         if (window.CabinetState) CabinetState.setPresentationLocked(false);
+        _flushDeferredServerSnapshot();
     }
 
     if (!machineClosed) {
@@ -3178,6 +3279,12 @@ async function mainTakeHalf() {
         }
     } catch (e) {
         showMessage(e.message, 'lose');
+    } finally {
+        // Always release the take-score gate — leaving it stuck true disables
+        // TAKE SCORE/TAKE HALF for the rest of the page session.
+        takeScoreAnimating = false;
+        if (window.CabinetState) CabinetState.setPresentationLocked(false);
+        _flushDeferredServerSnapshot();
     }
 }
 
@@ -3263,7 +3370,7 @@ async function setupSignalR() {
             // in sync with server-authoritative state (machine close, admin actions, etc).
             if (state.gameState || state.game_state) {
                 const roundSnapshot = buildRoundSnapshotFromCabinetSnapshot(state);
-                if (_actionLock || jackpotDrainActive || isSpectatorMode) {
+                if (_isPresentationBusy() || isSpectatorMode) {
                     // Spectators always apply immediately (no action lock).
                     // Active players defer when mid-action.
                     if (isSpectatorMode) {
@@ -3275,15 +3382,25 @@ async function setupSignalR() {
                     } else if (roundSnapshot) {
                         // Defer: keep only the latest snapshot (discard stale ones)
                         _deferredServerSnapshot = roundSnapshot;
+                        _deferredServerSnapshotVersion = state.state_version ?? clientStateVersion ?? 0;
+                    } else {
+                        // No round content (idle/closed machine): still queue the
+                        // reset so an external close/reset is honored once the
+                        // current animation finishes instead of being dropped.
+                        _deferredServerSnapshot = _RESET_SENTINEL;
+                        _deferredServerSnapshotVersion = state.state_version ?? clientStateVersion ?? 0;
                     }
                 } else {
-                    // Version guard: reject stale snapshots that predate what we've applied
-                    if (clientStateVersion > 0 && clientStateVersion < _lastAppliedStateVersion) {
+                    // Version guard: skip pushes we have already applied (the REST
+                    // response records its version, so the broadcast twin of our own
+                    // action is dropped here instead of re-rendering identical state).
+                    const pushVersion = state.state_version ?? 0;
+                    if (pushVersion > 0 && pushVersion <= _lastAppliedStateVersion) {
                         return;
                     }
                     if (roundSnapshot) {
                         restoreRoundFromSnapshot(roundSnapshot);
-                        _lastAppliedStateVersion = clientStateVersion;
+                        _lastAppliedStateVersion = pushVersion > 0 ? pushVersion : _lastAppliedStateVersion;
                     } else {
                         resetGameRuntimeState({ clearSelection: false });
                     }
@@ -3311,20 +3428,6 @@ async function setupSignalR() {
             spectatorCountEl.style.display = data.count > 0 ? 'block' : 'none';
         }
     });
-
-    // Flush any deferred server snapshot when the action lock releases.
-    // Called at the end of every action that clears _actionLock.
-    function _flushDeferredServerSnapshot() {
-        if (_deferredServerSnapshot && !_actionLock && !jackpotDrainActive) {
-            const snap = _deferredServerSnapshot;
-            _deferredServerSnapshot = null;
-            // Version guard: reject stale snapshots that predate what we've already applied
-            if (clientStateVersion >= _lastAppliedStateVersion) {
-                restoreRoundFromSnapshot(snap);
-                _lastAppliedStateVersion = clientStateVersion;
-            }
-        }
-    }
 
     hubConnection.on('CabinetSnapshotEvent', (snapshot) => {
         if (snapshot) {
@@ -3393,62 +3496,62 @@ async function setupSignalR() {
     });
 
     hubConnection.onreconnected(async () => {
-            console.log('[SignalR] Reconnected successfully.');
-            hideNetworkErrorBanner();
-            if (machineId > 0) {
+        console.log('[SignalR] Reconnected successfully.');
+        hideNetworkErrorBanner();
+        if (machineId > 0) {
+            try {
+                if (isSpectatorMode) {
+                    await invokeHub('JoinMachineAsSpectator', machineId);
+                } else {
+                    // Primary path: ReconnectSync returns a CabinetReplay with
+                    // a full snapshot. The CabinetReplayEvent/CabinetSnapshotEvent
+                    // handlers restore DU state from it.
+                    await invokeHub('ReconnectSync', machineId, clientStateVersion, clientSequenceNumber);
+                }
+            } catch (err) {
+                console.error('ReconnectSync failed, falling back to snapshot restore:', err);
                 try {
                     if (isSpectatorMode) {
-                        await invokeHub('JoinMachineAsSpectator', machineId);
-                    } else {
-                        // Primary path: ReconnectSync returns a CabinetReplay with
-                        // a full snapshot. The CabinetReplayEvent/CabinetSnapshotEvent
-                        // handlers restore DU state from it.
-                        await invokeHub('ReconnectSync', machineId, clientStateVersion, clientSequenceNumber);
+                        isSpectatorMode = false;
                     }
-                } catch (err) {
-                    console.error('ReconnectSync failed, falling back to snapshot restore:', err);
-                    try {
-                        if (isSpectatorMode) {
-                            isSpectatorMode = false;
-                        }
-                        // Fallback: always fetch the authoritative cabinet snapshot
-                        // to restore full state including DU. This guarantees the player
-                        // resumes exactly where they left off — no lost DU sessions.
-                        await joinMachine(machineId);
-                        const restored = await fetchAndRestoreFromSnapshot();
-                        if (!restored && (gameState === 'doubleup' || gameState === 'du-waiting')) {
-                            // Snapshot didn't contain a recoverable round but we were
-                            // in DU — reset to idle gracefully.
-                            exitDoubleUp();
-                            refreshIdleMachineState('SESSION RECOVERED', 'win');
-                        }
-                    } catch (_) {}
-                }
+                    // Fallback: always fetch the authoritative cabinet snapshot
+                    // to restore full state including DU. This guarantees the player
+                    // resumes exactly where they left off — no lost DU sessions.
+                    await joinMachine(machineId);
+                    const restored = await fetchAndRestoreFromSnapshot();
+                    if (!restored && (gameState === 'doubleup' || gameState === 'du-waiting')) {
+                        // Snapshot didn't contain a recoverable round but we were
+                        // in DU — reset to idle gracefully.
+                        exitDoubleUp();
+                        refreshIdleMachineState('SESSION RECOVERED', 'win');
+                    }
+                } catch (_) {}
             }
-            startHeartbeat();
-            if (gameState === 'idle') {
-                showMessage('INSERT COIN');
-            }
-        });
+        }
+        startHeartbeat();
+        if (gameState === 'idle') {
+            showMessage('INSERT COIN');
+        }
+    });
 
     hubConnection.onclose((error) => {
-            console.error('[SignalR] Connection closed permanently:', error ? error.message : 'unknown');
-            hubConnection = null;
-            machineJoined = false;
-            stopHeartbeat();
-            showNetworkErrorBanner('CONNECTION LOST — Click RETRY to reconnect', setupSignalR);
-        });
+        console.error('[SignalR] Connection closed permanently:', error ? error.message : 'unknown');
+        hubConnection = null;
+        machineJoined = false;
+        stopHeartbeat();
+        showNetworkErrorBanner('CONNECTION LOST — Click RETRY to reconnect', setupSignalR);
+    });
 
     try {
-            await hubConnection.start();
-            startHeartbeat();
-        } catch (e) {
-            console.error('SignalR connection failed:', e);
-            machineJoined = false;
-            try { await hubConnection.stop(); } catch (_) {}
-            hubConnection = null;
-            showNetworkErrorBanner('SIGNALR CONNECTION FAILED — Click RETRY', setupSignalR);
-        }
+        await hubConnection.start();
+        startHeartbeat();
+    } catch (e) {
+        console.error('SignalR connection failed:', e);
+        machineJoined = false;
+        try { await hubConnection.stop(); } catch (_) {}
+        hubConnection = null;
+        showNetworkErrorBanner('SIGNALR CONNECTION FAILED — Click RETRY', setupSignalR);
+    }
 }
 
 function isHubConnected() {

@@ -2,6 +2,7 @@ namespace Lucky5.Realtime.Services;
 
 using Lucky5.Domain.Entities;
 using Lucky5.Application.Contracts;
+using Lucky5.Infrastructure.Services;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
@@ -82,8 +83,11 @@ public sealed class SessionCleanupService : BackgroundService
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Failed to settle stale round {RoundId} for user {UserId}",
+                    // Keep the round in ActiveRounds so the next cleanup tick
+                    // retries the settlement instead of dropping it silently.
+                    _logger.LogWarning(ex, "Failed to settle stale round {RoundId} for user {UserId}; will retry next sweep",
                         roundId, round.UserId);
+                    continue;
                 }
             }
 

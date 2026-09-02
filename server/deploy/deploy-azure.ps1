@@ -1,184 +1,215 @@
 #requires -Version 7.0
 <#
 .SYNOPSIS
-    One-click deploy for the Lucky5 v8 API to Azure Container Apps with
-    durable, seamless game-state persistence.
+    One-click local deploy of Lucky5 v8 to Azure Container Apps.
 
 .DESCRIPTION
-    Lucky5's authoritative game state lives in a single per-process in-memory
-    store (Lucky5.Infrastructure.Services.InMemoryDataStore). Persistence is
-    checkpoint/recover, not distributed. This script deploys the service so that:
-      - It is pinned to exactly 1 Container Apps replica (correctness
-        requirement - two concurrent replicas would each have their own divergent
-        in-memory truth).
-      - An Azure Files share is mounted at LUCKY5_STATE_DIR, so the 10-second
-        periodic checkpoint and the on-shutdown final checkpoint both write to
-        durable storage that survives redeploys, crashes, and scale-to-zero.
-      - The JWT signing key is a strong random key stored as a Container Apps
-        secret, never the checked-in appsettings.json dev default.
-    No Docker is required locally - the container image is built remotely via
-    Azure Container Registry (ACR) build task (az acr build).
+    Creates (idempotently) the resource group, ACR, storage account with an
+    Azure Files share, Container Apps environment with the share mounted, a
+    user-assigned pull identity, and the container app itself. The image is
+    built in ACR (no local Docker required). Replicas are pinned to 1 for
+    in-memory correctness — state snapshots persist to Azure Files via
+    LUCKY5_STATE_DIR=/mnt/state.
 
-.PARAMETER ResourceGroup
-    The Azure resource group to deploy into. Created if it does not exist.
-
-.PARAMETER Location
-    The Azure region (e.g. westeurope, eastus). Must support Container Apps.
-
-.PARAMETER MakePublic
-    If set (default), the container app ingress is configured for external
-    (public) access on port 8080.
+    Every input can come from parameters or environment variables with the
+    same names as the GitHub Actions secrets, so the script matches CI:
+      AZURE_SUBSCRIPTION_ID, AZURE_RESOURCE_GROUP, AZURE_LOCATION, AZURE_ACR_NAME
 
 .EXAMPLE
-    ./deploy-azure.ps1
-    Deploys with all defaults (creates the resource group if needed).
+    ./server/deploy/deploy-azure.ps1
 
 .EXAMPLE
-    ./deploy-azure.ps1 -ResourceGroup my-rg -Location eastus
-    Deploys to a specific resource group and region.
+    ./server/deploy/deploy-azure.ps1 -ResourceGroup lucky5-v8-rg -Location westeurope -AcrName lucky5v8acr
 #>
 [CmdletBinding()]
 param(
-    [string]$Subscription = '',
-    [string]$ResourceGroup = 'lucky5-v8-rg',
-    [string]$Location = 'westeurope',
-    [string]$Environment = 'lucky5-v8',
-    [string]$ContainerApp = 'lucky5-v8',
-    [string]$AcrName = '',
-    [string]$StorageAccountName = '',
-    [string]$FileShareName = 'lucky5-snapshots',
-    [string]$MountPath = '/mnt/snapshots',
-    [bool]$MakePublic = $true
+    [string] $SubscriptionId = $env:AZURE_SUBSCRIPTION_ID,
+    [string] $ResourceGroup  = $(if ($env:AZURE_RESOURCE_GROUP) { $env:AZURE_RESOURCE_GROUP } else { 'lucky5-v8-rg' }),
+    [string] $Location       = $(if ($env:AZURE_LOCATION) { $env:AZURE_LOCATION } else { 'westeurope' }),
+    [string] $AcrName        = $env:AZURE_ACR_NAME,
+    [string] $ServiceName    = 'lucky5-v8',
+    [string] $ImageTag       = ''
 )
 
+Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-$PSNativeCommandUseErrorActionPreference = $false
-$repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..' '..')
 
-# Derive default names from resource group to avoid global uniqueness collisions.
-if (-not $AcrName)   { $AcrName = ($ResourceGroup -replace '[^a-zA-Z0-9]', '').ToLower() }
-if (-not $StorageAccountName) { $StorageAccountName = ($ResourceGroup -replace '[^a-z0-9]', '').ToLower() }
-if ($StorageAccountName.Length -gt 24) { $StorageAccountName = $StorageAccountName.Substring(0, 24) }
-
-function Step($message) {
-    Write-Host "==> $message" -ForegroundColor Cyan
+# Default the image tag to the short SHA of the current commit (when available).
+if ([string]::IsNullOrWhiteSpace($ImageTag)) {
+    $ImageTag = (git rev-parse --short HEAD 2>$null)
+    if ([string]::IsNullOrWhiteSpace($ImageTag)) { $ImageTag = 'local' }
 }
 
-# ── 0. Subscription (optional) ────────────────────────────────────────────
-if ($Subscription) {
-    Step "Setting active subscription to $Subscription"
-    az account set --subscription $Subscription
+function Step([string] $Message) { Write-Host "`n=== $Message ===" -ForegroundColor Cyan }
+
+# ── Prerequisites ────────────────────────────────────────────────────────────
+Step 'Checking prerequisites'
+if (-not (Get-Command az -ErrorAction SilentlyContinue)) {
+    throw 'Azure CLI (az) not found. Install from https://aka.ms/installazurecliwindows'
+}
+az account show --output none 2>$null
+if ($LASTEXITCODE -ne 0) {
+    Write-Host 'Not logged in — launching az login...'
+    az login | Out-Null
+}
+if ($SubscriptionId) { az account set --subscription $SubscriptionId }
+$SubscriptionId = (az account show --query id -o tsv)
+if (-not $AcrName) { throw 'ACR name is required: pass -AcrName or set AZURE_ACR_NAME (globally unique, lowercase alphanumeric).' }
+$AcrName = $AcrName.ToLower()
+Write-Host "Subscription: $SubscriptionId"
+Write-Host "Resource group: $ResourceGroup | Location: $Location | ACR: $AcrName | Tag: $ImageTag"
+
+az provider register --namespace Microsoft.App --wait --output none 2>$null
+az provider register --namespace Microsoft.OperationalInsights --wait --output none 2>$null
+az extension add --name containerapp --upgrade --yes --output none 2>$null
+
+# ── Resource group + ACR ─────────────────────────────────────────────────────
+Step 'Ensuring resource group and ACR'
+az group create --name $ResourceGroup --location $Location --output none
+$acrExists = $false
+az acr show --name $AcrName --resource-group $ResourceGroup --output none 2>$null
+$acrExists = ($LASTEXITCODE -eq 0)
+if (-not $acrExists) {
+    az acr create --name $AcrName --resource-group $ResourceGroup --location $Location --sku Basic --output none
 }
 
-# ── 1. Resource group ──────────────────────────────────────────────────────
-Step "Ensuring resource group '$ResourceGroup' exists in $Location"
-if ((az group exists --name $ResourceGroup) -eq 'false') {
-    az group create --name $ResourceGroup --location $Location | Out-Null
+# ── Build image in ACR ───────────────────────────────────────────────────────
+Step "Building image in ACR (tag $ImageTag)"
+$RepoRoot = Resolve-Path (Join-Path $PSScriptRoot '..\..')
+az acr build --registry $AcrName --resource-group $ResourceGroup `
+    --image "${ServiceName}:${ImageTag}" --image "${ServiceName}:latest" `
+    --file Dockerfile $RepoRoot
+$Image = "$AcrName.azurecr.io/${ServiceName}:${ImageTag}"
+
+# ── Pull identity ────────────────────────────────────────────────────────────
+Step 'Ensuring AcrPull identity'
+$PullIdentityName = "$ServiceName-pull"
+az identity show --name $PullIdentityName --resource-group $ResourceGroup --output none 2>$null
+if ($LASTEXITCODE -ne 0) {
+    az identity create --name $PullIdentityName --resource-group $ResourceGroup --location $Location --output none
+}
+$PullIdentityId = az identity show --name $PullIdentityName --resource-group $ResourceGroup --query id -o tsv
+$PullPrincipal  = az identity show --name $PullIdentityName --resource-group $ResourceGroup --query principalId -o tsv
+$AcrId = az acr show --name $AcrName --resource-group $ResourceGroup --query id -o tsv
+az role assignment create --assignee $PullPrincipal --role AcrPull --scope $AcrId --output none 2>$null
+
+# ── Storage account + Azure Files share ──────────────────────────────────────
+Step 'Ensuring storage account and Azure Files share'
+$StorageName = ("${AcrName}state" -replace '[^a-z0-9]', '')
+$StorageName = $StorageName.Substring(0, [Math]::Min(24, $StorageName.Length))
+az storage account show --name $StorageName --resource-group $ResourceGroup --output none 2>$null
+if ($LASTEXITCODE -ne 0) {
+    az storage account create --name $StorageName --resource-group $ResourceGroup `
+        --location $Location --sku Standard_LRS --kind StorageV2 --output none
+}
+az storage share create --name lucky5-state --account-name $StorageName --output none
+
+# ── Container Apps environment with mounted share ────────────────────────────
+Step 'Ensuring Container Apps environment'
+$EnvName = "$ServiceName-env"
+$StorageKey = az storage account keys list --account-name $StorageName --resource-group $ResourceGroup --query '[0].value' -o tsv
+az containerapp env show --name $EnvName --resource-group $ResourceGroup --output none 2>$null
+if ($LASTEXITCODE -ne 0) {
+    az containerapp env create --name $EnvName --resource-group $ResourceGroup --location $Location --output none
+}
+az containerapp env storage set --name $EnvName --resource-group $ResourceGroup `
+    --storage-name lucky5state `
+    --azure-file-account-name $StorageName `
+    --azure-file-account-key $StorageKey `
+    --azure-file-share-name lucky5-state `
+    --access-mode ReadWrite --output none
+$EnvId = az containerapp env show --name $EnvName --resource-group $ResourceGroup --query id -o tsv
+
+# ── JWT signing key (stable across deploys) ──────────────────────────────────
+Step 'Resolving JWT signing key'
+$JwtKey = $null
+az containerapp show --name $ServiceName --resource-group $ResourceGroup --output none 2>$null
+$appExists = ($LASTEXITCODE -eq 0)
+if ($appExists) {
+    $JwtKey = az containerapp secret show --name $ServiceName --resource-group $ResourceGroup --secret-name jwt-signing-key --query value -o tsv 2>$null
+}
+if (-not $JwtKey) {
+    $bytes = New-Object byte[] 48
+    [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+    $JwtKey = [Convert]::ToBase64String($bytes)
+    Write-Host 'Generated a fresh JWT signing key (first deploy).'
 }
 
-# ── 2. Azure Container Registry ────────────────────────────────────────────
-Step "Ensuring ACR '$AcrName' exists"
-if ((az acr check-name --name $AcrName --query 'nameAvailable' -o tsv) -eq 'true') {
-    az acr create --resource-group $ResourceGroup --name $AcrName --sku Basic --admin-enabled true --location $Location | Out-Null
-}
-else {
-    Write-Host "    ACR already exists, skipping create"
-}
-$acrLoginServer = az acr show --name $AcrName --resource-group $ResourceGroup --query 'loginServer' -o tsv
-$acrCreds = az acr credential show --name $AcrName --resource-group $ResourceGroup --query 'passwords[0].value' -o tsv
+# ── Container app manifest (declarative upsert) ──────────────────────────────
+Step 'Applying container app manifest'
+$ManifestPath = Join-Path $env:TEMP 'lucky5-containerapp.yaml'
+$Manifest = @"
+name: $ServiceName
+type: Microsoft.App/containerApps
+location: $Location
+identity:
+  type: UserAssigned
+  userAssignedIdentities:
+    "${PullIdentityId}": {}
+properties:
+  environmentId: $EnvId
+  configuration:
+    ingress:
+      external: true
+      targetPort: 8080
+    registries:
+      - server: $AcrName.azurecr.io
+        identity: $PullIdentityId
+    secrets:
+      - name: jwt-signing-key
+        value: $JwtKey
+  template:
+    containers:
+      - name: $ServiceName
+        image: $Image
+        resources:
+          cpu: 0.5
+          memory: 1.0Gi
+        env:
+          - name: LUCKY5_STATE_DIR
+            value: /mnt/state
+          - name: ASPNETCORE_ENVIRONMENT
+            value: Production
+          - name: JWT__SIGNING_KEY
+            secretRef: jwt-signing-key
+        volumeMounts:
+          - volumeName: lucky5state
+            mountPath: /mnt/state
+    volumes:
+      - name: lucky5state
+        storageType: AzureFile
+        storageName: lucky5state
+    scale:
+      minReplicas: 1
+      maxReplicas: 1
+"@
+Set-Content -Path $ManifestPath -Value $Manifest -Encoding utf8
 
-# ── 3. Storage account + Azure Files share (state persistence) ──────────────
-Step "Ensuring storage account '$StorageAccountName' exists"
-if ((az storage account check-name --name $StorageAccountName --query 'nameAvailable' -o tsv) -eq 'true') {
-    az storage account create --name $StorageAccountName --resource-group $ResourceGroup --location $Location --sku Standard_LRS --kind StorageV2 | Out-Null
+if ($appExists) {
+    az containerapp update --name $ServiceName --resource-group $ResourceGroup --yaml $ManifestPath --output none
+} else {
+    az containerapp create --name $ServiceName --resource-group $ResourceGroup --yaml $ManifestPath --output none
 }
-else {
-    Write-Host "    Storage account already exists, skipping create"
-}
+Remove-Item $ManifestPath -Force
 
-Step "Ensuring file share '$FileShareName' exists"
-if ((az storage share-rm exists --name $FileShareName --storage-account $StorageAccountName --resource-group $ResourceGroup --query 'exists' -o tsv) -ne 'true') {
-    az storage share-rm create --name $FileShareName --storage-account $StorageAccountName --resource-group $ResourceGroup --quota 1 | Out-Null
+# ── Verify ───────────────────────────────────────────────────────────────────
+Step 'Verifying deployment'
+$Fqdn = az containerapp show --name $ServiceName --resource-group $ResourceGroup --query properties.configuration.ingress.fqdn -o tsv
+$Url = "https://$Fqdn"
+Write-Host "App URL: $Url" -ForegroundColor Green
+$healthy = $false
+foreach ($i in 1..12) {
+    try {
+        Invoke-RestMethod -Uri "$Url/health/live" -TimeoutSec 5 | Out-Null
+        Write-Host "Health check passed on attempt $i" -ForegroundColor Green
+        $healthy = $true
+        break
+    } catch {
+        Write-Host "Waiting for revision to come up (attempt $i)..."
+        Start-Sleep -Seconds 5
+    }
 }
-
-# ── 4. Generate strong JWT signing key ─────────────────────────────────────
-Step "Generating strong JWT signing key (48-byte random, base64)"
-$bytes = New-Object byte[] 48
-[System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
-$jwtSigningKey = [Convert]::ToBase64String($bytes)
-Remove-Variable bytes
-
-# ── 5. Build container image via ACR build task (no local Docker) ───────────
-Step "Building container image via ACR build task (no local Docker required)"
-$imageTag = "$acrLoginServer/lucky5-v8:latest"
-Push-Location $repoRoot
-try {
-    az acr build --registry $AcrName --resource-group $ResourceGroup --image $imageTag --file Dockerfile .
+if (-not $healthy) {
+    Write-Warning "Health check did not pass within 60s; the revision may still be starting. Logs: az containerapp logs show --name $ServiceName --resource-group $ResourceGroup --follow"
 }
-finally {
-    Pop-Location
-}
-
-# ── 6. Container Apps environment ──────────────────────────────────────────
-Step "Ensuring Container Apps environment '$Environment' exists"
-if (-not (az containerapp env show --name $Environment --resource-group $ResourceGroup 2>$null)) {
-    az containerapp env create --name $Environment --resource-group $ResourceGroup --location $Location --logs-destination none | Out-Null
-}
-else {
-    Write-Host "    Container Apps environment already exists, skipping create"
-}
-
-# ── 7. Deploy Container App ────────────────────────────────────────────────
-Step "Deploying Container App '$ContainerApp' (pinned to 1 replica, Azure Files mounted)"
-$ingressType = if ($MakePublic) { 'external' } else { 'internal' }
-
-# Volume and secret configuration (applied identically on create and update).
-$volumeDef = "name=snapshots,storageType=azureFile,storageName=$StorageAccountName"
-$volumeMount = "volumeName=snapshots,mountPath=$MountPath"
-$secretDef = "jwt-signing-key=$jwtSigningKey"
-$envVars = "LUCKY5_STATE_DIR=$MountPath", "ASPNETCORE_ENVIRONMENT=Production"
-$secretEnvVar = "JWT__SIGNING_KEY=secretref:jwt-signing-key"
-
-$appExists = az containerapp show --name $ContainerApp --resource-group $ResourceGroup 2>$null
-if (-not $appExists) {
-    az containerapp create `
-        --name $ContainerApp `
-        --resource-group $ResourceGroup `
-        --environment $Environment `
-        --image $imageTag `
-        --registry-server $acrLoginServer `
-        --registry-username $AcrName `
-        --registry-password $acrCreds `
-        --target-port 8080 `
-        --ingress $ingressType `
-        --min-replicas 1 `
-        --max-replicas 1 `
-        --cpu 1.0 `
-        --memory 2.0Gi `
-        --env-vars $envVars `
-        --secrets $secretDef `
-        --env-vars $secretEnvVar `
-        --volumes $volumeDef `
-        --volume-mounts $volumeMount
-}
-else {
-    Write-Host "    Container app already exists, updating..." -ForegroundColor Yellow
-    az containerapp update `
-        --name $ContainerApp `
-        --resource-group $ResourceGroup `
-        --image $imageTag `
-        --min-replicas 1 `
-        --max-replicas 1 `
-        --cpu 1.0 `
-        --memory 2.0Gi `
-        --env-vars $envVars `
-        --secrets $secretDef `
-        --env-vars $secretEnvVar `
-        --volumes $volumeDef `
-        --volume-mounts $volumeMount
-}
-
-# ── 8. Print result ────────────────────────────────────────────────────────
-$url = az containerapp show --name $ContainerApp --resource-group $ResourceGroup --query 'properties.configuration.ingress.fqdn' -o tsv
-Step "Deployed. Service URL: https://$url"
-Write-Host "Verify with: curl https://$url/health/live" -ForegroundColor Green
+Write-Host "`nDone. $Url" -ForegroundColor Cyan
