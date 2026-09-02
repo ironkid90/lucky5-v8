@@ -566,8 +566,14 @@ public static class HubTests
         {
             await hub.JoinMachine(machineId);
             var claimed = occupancy.TryGetValue(machineId, out var currentConnectionId) && currentConnectionId == reconnectingConnectionId;
-            var pendingCleared = !pendingDisconnects.ContainsKey(machineId);
-            Assert(failures, "JoinMachine should reclaim lock when same user reconnects during grace period", claimed && pendingCleared);
+            // The grace countdown is cancelled, and JoinMachine installs a dormant
+            // settlement token for the live connection (the mutual-exclusion guard
+            // against in-flight auto-cashout timers) — the entry is expected to
+            // remain, now owned by this connection.
+            var tokenInstalledForReconnector = pendingDisconnects.TryGetValue(machineId, out var token)
+                && token.UserId == reconnectingUserId
+                && !ReferenceEquals(token.Timer, timer);
+            Assert(failures, "JoinMachine should reclaim lock when same user reconnects during grace period", claimed && tokenInstalledForReconnector);
         }
         catch
         {

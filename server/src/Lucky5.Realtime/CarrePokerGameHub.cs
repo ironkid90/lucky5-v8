@@ -104,6 +104,14 @@ public sealed class CarrePokerGameHub(
             // (scopeFactory, hubContext, registry).
             var disconnectedConnectionId = Context.ConnectionId;
 
+            // ReconnectSync leaves a dormant settlement-token entry installed for
+            // the live connection. On disconnect we adopt it: index-assignment
+            // replaces the token with our real grace countdown in one atomic write
+            // (no remove-then-add window for a stale timer to slip through).
+            Timer? oldEntryTimer = PendingDisconnects.TryGetValue(machineId, out var existingEntry)
+                ? existingEntry.Timer
+                : null;
+
             // Don't immediately release the machine lock. Instead, start a grace-period
             // timer. If the same player reconnects within the window, they resume their
             // session (DU, win settlement, etc.). If the timer expires, the machine
@@ -118,7 +126,11 @@ public sealed class CarrePokerGameHub(
                 var myEntry = new KeyValuePair<int, (Guid UserId, Timer Timer)>(machineId, (userId, timer!));
                 if (!((ICollection<KeyValuePair<int, (Guid UserId, Timer Timer)>>)PendingDisconnects).Remove(myEntry))
                 {
-                    return; // reclaimed on reconnect, or replaced by a newer disconnect
+                    // Reclaimed on reconnect, replaced by a newer disconnect, or the
+                    // reconnect path installed its own token AFTER our entry expired
+                    // (in-flight window) — in every case this timer no longer owns
+                    // settlement and must not cash out.
+                    return;
                 }
 
                 // Final liveness check: if the seat is now held by a live
@@ -167,6 +179,10 @@ public sealed class CarrePokerGameHub(
 
             PendingDisconnects[machineId] = (userId, timer);
 
+            // Dispose the dormant settlement-token timer installed by ReconnectSync
+            // (or an older pending entry) — the real grace countdown now owns it.
+            oldEntryTimer?.Dispose();
+
             // Machine still appears occupied to other players during the grace period.
             // The lobby shows "Reconnecting" state.
             }
@@ -195,14 +211,18 @@ public sealed class CarrePokerGameHub(
         var hasUserId = TryGetUserId(out var userId);
         var isReclaimingPendingSeat = false;
 
-        // If this machine has a pending disconnect for the same user, cancel
-        // the timer — the player is back.
+        // If this machine has a pending disconnect for the SAME user, cancel
+        // the timer — the player is back. A different user's pending entry is
+        // never touched: it protects the original owner's grace window.
+        // The compare-and-remove (KeyValuePair) overload is atomic: no interleaved
+        // disconnect can slip a different entry between the check and the removal.
         if (hasUserId &&
             PendingDisconnects.TryGetValue(machineId, out var pending) &&
             pending.UserId == userId &&
-            PendingDisconnects.TryRemove(machineId, out var removedPending))
+            ((ICollection<KeyValuePair<int, (Guid UserId, Timer Timer)>>)PendingDisconnects)
+                .Remove(new KeyValuePair<int, (Guid UserId, Timer Timer)>(machineId, pending)))
         {
-            removedPending.Timer.Dispose();
+            pending.Timer.Dispose();
             isReclaimingPendingSeat = true;
         }
 
@@ -210,8 +230,24 @@ public sealed class CarrePokerGameHub(
         if (MachineOccupancy.TryGetValue(machineId, out var occupyingConnectionId) &&
             occupyingConnectionId != Context.ConnectionId)
         {
-            if (isReclaimingPendingSeat)
+            // A pending grace entry owned by someone else means the original
+            // owner's session is still protected — block regardless of whether
+            // the old occupant connection is already gone from the registry.
+            var anotherUserHasPendingGrace =
+                PendingDisconnects.TryGetValue(machineId, out var graceEntry) &&
+                (!hasUserId || graceEntry.UserId != userId);
+
+            var occupantIsStaleSameUser =
+                hasUserId &&
+                !anotherUserHasPendingGrace &&
+                (!registry.TryGetUserId(occupyingConnectionId, out var occupyingUserId)
+                    || occupyingUserId == userId);
+
+            if (isReclaimingPendingSeat || occupantIsStaleSameUser)
             {
+                // Our own pending seat, a dead occupant connection, or another
+                // connection of the SAME user (join-as-reconnect fallback). A live
+                // seat owned by a different user is never stolen here.
                 MachineOccupancy[machineId] = Context.ConnectionId;
             }
             else
@@ -224,6 +260,33 @@ public sealed class CarrePokerGameHub(
         {
             // Acquire lock on new machine when not currently occupied.
             MachineOccupancy[machineId] = Context.ConnectionId;
+        }
+
+        // Install the same settlement token ReconnectSync leaves behind (see
+        // ReconnectSync for the contract): a dormant pending-disconnect entry that
+        // makes an in-flight grace timer abort, and that OnDisconnectedAsync adopts
+        // and converts into the real grace countdown on the next disconnect.
+        // Only install when no pending entry exists, or when the existing entry is
+        // OURS (refresh). Never overwrite another user's pending grace entry —
+        // that entry is what protects the original owner's reconnect window.
+        if (hasUserId)
+        {
+            var reclaimTimer = new Timer(static _ => { }, null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+            if (PendingDisconnects.TryGetValue(machineId, out var previousEntry) && previousEntry.UserId == userId)
+            {
+                // Refresh our own stale token — its dormant timer is dead weight now.
+                previousEntry.Timer.Dispose();
+                PendingDisconnects[machineId] = (userId, reclaimTimer);
+            }
+            else if (!PendingDisconnects.ContainsKey(machineId))
+            {
+                PendingDisconnects[machineId] = (userId, reclaimTimer);
+            }
+            else
+            {
+                // Another user's pending grace entry — leave it untouched.
+                reclaimTimer.Dispose();
+            }
         }
 
         // Release previous machine lock if switching machines
@@ -255,8 +318,14 @@ public sealed class CarrePokerGameHub(
             return;
         }
 
-        // Release seat-occupancy lock
+        // Release seat-occupancy lock and any settlement token this connection
+        // holds — a clean leave is not a disconnect, so no grace-period reclaim
+        // (or worse, a stale-timer cashout) may follow.
         MachineOccupancy.TryRemove(machineId, out _);
+        if (PendingDisconnects.TryRemove(machineId, out var leftPending))
+        {
+            leftPending.Timer.Dispose();
+        }
 
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, GroupName(machineId));
 
@@ -561,9 +630,10 @@ public sealed class CarrePokerGameHub(
             var reclaimedPendingSeat = false;
             if (PendingDisconnects.TryGetValue(machineId, out var pending) &&
                 pending.UserId == userId &&
-                PendingDisconnects.TryRemove(machineId, out var removedPending))
+                ((ICollection<KeyValuePair<int, (Guid UserId, Timer Timer)>>)PendingDisconnects)
+                    .Remove(new KeyValuePair<int, (Guid UserId, Timer Timer)>(machineId, pending)))
             {
-                removedPending.Timer.Dispose();
+                pending.Timer.Dispose();
                 reclaimedPendingSeat = true;
             }
 
@@ -600,6 +670,22 @@ public sealed class CarrePokerGameHub(
 
             if (seatReclaimed)
             {
+                // Settlement token: install a fresh pending-disconnect entry for this
+                // connection and leave it installed for the life of the connection.
+                // It serves two purposes:
+                //  1. Mutual exclusion with an in-flight grace-period timer — the
+                //     timer compares against the entry it armed, sees this replacement
+                //     entry, and aborts instead of cashing out under the reclaimed seat.
+                //  2. Instant recovery if this connection drops — its
+                //     OnDisconnectedAsync adopts the entry by replacing the timer with
+                //     a real grace-period countdown (no scan-remove-add race).
+                var reclaimTimer = new Timer(static _ => { }, null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+                if (PendingDisconnects.TryGetValue(machineId, out var previousEntry))
+                {
+                    previousEntry.Timer.Dispose();
+                }
+                PendingDisconnects[machineId] = (userId, reclaimTimer);
+
                 await Groups.AddToGroupAsync(Context.ConnectionId, GroupName(machineId));
             }
 
