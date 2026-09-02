@@ -3,9 +3,9 @@ namespace Lucky5.Realtime.Services;
 using Lucky5.Domain.Entities;
 using Lucky5.Application.Contracts;
 using Lucky5.Infrastructure.Services;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 
 /// <summary>
 /// Background service that periodically cleans up stuck game sessions.
@@ -25,9 +25,6 @@ public sealed class SessionCleanupService : BackgroundService
     private static readonly TimeSpan CleanupInterval = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan StaleRoundThreshold = TimeSpan.FromMinutes(10);
 
-    // IGameService is scoped; this hosted service is a singleton, so it must
-    // create a scope per settlement instead of injecting IGameService directly
-    // (doing so crashes the host at startup under scope validation).
     public SessionCleanupService(IServiceScopeFactory scopeFactory, InMemoryDataStore store, ILogger<SessionCleanupService> logger)
     {
         _scopeFactory = scopeFactory;
@@ -44,7 +41,7 @@ public sealed class SessionCleanupService : BackgroundService
         {
             try
             {
-                CleanupStaleRounds();
+                await CleanupStaleRoundsAsync(stoppingToken);
             }
             catch (Exception ex)
             {
@@ -55,7 +52,7 @@ public sealed class SessionCleanupService : BackgroundService
         }
     }
 
-    private void CleanupStaleRounds()
+    private async Task CleanupStaleRoundsAsync(CancellationToken cancellationToken)
     {
         var now = DateTime.UtcNow;
         var staleRounds = _store.ActiveRounds
@@ -67,33 +64,31 @@ public sealed class SessionCleanupService : BackgroundService
 
         _logger.LogWarning("Cleaning up {Count} stale active rounds", staleRounds.Count);
 
+        // Create a scope to safely resolve the scoped IGameService
+        using var scope = _scopeFactory.CreateScope();
+        var gameService = scope.ServiceProvider.GetRequiredService<IGameService>();
+
         foreach (var (roundId, round) in staleRounds)
         {
-            _store.ActiveRounds.TryRemove(roundId, out _);
-
             // If the round had pending winnings or an active DU session,
             // use CashOutAsync to properly settle DU credits and zero out
             // the session (prevents double-settlement if player reconnects).
             if (round.WinAmount > 0m && !round.IsPayoutSettled)
             {
-                _ = SettleRoundAsync(round.UserId, round.MachineId, roundId);
+                try
+                {
+                    await gameService.CashOutAsync(round.UserId, round.MachineId, cancellationToken, bypassRules: true);
+                    _logger.LogInformation("Settled stale round {RoundId} to user {UserId} via CashOut",
+                        roundId, round.UserId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to settle stale round {RoundId} for user {UserId}",
+                        roundId, round.UserId);
+                }
             }
-        }
-    }
 
-    private async Task SettleRoundAsync(Guid userId, int machineId, Guid roundId)
-    {
-        try
-        {
-            // Own scope: the settlement outlives the cleanup tick.
-            await using var scope = _scopeFactory.CreateAsyncScope();
-            var gameService = scope.ServiceProvider.GetRequiredService<IGameService>();
-            await gameService.CashOutAsync(userId, machineId, CancellationToken.None, bypassRules: true);
-            _logger.LogInformation("Settled stale round {RoundId} to user {UserId} via CashOut", roundId, userId);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to settle stale round {RoundId} for user {UserId}", roundId, userId);
+            _store.ActiveRounds.TryRemove(roundId, out _);
         }
     }
 }

@@ -153,7 +153,7 @@ const GAME_CONFIG = Object.freeze({
         duStart:          '/api/Game/double-up/start',
         duGuess:          '/api/Game/double-up/guess',
         duCashout:        '/api/Game/double-up/cashout',
-        duTakeHalf:       '/api/Game/double-up/take-half',
+        duTakeHalf:       '/api/Game/double-up/half',
         duSwitch:         '/api/Game/double-up/switch',
 
         // Admin
