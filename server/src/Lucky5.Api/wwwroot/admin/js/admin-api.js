@@ -339,6 +339,10 @@
         return this.get('/api/admin/content/offers');
     };
 
+    AdminApiClient.prototype.getOffer = function getOffer(id) {
+        return this.get('/api/admin/content/offers/' + encodeURIComponent(id));
+    };
+
     AdminApiClient.prototype.createOffer = function createOffer(title, description, bonusAmount) {
         return this.post('/api/admin/content/offers', { title: title, description: description, bonusAmount: bonusAmount });
     };
