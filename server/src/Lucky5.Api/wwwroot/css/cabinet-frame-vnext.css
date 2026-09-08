@@ -49,5 +49,5 @@ body {
 }
 
 .menu-panel {
-    z-index: 10000;
+    z-index: 9990; /* Layer 3: menu panel */
 }

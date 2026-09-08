@@ -3,6 +3,17 @@
  * ═════════════════════════════════════════════════════════════════════════════
  * AI9 PARITY OVERHAUL — Comprehensive geometry, color, and rendering corrections
  *
+ * Z-INDEX HIERARCHY (documented and enforced across all CSS files):
+ *   1-50     Game screen base elements (paytable, cards, credits, controls)
+ *   80-90    Decorative overlays (CRT scanlines, lucky5 flash)
+ *   95-96    Shell screens (lobby, wallet, admin)
+ *   100-150  Controls, buttons, cabinet frame decorations
+ *   9980     Menu panel backdrop (body.menu-open::after)
+ *   9990     Menu panel
+ *   10000    Admin modal overlay
+ *   10100    Toast notifications / transient banners
+ *   10200    Asset loader (loading state only — highest during init)
+ *
  * PURPOSE:
  *   Make Lucky5 v8 match the AI9 reference game identically in:
  *   - Cabinet layout geometry (CRT/deck split, card grid, button grid)
@@ -922,8 +933,8 @@ html, body {
     position: relative !important;
     height: 100% !important;
     width: auto !important;
-    min-width: 5.2cqh !important;
-    min-height: 7.8cqh !important;
+    min-width: max(5.2cqh, 44px) !important;
+    min-height: max(7.8cqh, 44px) !important;
     max-width: 100% !important;
     max-height: 100% !important;
     aspect-ratio: 1024 / 1536 !important;
@@ -943,12 +954,12 @@ html, body {
 
 #game-screen.active #bottom-row .cab-btn.cab-menu,
 #game-screen.active #btn-menu {
-    width: 7.6cqh !important;
-    height: 7.6cqh !important;
-    min-width: 7.6cqh !important;
-    min-height: 7.6cqh !important;
-    max-width: 7.6cqh !important;
-    max-height: 7.6cqh !important;
+    width: max(7.6cqh, 44px) !important;
+    height: max(7.6cqh, 44px) !important;
+    min-width: max(7.6cqh, 44px) !important;
+    min-height: max(7.6cqh, 44px) !important;
+    max-width: max(7.6cqh, 44px) !important;
+    max-height: max(7.6cqh, 44px) !important;
     aspect-ratio: 1 / 1 !important;
     background-image: url('/assets/images/menu.png') !important;
     background-size: contain !important;
@@ -979,7 +990,7 @@ html, body {
 }
 
 #menu-panel.menu-panel {
-    z-index: 20000 !important;
+    z-index: 9990 !important;
     pointer-events: auto !important;
 }
 
@@ -1148,7 +1159,7 @@ html, body {
     background-color: #ffffff !important;
     opacity: 0 !important;
     pointer-events: none !important;
-    z-index: 10000 !important; /* display on top of all screen components */
+    z-index: 85 !important; /* Layer 2: decorative flash effect */
 }
 
 #lucky5-flash.active {
@@ -1275,7 +1286,7 @@ html, body {
     display: flex;
     align-items: center !important;
     justify-content: center !important;
-    z-index: 100000 !important;
+    z-index: 10000 !important; /* Layer 4: admin modal */
     animation: modalFadeIn 0.25s cubic-bezier(0.1, 0.8, 0.25, 1) forwards !important;
 }
 

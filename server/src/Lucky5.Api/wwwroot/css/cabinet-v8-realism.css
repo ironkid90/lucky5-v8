@@ -357,7 +357,7 @@ body.v8-win-jackpot #win-amount-value {
     top: 38%;
     left: 50%;
     transform: translate(-50%, -50%);
-    z-index: 80;
+    z-index: 85; /* Layer 2: decorative bonus popup */
     pointer-events: none;
     display: none;
     flex-direction: column;
