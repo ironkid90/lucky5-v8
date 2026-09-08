@@ -110,7 +110,12 @@
             : tier === 'v8-win-big' ? 1800
                 : tier === 'v8-win-medium' ? 1200
                     : 700;
-        setTimeout(clearWinClasses, clearMs);
+        // VSYNC-locked clear so the win tier never lags behind the animation beat.
+        if (window.CabinetClock && typeof window.CabinetClock.delayMs === 'function') {
+            window.CabinetClock.delayMs(clearMs, clearWinClasses);
+        } else {
+            setTimeout(clearWinClasses, clearMs);
+        }
     }
 
     function observeWinDisplay() {
@@ -135,15 +140,23 @@
 
     // ---------- Idle attract mode --------------------------------
 
-    let idleTimer = 0;
+    let idleTimerCancel = null;
     let attractActive = false;
-    let attractPaytableTimer = 0;
+    let attractPaytableTimerCancel = null;
     let attractPaytableIndex = 0;
 
     function resetIdleTimer() {
         if (attractActive) exitAttract();
-        clearTimeout(idleTimer);
-        idleTimer = setTimeout(enterAttract, IDLE_ATTRACT_MS);
+        if (idleTimerCancel) {
+            idleTimerCancel();
+            idleTimerCancel = null;
+        }
+        if (window.CabinetClock && typeof window.CabinetClock.delayMs === 'function') {
+            idleTimerCancel = window.CabinetClock.delayMs(IDLE_ATTRACT_MS, enterAttract);
+        } else {
+            idleTimerCancel = { cancel: () => {} };
+            setTimeout(enterAttract, IDLE_ATTRACT_MS);
+        }
     }
 
     function enterAttract() {
@@ -162,7 +175,10 @@
     function exitAttract() {
         attractActive = false;
         document.body.classList.remove('v8-attract');
-        clearTimeout(attractPaytableTimer);
+        if (attractPaytableTimerCancel) {
+            attractPaytableTimerCancel();
+            attractPaytableTimerCancel = null;
+        }
         document.querySelectorAll('.pay-row[data-attract-active="1"]').forEach(function (el) {
             el.removeAttribute('data-attract-active');
         });
@@ -176,7 +192,12 @@
         const row = rows[attractPaytableIndex % rows.length];
         if (row) row.setAttribute('data-attract-active', '1');
         attractPaytableIndex++;
-        attractPaytableTimer = setTimeout(cyclePaytableHighlight, 1600);
+        if (window.CabinetClock && typeof window.CabinetClock.delayMs === 'function') {
+            attractPaytableTimerCancel = window.CabinetClock.delayMs(1600, cyclePaytableHighlight);
+        } else {
+            attractPaytableTimerCancel = { cancel: () => {} };
+            setTimeout(cyclePaytableHighlight, 1600);
+        }
     }
 
     function wireIdleAttract() {
@@ -209,7 +230,12 @@
             }
         });
         obs.observe(loader, { attributes: true, attributeFilter: ['class'] });
-        setTimeout(markReady, 6000);
+        // Hard unblocker: guarantee v8-ready is set even if the loader class never flips.
+        if (window.CabinetClock && typeof window.CabinetClock.delayMs === 'function') {
+            window.CabinetClock.delayMs(6000, markReady);
+        } else {
+            setTimeout(markReady, 6000);
+        }
     }
 
     // ---------- Card-face load-error guard -----------------------
