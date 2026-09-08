@@ -263,18 +263,14 @@ function preloadAllAssets() {
             resolve();
         }
 
-        // Hard timeout unblocker (2.5s max) to guarantee the app never hangs on asset loading.
-        // Bound to `timeoutTimer` so the early-exit paths (empty list / all assets loaded)
-        // can clear it. CabinetClock.delayMs returns a cancel fn; setTimeout returns an id;
-        // clearTimeout is a safe no-op on the cancel fn, and finishPreload() is idempotent.
-        let timeoutTimer;
+        // Hard timeout unblocker (2.5s max) to guarantee the app never hangs on asset loading
         if (typeof CabinetClock !== 'undefined' && CabinetClock?.delayMs) {
-            timeoutTimer = CabinetClock.delayMs(2500, () => {
+            CabinetClock.delayMs(2500, () => {
                 console.warn('[AssetLoader] Preload timeout unblocker triggered after 2.5s');
                 finishPreload();
             });
         } else {
-            timeoutTimer = setTimeout(() => {
+            setTimeout(() => {
                 console.warn('[AssetLoader] Preload timeout unblocker triggered after 2.5s');
                 finishPreload();
             }, 2500);
