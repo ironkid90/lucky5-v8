@@ -78,9 +78,20 @@ window.CabinetAudio = (function () {
         if (clips.has(name)) return clips.get(name);
         const eventDef = _getEventMap()[name];
         if (!eventDef || !eventDef.src) return null;
-        const audio = new Audio(eventDef.src);
+        let audio;
+        try {
+            audio = new Audio(eventDef.src);
+        } catch (e) {
+            // Some browsers throw on invalid audio constructors — degrade gracefully.
+            console.warn('[CabinetAudio] Failed to create Audio for', name, e);
+            return null;
+        }
         audio.preload = 'auto';
         audio.volume = typeof eventDef.volume === 'number' ? eventDef.volume : 0.3;
+        // Swallow load errors so a missing asset never throws out of the queue.
+        audio.addEventListener('error', () => {
+            console.warn('[CabinetAudio] Load error for', name, '— skipping.');
+        }, { once: true });
         clips.set(name, audio);
         return audio;
     }
@@ -99,7 +110,11 @@ window.CabinetAudio = (function () {
         if (!item) return;
 
         const clip = _ensureClip(item.name);
-        if (!clip) return;
+        if (!clip) {
+            // Missing asset — drop the item and continue so the queue never stalls.
+            _pump();
+            return;
+        }
 
         playing = true;
         clip.pause();
