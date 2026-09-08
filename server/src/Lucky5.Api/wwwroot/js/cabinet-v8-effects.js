@@ -154,8 +154,8 @@
         if (window.CabinetClock && typeof window.CabinetClock.delayMs === 'function') {
             idleTimerCancel = window.CabinetClock.delayMs(IDLE_ATTRACT_MS, enterAttract);
         } else {
-            idleTimerCancel = { cancel: () => {} };
-            setTimeout(enterAttract, IDLE_ATTRACT_MS);
+            const idleTimer = setTimeout(enterAttract, IDLE_ATTRACT_MS);
+            idleTimerCancel = () => clearTimeout(idleTimer);
         }
     }
 
@@ -195,8 +195,8 @@
         if (window.CabinetClock && typeof window.CabinetClock.delayMs === 'function') {
             attractPaytableTimerCancel = window.CabinetClock.delayMs(1600, cyclePaytableHighlight);
         } else {
-            attractPaytableTimerCancel = { cancel: () => {} };
-            setTimeout(cyclePaytableHighlight, 1600);
+            const paytableTimer = setTimeout(cyclePaytableHighlight, 1600);
+            attractPaytableTimerCancel = () => clearTimeout(paytableTimer);
         }
     }
 
