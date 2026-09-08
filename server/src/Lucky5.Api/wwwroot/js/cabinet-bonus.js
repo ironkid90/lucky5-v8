@@ -46,9 +46,16 @@ window.CabinetBonus = (function () {
                 updateLobbyBalance();
             }
 
-            setTimeout(() => {
-                if (banner) banner.style.display = 'none';
-            }, 4000);
+            // VSYNC-locked dismiss so the banner fade never drifts from the cabinet clock.
+            if (window.CabinetClock && typeof window.CabinetClock.delayMs === 'function') {
+                window.CabinetClock.delayMs(4000, () => {
+                    if (banner) banner.style.display = 'none';
+                });
+            } else {
+                setTimeout(() => {
+                    if (banner) banner.style.display = 'none';
+                }, 4000);
+            }
         } catch (e) {
             resultEl.textContent = e.message || 'Claim failed';
             resultEl.style.display = '';

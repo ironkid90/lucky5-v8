@@ -302,10 +302,16 @@ window.CabinetStage = (function () {
     // _setButtonBackground and _buttonAsset removed to allow pure CSS buttons
 
     function _stopShuffle() {
+        const previousToken = _activeShuffleToken;
         _activeShuffleToken = null;
         document.querySelectorAll('.du-card-slot.du-shuffling').forEach(slotEl => {
             slotEl.classList.remove('du-shuffling');
         });
+        // Unregister the VSYNC-locked tick handler so the reel stops immediately
+        // and cannot fire after the token is nulled (prevents reveal stutter).
+        if (previousToken && typeof previousToken._handler === 'function') {
+            window.CabinetClock.unregisterHandler(previousToken._handler);
+        }
     }
 
     function _ensureMainSlots() {
@@ -534,41 +540,52 @@ window.CabinetStage = (function () {
 
         slotEl.classList.add('du-shuffling');
 
+        // VSYNC-locked reel cadence: one flip cycle = flip-out → swap face → flip-in.
+        // The cycle length is derived from shuffleFrameMs (30ms → ~2 ticks @ 60Hz),
+        // split into fixed half-cycle phases so the transition is stutter-free and
+        // stops cleanly on the server-provided result (no nested delayTicks).
         const frameMs = Number(_config.shuffleFrameMs) || 30;
-        const frameTicks = window.CabinetClock.msToTicks(frameMs);
+        const cycleTicks = Math.max(2, window.CabinetClock.msToTicks(frameMs));
+        const outPhaseTicks = Math.max(1, Math.round(cycleTicks * 0.45));
+        const inPhaseTicks = Math.max(1, cycleTicks - outPhaseTicks);
         const frameEl = _duFrame(slotEl);
         let lastCode = '';
+        let phaseTicks = 0;
+        let phase = 'in'; // start in the "face visible" phase so the first swap is clean
 
         const currentShuffleToken = {};
         _activeShuffleToken = currentShuffleToken;
 
-        function runShuffleStep() {
+        const shuffleTickHandler = function () {
             if (_activeShuffleToken !== currentShuffleToken) return;
 
-            const code = _pickShuffleCode(codes, lastCode);
-            lastCode = code;
-
-            if (frameEl) {
-                frameEl.classList.remove('du-flip-in');
-                frameEl.classList.add('du-flip-out');
-            }
-
-            const halfFrames = Math.max(2, Math.round(frameTicks * 0.45));
-            window.CabinetClock.delayTicks(halfFrames, () => {
-                if (_activeShuffleToken !== currentShuffleToken) return;
-
-                img.innerHTML = _renderDomCard(_asCard(code));
-
-                if (frameEl) {
-                    frameEl.classList.remove('du-flip-out');
-                    frameEl.classList.add('du-flip-in');
+            phaseTicks++;
+            if (phase === 'in') {
+                if (phaseTicks >= inPhaseTicks) {
+                    phaseTicks = 0;
+                    phase = 'out';
+                    if (frameEl) {
+                        frameEl.classList.remove('du-flip-in');
+                        frameEl.classList.add('du-flip-out');
+                    }
                 }
-            });
+            } else {
+                if (phaseTicks >= outPhaseTicks) {
+                    phaseTicks = 0;
+                    phase = 'in';
+                    lastCode = _pickShuffleCode(codes, lastCode);
+                    img.innerHTML = _renderDomCard(_asCard(lastCode));
+                    if (frameEl) {
+                        frameEl.classList.remove('du-flip-out');
+                        frameEl.classList.add('du-flip-in');
+                    }
+                }
+            }
+        };
 
-            window.CabinetClock.delayTicks(frameTicks, runShuffleStep);
-        }
-
-        runShuffleStep();
+        window.CabinetClock.registerHandler(shuffleTickHandler);
+        // Store the handler so _stopShuffle can unregister it cleanly.
+        currentShuffleToken._handler = shuffleTickHandler;
     }
 
     function configure(overrides) {
