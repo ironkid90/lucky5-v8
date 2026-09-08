@@ -227,6 +227,36 @@ When `IsNoLoseActive` is `true`, landing the **5 of Spades** as the challenger c
 *   **Rule 3: Keep HTML Elements and CSS Variables Crisp:** Do not reintroduce canvas components for the main UI. Rely on clean HTML5 semantic elements scaled uniformly inside `#cabinet-viewport`.
 *   **Rule 4: Preserve the Core Aesthetic:** Do not introduce modern smooth transitions, drop-shadows, or modern rounded web components on the cabinet face. Every visual change must respect the 90s CRT and wooden arcade boundaries.
 
+## 10. Lucky5 Alpha Overhaul (2026-09)
+
+This section documents the integrated alpha overhaul convoy work that landed on the main branch ahead of the Lucky5 alpha release.
+
+### Double-Up Backend Fixes
+- **Lucky Multiplier exposure**: `DoubleUpResultDto` now includes `LuckyMultiplier` so the client can display the correct 5♠ multiplier (4× on first hit, 2× on repeat) instead of hiding it.
+- **State cursor consistency**: All state-mutating Double-Up endpoints (`Start`, `Switch`, `Guess`, `Cashout`, `TakeHalf`) now advance the cabinet state cursor via `AdvanceCabinetStateCursorAsync`. Read-only snapshot/replay paths continue to use `GetOrInitializeCabinetStateCursorAsync`.
+- **Input validation**: `GuessDoubleUpAsync` now rejects null/whitespace guesses before parsing, preventing silent fallback to "Small".
+- **No-lose flag propagation**: `SafeFail`, `MachineClosed`, and `Lose` outcomes now correctly propagate `IsNoLoseActive` from the resolved session so the client can render the Lucky5 state accurately.
+
+### Reconnection & State Sync Hardening
+- **Stale snapshot guard**: The cabinet client (`game.js`) now rejects incoming snapshots whose `state_version` predates the last applied version. This prevents rare reconnect races where a buffered old snapshot could overwrite newer local state.
+- **Cursor advancement on cashout**: Already-settled cashout checks now advance the cursor, keeping the server-side version sequence monotonic even on idempotent re-checks.
+
+### Cabinet Polish
+- **Z-index hierarchy**: Enforced a documented layer system across all cabinet CSS files (decorative 80-90, shell 95-96, controls 100-150, menu 9990, admin modal 100000, toasts 10100, loader 10200).
+- **Mobile viewport**: Added `height: 100dvh` to `html, body` to prevent dynamic address-bar cropping on mobile browsers.
+- **Touch targets**: Button sizing now uses `max(7.6cqh, 44px)` to guarantee a minimum 44px touch target on small screens.
+- **Card rendering**: Changed `.card-face img` from `object-fit: fill` to `object-fit: contain` to preserve card aspect ratio.
+- **Loader z-index**: Asset loader raised to `z-index: 10200` so it stays above all decorative and interactive layers during init.
+
+### Admin Dashboard — Content CRUD
+- **New controller**: `AdminContentController` exposes `/api/admin/content/*` endpoints for offers, terms, and app settings.
+- **New page**: `admin/content.html` provides full CRUD for all three content types with tabbed UI, modal forms, toast feedback, and confirm-delete flows.
+- **API client extension**: `admin-api.js` gained `listOffers`, `createOffer`, `updateOffer`, `deleteOffer`, `listTerms`, `upsertTerms`, `deleteTerms`, `listAppSettings`, `upsertAppSetting`, and `deleteAppSetting`.
+
+### SDK & Build
+- `.NET SDK` pinned to `10.0.400` with `rollForward: latestFeature` after repairing corrupted SourceLink null-byte files on the build machine.
+- `MSBuildEnableWorkloadResolver` remains `false` in `Directory.Build.props` to bypass corrupted `10.0.111` workload manifests.
+
 ---
 
 ## 9. External Tooling, API Security, & Rate Limiting
