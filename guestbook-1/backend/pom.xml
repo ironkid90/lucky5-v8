@@ -12,12 +12,12 @@
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
-    <version>2.7.18</version>
+    <version>4.1.1</version>
     <relativePath/>
   </parent>
 
   <properties>
-    <java.version>1.8</java.version>
+    <java.version>25</java.version>
     <bootstrap.version>4.2.1</bootstrap.version>
     <checkstyle.config.location>./checkstyle.xml</checkstyle.config.location>
   </properties>
@@ -36,6 +36,11 @@
       <artifactId>gson</artifactId>
       <version>2.10.1</version>
     </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
   <build>
     <plugins>
@@ -50,11 +55,6 @@
         <configuration>
           <addResources>true</addResources>
         </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-surefire-plugin</artifactId>
-        <version>2.22.2</version>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
