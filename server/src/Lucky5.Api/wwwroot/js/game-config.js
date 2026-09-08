@@ -86,8 +86,9 @@ const GAME_CONFIG = Object.freeze({
         get drawRevealStartMs()  { return Math.round(this.drawRevealStartFrames * 1000 / 60); },
 
         // Double-up: shuffle animation
-        // Classic arcade reel shuffle cadence (30ms per frame swap for rapid blur effect)
-        shuffleFrameMs:         50, // 50ms per frame swap for classic DU shuffle blur
+        // Classic arcade reel shuffle cadence — 30ms per frame swap (VSYNC-locked
+        // to ~2 ticks @ 60Hz) for a rapid blur effect that still reads as a reel.
+        shuffleFrameMs:         30, // 30ms per frame swap for classic DU shuffle blur
 
         // Bet Ramp timing
         betRampTickMs:         50,  // 50ms per step tick
