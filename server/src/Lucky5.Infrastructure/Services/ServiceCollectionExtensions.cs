@@ -128,6 +128,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IGameService, GameService>();
         services.AddScoped<IAdminService, AdminService>();
+        services.AddScoped<IAdminContentService, AdminContentService>();
         services.AddSingleton<IAdminAuditService, AdminAuditService>();
         services.AddSingleton<ICabinetDeviceAuthService, CabinetDeviceAuthService>();
         services.AddScoped<IGeneralService, GeneralService>();
