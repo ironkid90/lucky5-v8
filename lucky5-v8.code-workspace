@@ -41,6 +41,7 @@
 		"chat.utilitySmallModel": "openprovider/openprovider/free-openai-fast",
 		"geminicodeassist.project": "euphoric-axon-500505-f9",
 		"chat.useClaudeHooks": true,
-		"java.compile.nullAnalysis.mode": "automatic"
+		"java.compile.nullAnalysis.mode": "automatic",
+		"java.configuration.updateBuildConfiguration": "interactive"
 	}
 }
