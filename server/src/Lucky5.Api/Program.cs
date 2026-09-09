@@ -194,7 +194,12 @@ app.UseMiddleware<AuditLoggingMiddleware>();
 app.MapControllers();
 app.MapHub<CarrePokerGameHub>("/CarrePokerGameHub");
 
-app.MapHealthChecks("/health/live");
+app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    // Liveness must not depend on Redis or snapshot storage. Readiness below
+    // retains every registered dependency check.
+    Predicate = registration => registration.Name == "live"
+});
 app.MapHealthChecks("/health/ready");
 app.MapHealthChecks("/health/simple");
 app.MapHealthChecks("/health/fallback");
