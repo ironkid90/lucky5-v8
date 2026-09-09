@@ -6,6 +6,10 @@ public sealed class MachineSessionState
     public Guid UserId { get; init; }
     public int MachineId { get; init; }
     public decimal MachineCredits { get; set; }
+    public decimal ReservedStake { get; set; }
+    public Guid? ReservationId { get; set; }
+    public DateTime? ReservationExpiresUtc { get; set; }
+    public string? ReservationStatus { get; set; }
 
     public decimal TotalCashIn { get; set; }
     public bool IsMachineClosed { get; set; }
