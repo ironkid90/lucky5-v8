@@ -1,6 +1,7 @@
 namespace Lucky5.Tests;
 
 using Lucky5.Application.Requests;
+using Lucky5.Application.Dtos;
 using Lucky5.Infrastructure.Services;
 
 public static class AdminContentTests
