@@ -134,6 +134,9 @@
         cards: [],
         holds: [],
         bet: 0,
+        reservedStake: 0,
+        reservationId: null,
+        reservationExpiresUtc: null,
         winMeter: 0,
         doubleUpState: {
             dealerCard: null,
@@ -192,6 +195,9 @@
             cards: [],
             holds: [],
             bet: 0,
+        reservedStake: 0,
+        reservationId: null,
+        reservationExpiresUtc: null,
             winMeter: 0,
             doubleUpState: {
                 dealerCard: null,
@@ -231,7 +237,12 @@
 
     function syncGameFromSnapshot(snapshot) {
         if (!snapshot) return;
+        const current = gameStore.getState();
+        if (snapshot.stateVersion !== undefined && Number(snapshot.stateVersion) < current.stateVersion) return;
         const updates = {};
+        for (const key of ['reservedStake', 'reservationId', 'reservationExpiresUtc']) {
+            if (snapshot[key] !== undefined) updates[key] = snapshot[key];
+        }
         if (snapshot.machineId !== undefined) updates.machineId = _safeNumber(snapshot.machineId, 0);
         if (snapshot.phase) updates.phase = snapshot.phase;
         if (snapshot.cards) updates.cards = Array.isArray(snapshot.cards) ? snapshot.cards.map(c => c ? _clone(c) : c) : [];

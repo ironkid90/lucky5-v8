@@ -52,6 +52,64 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		}
 	}
 
+    public Task<bool> ReleaseStakeAsync(Guid userId, int machineId, Guid? reservationId, bool expiredOnly, CancellationToken cancellationToken)
+        => WithSessionGateAsync(userId, machineId, cancellationToken, async () =>
+        {
+            var session = await store.GetMachineSessionAsync(userId, machineId);
+            if (session is null || session.ReservedStake <= 0m) return false;
+            if (reservationId.HasValue && reservationId != session.ReservationId)
+                throw new InvalidOperationException("Reservation does not belong to this machine session");
+            if (expiredOnly && session.ReservationExpiresUtc > DateTime.UtcNow) return false;
+            await ReleaseStakeCoreAsync(session, expiredOnly ? "expired" : "cancelled");
+            return true;
+        });
+
+    private async Task ReleaseStakeCoreAsync(MachineSessionState session, string status)
+    {
+        if (session.ReservedStake <= 0m) return;
+        session.MachineCredits += session.ReservedStake;
+        session.ReservedStake = 0m;
+        session.ReservationId = null;
+        session.ReservationExpiresUtc = null;
+        session.ReservationStatus = status;
+        session.LastUpdatedUtc = DateTime.UtcNow;
+        await store.UpdateMachineSessionAsync(session);
+        await store.AdvanceCabinetStateCursorAsync(session.UserId, session.MachineId);
+        InvalidateCaches(session.UserId, session.MachineId);
+    }
+
+    private Task<bool> ReserveStakeAsync(Guid userId, int machineId, decimal amount, Guid reservationId, CancellationToken cancellationToken)
+        => WithSessionGateAsync(userId, machineId, cancellationToken, async () =>
+        {
+            await RequireProfileAsync(userId);
+            var machine = await RequireMachineAsync(machineId);
+            var session = await RequireMachineSessionAsync(userId, machineId, false);
+            if (session.ReservationRequests.TryGetValue(reservationId, out var original))
+            {
+                if (original != amount) throw new InvalidOperationException("Reservation retry content conflicts");
+                return true;
+            }
+            if (session.ReservedStake > 0m && session.ReservationExpiresUtc <= DateTime.UtcNow)
+                await ReleaseStakeCoreAsync(session, "expired");
+            if (session.IsMachineClosed || await HasRecoverableRoundAsync(userId, machineId))
+                throw new InvalidOperationException("Cannot reserve stake during an active round or closed session");
+            var available = session.MachineCredits + session.ReservedStake;
+            var minimum = available > 0m && available < machine.MinBet ? 1m : machine.MinBet;
+            if (amount < minimum || amount > machine.MaxBet || amount > available || amount != decimal.Truncate(amount))
+                throw new InvalidOperationException("Bet amount is outside machine limits or available credits");
+            session.MachineCredits = available - amount;
+            session.ReservedStake = amount;
+            session.ReservationId = reservationId;
+            session.ReservationRequests[reservationId] = amount;
+            session.ReservationExpiresUtc = DateTime.UtcNow.AddMinutes(5);
+            session.ReservationStatus = "reserved";
+            session.LastUpdatedUtc = DateTime.UtcNow;
+            await store.UpdateMachineSessionAsync(session);
+            await store.AdvanceCabinetStateCursorAsync(userId, machineId);
+            InvalidateCaches(userId, machineId);
+            return true;
+        });
+
 	private static string SessionGateKey(Guid userId, int machineId) => $"{userId:N}:{machineId}";
 
 	private static async Task<T> WithSessionGateAsync<T>(Guid userId, int machineId, CancellationToken cancellationToken, Func<Task<T>> action)
@@ -336,6 +394,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		var profile = await RequireProfileAsync(userId);
 		var session = await RequireMachineSessionAsync(userId, machineId, createIfMissing: false);
 
+        await ReleaseStakeCoreAsync(session, "cashout");
 		if (session.MachineCredits <= 0m)
 		{
 			return await ToMachineSessionDtoAsync(userId, session, profile.WalletBalance);
@@ -406,8 +465,24 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 	}
 
 	public Task<DealResultDto> DealAsync(Guid userId, DealRequest request, CancellationToken cancellationToken)
-		=> WithSessionGateAsync(userId, request.MachineId, cancellationToken,
-			() => DealCoreAsync(userId, request, cancellationToken));
+        => WithSessionGateAsync(userId, request.MachineId, cancellationToken, async () =>
+        {
+            var session = await RequireMachineSessionAsync(userId, request.MachineId, true);
+            if (request.ReservationId is Guid id && session.ReservationDealResults.TryGetValue(id, out var json))
+            {
+                var replay = JsonSerializer.Deserialize<DealResultDto>(json, CabinetJsonOptions)!;
+                if (replay.BetAmount != request.BetAmount) throw new InvalidOperationException("Reservation retry amount conflicts");
+                return replay;
+            }
+            try { return await DealCoreAsync(userId, request, cancellationToken); }
+            catch
+            {
+                // Invalid foreign IDs must not cancel the owner's pending stake.
+                if (session.ReservedStake > 0m && request.ReservationId == session.ReservationId)
+                    await ReleaseStakeCoreAsync(session, "failed");
+                throw;
+            }
+        });
 
 	private async Task<DealResultDto> DealCoreAsync(Guid userId, DealRequest request, CancellationToken cancellationToken)
 	{
@@ -417,7 +492,12 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		if (session.IsMachineClosed)
 			throw new InvalidOperationException("Machine is closed - cash out to wallet before continuing");
 
-		ReleaseExpiredReservation(session);
+        if (session.ReservedStake > 0m && session.ReservationExpiresUtc <= DateTime.UtcNow)
+            await ReleaseStakeCoreAsync(session, "expired");
+        if (request.ReservationId.HasValue && (session.ReservedStake <= 0m || request.ReservationId != session.ReservationId))
+            throw new InvalidOperationException("Reservation expired, cancelled, or not owned by this session");
+        if (await HasRecoverableRoundAsync(userId, request.MachineId))
+            throw new InvalidOperationException("Complete the active round before dealing again");
 		if (session.ReservedStake > 0m)
 		{
 			if (request.ReservationId is null || request.ReservationId != session.ReservationId || session.ReservedStake != request.BetAmount)
@@ -427,18 +507,19 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 
 		// Last-hand behavior: if credits < min bet but > 0, allow play with remaining credits.
 		// Paytable scales to the actual bet amount. This prevents orphaned credits on the machine.
-		bool isLastHand = session.MachineCredits > 0 && session.MachineCredits < machine.MinBet;
+		var availableForDeal = session.MachineCredits + session.ReservedStake;
+		bool isLastHand = availableForDeal > 0 && availableForDeal < machine.MinBet;
 		var effectiveMinBet = isLastHand ? 1m : machine.MinBet;
 
 		if (request.BetAmount <= 0 || request.BetAmount < effectiveMinBet || request.BetAmount > machine.MaxBet)
 			throw new InvalidOperationException("Bet amount is outside machine limits");
-		if (session.MachineCredits < request.BetAmount && !isLastHand)
+		if (availableForDeal < request.BetAmount && !isLastHand)
 			throw new InvalidOperationException("Insufficient machine credits for deal - cash in from wallet first");
 
 		// For last-hand: clamp bet to available credits
 		if (isLastHand)
 		{
-			request = request with { BetAmount = Math.Min(request.BetAmount, session.MachineCredits) };
+			request = request with { BetAmount = Math.Min(request.BetAmount, availableForDeal) };
 		}
 
 		ulong seed;
@@ -487,7 +568,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		var hand = shuffledDeck.Take(5).ToArray();
 		var drawState = FiveCardDrawState.Create(seed, shuffledDeck.ToArray(), hand);
 
-		session.MachineCredits -= request.BetAmount;
+		if (session.ReservedStake == 0m) session.MachineCredits -= request.BetAmount;
 		session.ReservedStake = 0m;
 		session.ReservationId = null;
 		session.ReservationExpiresUtc = null;
@@ -530,11 +611,17 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 
 		stateCache.InvalidateActiveRound(userId, request.MachineId);
 		stateCache.InvalidateMachineSession(userId, request.MachineId);
-		return new DealResultDto(round.RoundId, cards.Select(ToDto).ToArray(), request.BetAmount, session.MachineCredits, jackpots, advisedHolds,
+		var result = new DealResultDto(round.RoundId, cards.Select(ToDto).ToArray(), request.BetAmount, session.MachineCredits, jackpots, advisedHolds,
 			AceCard: false,
 			AceMultiplier: 0,
 			StateVersion: cursor.StateVersion,
 			SequenceNumber: cursor.SequenceNumber);
+        if (request.ReservationId is Guid reservationId)
+        {
+            session.ReservationDealResults[reservationId] = JsonSerializer.Serialize(result, CabinetJsonOptions);
+            await store.UpdateMachineSessionAsync(session);
+        }
+        return result;
 	}
 
 	public async Task<DrawResultDto> DrawAsync(Guid userId, DrawRequest request, CancellationToken cancellationToken)
@@ -1740,6 +1827,12 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 	private async Task ExecuteCabinetCommandAsync(Guid userId, CabinetCommandDto command, CancellationToken cancellationToken)
 	{
 		var type = NormalizeCabinetCommandType(command.CommandType);
+        if (command.Payload.ContainsKey("round_id"))
+        {
+            var round = await store.GetRoundAsync(GetRequiredGuidPayload(command.Payload, "round_id"));
+            if (round is null || round.UserId != userId || round.MachineId != command.MachineId)
+                throw new KeyNotFoundException("Round not found for user and machine");
+        }
 		switch (type)
 		{
 			case "cash_in":
@@ -1750,8 +1843,14 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 				await CashOutAsync(userId, command.MachineId, cancellationToken);
 				return;
 
+            case "reserve_stake":
+                await ReserveStakeAsync(userId, command.MachineId, GetRequiredDecimalPayload(command.Payload, "bet_amount"), command.CommandId, cancellationToken);
+                return;
+            case "cancel_stake":
+                await ReleaseStakeAsync(userId, command.MachineId, GetRequiredGuidPayload(command.Payload, "reservation_id"), false, cancellationToken);
+                return;
 			case "deal":
-				await DealAsync(userId, new DealRequest(command.MachineId, GetRequiredDecimalPayload(command.Payload, "bet_amount")), cancellationToken);
+				await DealAsync(userId, new DealRequest(command.MachineId, GetRequiredDecimalPayload(command.Payload, "bet_amount"), command.Payload.ContainsKey("reservation_id") ? GetRequiredGuidPayload(command.Payload, "reservation_id") : null), cancellationToken);
 				return;
 
 			case "draw":
@@ -1805,6 +1904,8 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 				return;
 
 			case "leave_machine":
+                await ReleaseStakeAsync(userId, command.MachineId, null, false, cancellationToken);
+                return;
 			case "heartbeat":
 			case "reconnect_sync":
 				await RequireMachineAsync(command.MachineId);
@@ -2124,11 +2225,13 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		=> NormalizeCabinetCommandType(commandType) is not ("heartbeat" or "reconnect_sync");
 
 	private static bool MutatesCabinetState(string commandType)
-		=> NormalizeCabinetCommandType(commandType) is not ("leave_machine" or "heartbeat" or "reconnect_sync" or "hold" or "clear_holds" or "bet_change");
+		=> NormalizeCabinetCommandType(commandType) is not ("heartbeat" or "reconnect_sync" or "hold" or "clear_holds" or "bet_change");
 
 	private static bool IsKnownCabinetCommandType(string commandType)
 		=> NormalizeCabinetCommandType(commandType) is "cash_in"
 			or "cash_out"
+            or "reserve_stake"
+            or "cancel_stake"
 			or "deal"
 			or "draw"
 			or "hold"
@@ -3023,7 +3126,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 	{
 		var changed = false;
 
-		if (session.MachineCredits <= 0m)
+		if (session.MachineCredits <= 0m && session.ReservedStake <= 0m)
 		{
 			if (session.MachineCredits != 0m)
 			{
@@ -3150,11 +3253,11 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 	}
 
 	private static bool IsStaleZeroCreditSession(MachineSessionDto session)
-		=> session.MachineCredits <= 0m
+		=> session.MachineCredits <= 0m && session.ReservedStake <= 0m
 			&& (session.IsMachineClosed || session.TotalCashIn > 0m || session.CanCashOut || session.CashOutThreshold > 0m);
 
 	private static MachineSessionDto ToMachineSessionDto(MachineSessionState session, decimal walletBalance, bool canCashOut, MachineTransparencyDto? transparency = null)
-		=> new(session.SessionId, session.MachineId, session.MachineCredits, session.TotalCashIn, session.TotalCashIn * 2m, canCashOut, session.IsMachineClosed, walletBalance, transparency);
+		=> new(session.SessionId, session.MachineId, session.MachineCredits, session.TotalCashIn, session.TotalCashIn * 2m, canCashOut, session.IsMachineClosed, walletBalance, transparency, session.ReservedStake, session.ReservationId, session.ReservationExpiresUtc);
 
 	private static MachinePolicyState BuildMachinePolicyState(MachineLedgerState ledger)
 	{

@@ -22,7 +22,8 @@
         },
         canDeal(state) {
             return state.machine.gameState === 'idle'
-                && state.machine.balance >= state.machine.currentBet;
+                && Boolean(state.machine.reservationId) && state.machine.reservedStake > 0
+                && !state.machine.commandBusy && !state.presentation.locked;
         },
         canDraw(state) {
             return state.machine.gameState === 'hold';

@@ -10,4 +10,7 @@ public sealed record MachineSessionDto(
     bool CanCashOut,
     bool IsMachineClosed,
     decimal WalletBalance,
-    MachineTransparencyDto? Transparency = null);
+    MachineTransparencyDto? Transparency = null,
+    decimal ReservedStake = 0m,
+    Guid? ReservationId = null,
+    DateTime? ReservationExpiresUtc = null);

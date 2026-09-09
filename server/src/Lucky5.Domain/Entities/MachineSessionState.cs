@@ -10,6 +10,8 @@ public sealed class MachineSessionState
     public Guid? ReservationId { get; set; }
     public DateTime? ReservationExpiresUtc { get; set; }
     public string? ReservationStatus { get; set; }
+    public Dictionary<Guid, string> ReservationDealResults { get; set; } = new();
+    public Dictionary<Guid, decimal> ReservationRequests { get; set; } = new();
 
     public decimal TotalCashIn { get; set; }
     public bool IsMachineClosed { get; set; }

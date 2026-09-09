@@ -11,6 +11,7 @@ public static class CabinetCommandIntegrityTests
 {
     public static async Task RunAsync(List<string> failures)
     {
+        await StakeReservationLifecycleAsync(failures);
         await CashInCommandUsesAuthoritativeDualWalletAndIsIdempotentAsync(failures);
         await DuplicateCommandWithDifferentContentIsRejectedAsync(failures);
         await StaleExpectedStateVersionRejectsBeforeMutationAsync(failures);
@@ -389,6 +390,32 @@ public static class CabinetCommandIntegrityTests
             && accepted.Event?.EventType == "jackpot_updated"
             && ledger.JackpotFullHouseRank == 13
             && accepted.Snapshot?.Jackpot.FullHouseRank == 13);
+    }
+
+    private static async Task StakeReservationLifecycleAsync(List<string> failures)
+    {
+        var store = new InMemoryDataStore();
+        var service = CreateService(store);
+        var user = Guid.NewGuid();
+        SeedPlayer(store, user, "reservation", 200_000m, 0m);
+        var machine = store.Machines.Values.First(m => m.IsOpen);
+        await service.CashInAsync(user, machine.Id, machine.MinBet, CancellationToken.None);
+        var session = GetSession(store, user, machine.Id);
+        var cursor = await service.GetCabinetStateCursorAsync(user, machine.Id, CancellationToken.None);
+        var command = BuildCommand(Guid.NewGuid(), "reserve_stake", machine.Id, session.SessionId,
+            cursor.StateVersion, Guid.NewGuid().ToString(), new Dictionary<string, object?> { ["bet_amount"] = machine.MinBet });
+        var reserved = await service.SubmitCabinetCommandAsync(user, command, CancellationToken.None);
+        Assert(failures, "BET must reserve and debit before DEAL", reserved.Accepted && session.MachineCredits == 0m && session.ReservedStake == machine.MinBet);
+        if (!reserved.Accepted) return;
+        var duplicate = await service.SubmitCabinetCommandAsync(user, command, CancellationToken.None);
+        Assert(failures, "reserve retry must not double debit", duplicate.Status == "duplicate" && session.ReservedStake == machine.MinBet);
+        var recovered = await service.GetMachineSessionAsync(user, machine.Id, CancellationToken.None);
+        Assert(failures, "reserved-zero-credit session retains cash-in", recovered.TotalCashIn == machine.MinBet);
+        var id = session.ReservationId;
+        var dealt = await service.DealAsync(user, new Lucky5.Application.Requests.DealRequest(machine.Id, machine.MinBet, id), CancellationToken.None);
+        Assert(failures, "DEAL consumes reservation without double charge", session.MachineCredits == 0m && session.ReservedStake == 0m && dealt.BetAmount == machine.MinBet);
+        var retry = await service.DealAsync(user, new Lucky5.Application.Requests.DealRequest(machine.Id, machine.MinBet, id), CancellationToken.None);
+        Assert(failures, "reservation DEAL retry returns identical round", retry.RoundId == dealt.RoundId && store.ActiveRounds.Count == 1);
     }
 
     private static CabinetCommandDto BuildCommand(

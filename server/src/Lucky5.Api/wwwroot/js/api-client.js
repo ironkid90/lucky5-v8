@@ -14,6 +14,7 @@
             this.status = Number(details.status || 0);
             this.code = details.code || '';
             this.traceId = details.traceId || '';
+            this.data = details.data || null;
             this.retryable = details.retryable ?? (this.status === 0 || this.status === 408 || this.status === 429 || this.status >= 500);
         }
     }
@@ -80,7 +81,8 @@
                         status: response.status,
                         code: normalized.code,
                         traceId: normalized.traceId,
-                        retryable: normalized.retryable
+                        retryable: normalized.retryable,
+                        data: unwrapResponse(json)
                     }
                 );
             }

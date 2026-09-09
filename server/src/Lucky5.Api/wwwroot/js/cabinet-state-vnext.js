@@ -21,7 +21,11 @@ window.CabinetState = (function () {
             gameState: 'idle',
             balance: 0,
             walletBalance: 0,
-            currentBet: 5000,
+            currentBet: 0,
+            reservedStake: 0,
+            reservationId: null,
+            reservationExpiresUtc: null,
+            commandBusy: false,
             winAmount: 0,
             cards: [],
             holdIndexes: [],
@@ -180,6 +184,10 @@ window.CabinetState = (function () {
             gameState: typeof gameState !== 'undefined' ? gameState : 'idle',
             balance: typeof balance !== 'undefined' ? _safeNumber(balance, 0) : 0,
             walletBalance: typeof walletBalance !== 'undefined' ? _safeNumber(walletBalance, 0) : 0,
+            reservedStake: typeof reservedStake !== 'undefined' ? reservedStake : 0,
+            reservationId: typeof reservationId !== 'undefined' ? reservationId : null,
+            reservationExpiresUtc: typeof reservationExpiresUtc !== 'undefined' ? reservationExpiresUtc : null,
+            commandBusy: typeof _cabinetCommandBusy !== 'undefined' && (_cabinetCommandBusy || betRampRunning),
             currentBet: typeof currentBet !== 'undefined' ? _safeNumber(currentBet, 5000) : 5000,
             winAmount: typeof winAmount !== 'undefined' ? _safeNumber(winAmount, 0) : 0,
             cards: typeof cards !== 'undefined' && Array.isArray(cards) ? cards : [],
@@ -206,13 +214,13 @@ window.CabinetState = (function () {
     function selectors(snapshot) {
         const state = snapshot || get();
         const machine = state.machine;
-        const locked = Boolean(state.presentation.locked);
+        const locked = Boolean(state.presentation.locked || machine.commandBusy);
         const machineClosed = machine.machineSessionClosed || machine.balance >= (window.GAME_CONFIG?.rules?.machineCreditLimit || 40000000);
 
         return {
             machineClosed,
             canBet: !locked && !machineClosed && (machine.gameState === 'idle' || machine.gameState === 'doubleup'),
-            canDeal: !locked && !machineClosed && (machine.gameState === 'idle' || machine.gameState === 'hold'),
+            canDeal: !locked && !machineClosed && ((machine.gameState === 'idle' && Boolean(machine.reservationId) && machine.reservedStake > 0) || machine.gameState === 'hold'),
             // Allow holds during 'hold' phase, OR allow HOLD[0] during 'idle' for FH-rank adjustment
             // if the machine is armed (has taken a bet).
             canHold: (index) => {

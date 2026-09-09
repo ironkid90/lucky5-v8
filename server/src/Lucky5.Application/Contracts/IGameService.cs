@@ -11,6 +11,7 @@ public interface IGameService
     Task<IReadOnlyList<MachineListingDto>> GetLobbyMachinesAsync(Guid userId, CancellationToken cancellationToken);
     Task<DefaultRulesDto> GetDefaultRulesAsync(CancellationToken cancellationToken);
     Task<MachineSessionDto> GetMachineSessionAsync(Guid userId, int machineId, CancellationToken cancellationToken);
+    Task<bool> ReleaseStakeAsync(Guid userId, int machineId, Guid? reservationId, bool expiredOnly, CancellationToken cancellationToken) => Task.FromResult(false);
     Task<MachineSessionDto> CashInAsync(Guid userId, int machineId, decimal amount, CancellationToken cancellationToken);
     Task<MachineSessionDto> CashOutAsync(Guid userId, int machineId, CancellationToken cancellationToken, bool bypassRules = false);
 

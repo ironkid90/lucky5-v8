@@ -50,6 +50,12 @@ let currentRole = normalizeRole(sessionStorage.getItem('lucky5_role'));
 let balance = 0;
 let walletBalance = 0;
 let currentBet = 0; // Starts at 0; bet ramp fills to minBet in 100-credit steps
+let reservedStake = 0;
+let reservationId = null;
+let reservationExpiresUtc = null;
+let _cabinetCommandBusy = false;
+let _pendingCabinetCommand = null;
+let _deferredCabinetSnapshot = null;
 
 let GAME_RULES = {
     betStep: 100,
@@ -148,6 +154,11 @@ let _lastAppliedStateVersion = 0;
 // Top-level: invoked from doDeal/doDoubleUp/exitDoubleUp, so it must NOT live
 // inside setupSignalR (a nested declaration is invisible to those callers).
 function _flushDeferredServerSnapshot() {
+    if (_deferredCabinetSnapshot && !_isPresentationBusy() && !_cabinetCommandBusy && !betRampRunning) {
+        const latest = _deferredCabinetSnapshot;
+        _deferredCabinetSnapshot = null;
+        receiveCabinetSnapshot(latest);
+    }
     if (!_deferredServerSnapshot) return;
     if (_isPresentationBusy()) return;
     const snap = _deferredServerSnapshot;
@@ -401,7 +412,7 @@ async function apiCall(method, path, body) {
     const isSuccess = json?.success ?? json?.Success ?? true;
 
     if (!res.ok || String(statusText || '').toLowerCase() === 'error' || isSuccess === false) {
-        throw new Error(message || errors?.[0] || 'Request failed');
+        throw Object.assign(new Error(message || errors?.[0] || 'Request failed'), { status: res.status, data: payload });
     }
 
     debugLog('api:response', { method, url, status: res.status, data: payload });
@@ -669,6 +680,9 @@ function resetGameRuntimeState({ clearSelection = false } = {}) {
     clientStateVersion = 0;
     clientSequenceNumber = 0;
     _lastAppliedStateVersion = 0;
+    _pendingCabinetCommand = null;
+    _deferredCabinetSnapshot = null;
+    syncStakeReservation({ reservedStake: 0 });
     _discardDeferredServerSnapshot();
 
     if (clearSelection) {
@@ -771,6 +785,114 @@ function isCabinetButtonEnabled(snapshot, buttonId) {
     });
 }
 
+function syncStakeReservation(source) {
+    if (!source || (source.reservedStake === undefined && source.reserved_stake === undefined)) return;
+    reservedStake = parseCabinetNumber(readCabinetField(source, 'reservedStake', 'reserved_stake'));
+    reservationId = readCabinetField(source, 'reservationId', 'reservation_id') || null;
+    reservationExpiresUtc = readCabinetField(source, 'reservationExpiresUtc', 'reservation_expires_utc') || null;
+    if (gameState === 'idle') currentBet = reservedStake;
+    jackpotRankArmed = Boolean(reservationId && reservedStake > 0);
+    window.jackpotRankArmed = jackpotRankArmed;
+    if (window.CabinetClientStores) CabinetClientStores.game.setState({ reservedStake, reservationId, reservationExpiresUtc, bet: currentBet });
+    if (window.CabinetState) CabinetState.updateMachine({ reservedStake, reservationId, reservationExpiresUtc, currentBet, balance });
+}
+
+function pendingCommandStorageKey() {
+    return `lucky5_command:${currentUsername}:${machineId}`;
+}
+
+function savePendingCabinetCommand(command) {
+    _pendingCabinetCommand = command;
+    // Persist before sending, so a reload retries the exact same transaction.
+    if (command) sessionStorage.setItem(pendingCommandStorageKey(), JSON.stringify(command));
+    else sessionStorage.removeItem(pendingCommandStorageKey());
+}
+
+async function submitCabinetCommand(commandType, payload) {
+    if (_cabinetCommandBusy) throw new Error('COMMAND IN PROGRESS');
+    const stored = sessionStorage.getItem(pendingCommandStorageKey());
+    const pending = _pendingCabinetCommand || (stored ? JSON.parse(stored) : null);
+    if (pending && (pending.machine_id !== machineId || pending.command_type !== commandType)) {
+        throw new Error('RECOVER PENDING COMMAND BEFORE CONTINUING');
+    }
+    const id = pending?.command_id || crypto.randomUUID();
+    const command = pending || {
+        message_type: 'cabinet_command', schema_version: 'cabinet.v1', command_id: id,
+        command_type: commandType, session_id: null, machine_id: machineId,
+        expected_state_version: clientStateVersion, idempotency_key: id,
+        client_sequence_number: clientSequenceNumber + 1,
+        sent_at_utc: new Date().toISOString(), payload
+    };
+    savePendingCabinetCommand(command);
+    _cabinetCommandBusy = true;
+    setButtonStates();
+    try {
+        const result = await apiCall('POST', '/api/Game/cabinet/command', command);
+        if (!result || typeof result.accepted !== 'boolean' || (result.accepted && !result.snapshot)) throw new Error('Incomplete command acknowledgement');
+        savePendingCabinetCommand(null);
+        if (result.snapshot) applyCabinetSnapshot(result.snapshot);
+        if (!result.accepted) throw Object.assign(new Error(result.error?.message || result.status), { definitive: true });
+        return result.snapshot;
+    } catch (error) {
+        // A lost response is NOT a rejection: never cancel/refund or mint another ID.
+        const rejection = error.data;
+        if (rejection?.accepted === false || error.definitive) {
+            savePendingCabinetCommand(null);
+            if (rejection?.snapshot) applyCabinetSnapshot(rejection.snapshot);
+        }
+        throw error;
+    } finally {
+        _cabinetCommandBusy = false;
+        setButtonStates();
+    }
+}
+
+async function recoverPendingCabinetCommand() {
+    const stored = sessionStorage.getItem(pendingCommandStorageKey());
+    const pending = _pendingCabinetCommand || (stored ? JSON.parse(stored) : null);
+    if (pending) {
+        try { await submitCabinetCommand(pending.command_type, pending.payload); }
+        catch (error) { if (_pendingCabinetCommand) throw error; }
+    }
+}
+
+function receiveCabinetSnapshot(snapshot) {
+    if (!snapshot) return false;
+    snapshot = normalizeApiPayload(snapshot);
+    const sourceMachine = readCabinetField(snapshot, 'machineId', 'machine_id');
+    if (sourceMachine && Number(sourceMachine) !== machineId) return false;
+    // Lightweight jackpot notifications aren't cabinet state and must not erase a round.
+    if (!readCabinetField(snapshot, 'gameState', 'game_state')) {
+        if (snapshot.jackpots) updateJackpotDisplay(snapshot.jackpots);
+        return false;
+    }
+    const version = Number(readCabinetField(snapshot, 'stateVersion', 'state_version') || 0);
+    if (version < Math.max(clientStateVersion, _lastAppliedStateVersion)) return false;
+    if (_isPresentationBusy() || _cabinetCommandBusy || betRampRunning) {
+        const queuedVersion = Number(readCabinetField(_deferredCabinetSnapshot, 'stateVersion', 'state_version') || 0);
+        if (version >= queuedVersion) _deferredCabinetSnapshot = snapshot;
+        return false;
+    }
+    if (!applyCabinetSnapshot(snapshot)) return false;
+    const round = buildRoundSnapshotFromCabinetSnapshot(snapshot);
+    if (round) restoreRoundFromSnapshot(round);
+    else refreshIdleMachineState(reservationId ? 'PRESS DEAL OR CANCEL' : null);
+    _lastAppliedStateVersion = version;
+    if (window.CabinetState) CabinetState.syncFromRuntime();
+    return true;
+}
+
+async function cancelStakeReservation() {
+    if (_cabinetCommandBusy || _actionLock || gameState !== 'idle') return;
+    try {
+        await recoverPendingCabinetCommand();
+        await fetchAndRestoreFromSnapshot();
+        if (gameState !== 'idle' || !reservationId) return;
+        await submitCabinetCommand('cancel_stake', { reservation_id: reservationId });
+        refreshIdleMachineState();
+    } catch (error) { showMessage(error.message, 'lose'); }
+}
+
 function applyCabinetSnapshot(snapshot) {
     if (!snapshot) return null;
 
@@ -782,6 +904,7 @@ function applyCabinetSnapshot(snapshot) {
 
     const version = readCabinetField(snapshot, 'stateVersion', 'state_version', 'version');
     const sequence = readCabinetField(snapshot, 'sequenceNumber', 'sequence_number', 'sequence');
+    if (Number(version || 0) < Math.max(clientStateVersion, _lastAppliedStateVersion)) return null;
     if (version !== null && version !== undefined) clientStateVersion = Number(version) || 0;
     if (sequence !== null && sequence !== undefined) clientSequenceNumber = Number(sequence) || 0;
 
@@ -795,6 +918,7 @@ function applyCabinetSnapshot(snapshot) {
         walletBalance: readCabinetField(credits, 'walletBalance', 'wallet_balance')
     });
 
+    syncStakeReservation(credits);
     walletBalance = parseCabinetNumber(readCabinetField(credits, 'walletBalance', 'wallet_balance'), walletBalance);
     syncMachineSessionState({
         isMachineClosed: readCabinetField(sessionState, 'isMachineClosed', 'is_machine_closed'),
@@ -803,6 +927,11 @@ function applyCabinetSnapshot(snapshot) {
         isArmed: readCabinetField(sessionState, 'isArmed', 'is_armed')
     });
 
+    if (window.CabinetClientStores) {
+        CabinetClientStores.auth.setState({ balance, walletBalance });
+        CabinetClientStores.game.setState({ reservedStake, reservationId, reservationExpiresUtc, bet: currentBet,
+            stateVersion: clientStateVersion, sequenceNumber: clientSequenceNumber });
+    }
     updateLobbyBalance();
     updateStakeDisplay();
     updatePaytable(currentHandRank);
@@ -903,6 +1032,7 @@ function hasRecoverableMachineSession(session, cabinetSnapshot) {
         return true;
     }
 
+    if (Number(session?.reservedStake) > 0) return true;
     if (Boolean(session?.isMachineClosed) || Boolean(session?.canCashOut)) {
         return true;
     }
@@ -931,6 +1061,7 @@ function isMachineClosedForUi() {
 // Machine session, token helpers, credit sync.
 async function fetchMachineSession() {
     const session = await apiCall('GET', getMachineSessionPath());
+    syncStakeReservation(session);
     syncMachineCreditsFromResponse(session);
     syncMachineSessionState(session);
     walletBalance = session.walletBalance ?? walletBalance;
@@ -948,20 +1079,9 @@ async function fetchActiveRoundState() {
 // ensuring DU state is never lost (previously the fallback only fetched the
 // active round, which could miss DU state).
 async function fetchAndRestoreFromSnapshot() {
-    try {
-        const snapshot = await fetchCabinetSnapshot();
-        if (snapshot) {
-            const roundSnapshot = buildRoundSnapshotFromCabinetSnapshot(snapshot);
-            if (roundSnapshot) {
-                restoreRoundFromSnapshot(roundSnapshot);
-                _lastAppliedStateVersion = clientStateVersion;
-                return true;
-            }
-        }
-    } catch (e) {
-        console.warn('[Reconnect] fetchAndRestoreFromSnapshot failed:', e);
-    }
-    return false;
+    await recoverPendingCabinetCommand();
+    const snapshot = await fetchCabinetSnapshot();
+    return receiveCabinetSnapshot(snapshot);
 }
 
 async function fetchCabinetSnapshot() {
@@ -1035,8 +1155,9 @@ function refreshIdleMachineState(messageText = null, type = 'win') {
     roundId = null;
     takeScoreAnimating = false;
     gameState = 'idle';
-    jackpotRankArmed = false;
-    window.jackpotRankArmed = false;
+    jackpotRankArmed = Boolean(reservationId);
+    window.jackpotRankArmed = jackpotRankArmed;
+    if (reservationId) currentBet = reservedStake;
     updatePaytable();
     updateBonusBar(null);
     updateWinIndicator(0);
@@ -1770,7 +1891,7 @@ function setButtonStates() {
     const takeScoreBtn = $('#btn-take-score');
     const takeHalfBtn = $('#btn-take-half');
 
-    if (takeScoreAnimating || isSpectatorMode) {
+    if (takeScoreAnimating || isSpectatorMode || _cabinetCommandBusy || betRampRunning) {
         betBtn.disabled = true;
         dealBtn.disabled = true;
         cancelBtn.disabled = true;
@@ -1797,9 +1918,9 @@ function setButtonStates() {
     // DEAL enabled during idle only if bet is set (ramp complete or last-hand), or during hold phase
     const machine = machines.find(m => m.id === machineId);
     const minBet = machine?.minBet || 0;
-    const betReady = minBet > 0 ? currentBet >= minBet : currentBet > 0;
+    const betReady = Boolean(reservationId) && reservedStake >= minBet;
     dealBtn.disabled = !(gameState === 'idle' && betReady || gameState === 'hold') || machineClosed;
-    cancelBtn.disabled = gameState !== 'hold';
+    cancelBtn.disabled = gameState !== 'hold' && !(gameState === 'idle' && reservationId);
     bigBtn.disabled = !(isDoubleUp || canStartDoubleUpFromWin());
     smallBtn.disabled = !(isDoubleUp || canStartDoubleUpFromWin());
     takeScoreBtn.disabled = !(gameState === 'win' || isDoubleUp);
@@ -1825,62 +1946,50 @@ let betResetPending = false;
 let betRampRunning = false;
 
 async function doBet() {
-    if (gameState === 'doubleup') {
-        await doSwitchDealer();
-        return;
-    }
-    if (gameState !== 'idle') return;
-    if (betRampRunning) return; // Prevent double-press during ramp
-
+    if (gameState === 'doubleup') { await doSwitchDealer(); return; }
+    if (gameState !== 'idle' || betRampRunning || _actionLock || _cabinetCommandBusy) return;
     const machine = machines.find(m => m.id === machineId);
     if (!machine) return;
-
-    const step = machine.betIncrement || GAME_RULES.betStep; // 100-credit steps
-
-    if (currentBet < machine.minBet || betResetPending) {
-        betResetPending = false;
-        currentBet = 0;
-        // Auto-ramp is a stake reservation request, not a local balance mutation.
-        // The first server deal consumes the reserved stake exactly once.
-        const rampStep = Math.max(1, Number(step));
-        const rampTarget = Number(machine.minBet);
-        const rampStart = Number(currentBet);
-        const rampValues = [];
-        for (let value = rampStart + rampStep; value < rampTarget; value += rampStep) rampValues.push(value);
-        rampValues.push(rampTarget);
-        let rampIndex = 0;
-        betRampRunning = true;
-        const rampInterval = setInterval(() => {
-            currentBet = rampValues[rampIndex++] ?? machine.minBet;
-            playPress();
-            updateStakeDisplay();
-            updatePaytable();
-            if (currentBet >= machine.minBet) {
-                clearInterval(rampInterval);
-                betRampRunning = false;
-                jackpotRankArmed = true;
-                window.jackpotRankArmed = true;
-                updateBonusHandText();
-                setButtonStates();
-            }
-        }, T.betRampTickMs); // config-driven tick cadence for arcade-authentic ramp
-        return;
-    }
-
-    playPress();
-
-    if (currentBet >= machine.maxBet) {
-        currentBet = machine.minBet; // Cycle back to min
-    } else {
-        currentBet = Math.min(currentBet + step, machine.maxBet);
-    }
-
-    jackpotRankArmed = true;
-    updateStakeDisplay();
-    updatePaytable();
-    updateBonusHandText();
-    window.jackpotRankArmed = jackpotRankArmed;
+    betRampRunning = true;
     setButtonStates();
+    try {
+        // Resolve an ambiguous previous action before creating another transaction.
+        if (_pendingCabinetCommand || sessionStorage.getItem(pendingCommandStorageKey())) {
+            await recoverPendingCabinetCommand();
+            await fetchAndRestoreFromSnapshot();
+            return;
+        }
+        const step = machine.betIncrement || GAME_RULES.betStep;
+        const ramp = !reservationId || betResetPending;
+        const target = ramp || reservedStake >= machine.maxBet ? machine.minBet : Math.min(reservedStake + step, machine.maxBet);
+        const snapshot = await submitCabinetCommand('reserve_stake', { bet_amount: target });
+        // Credits and reservation are confirmed before the cosmetic stake ramp.
+        const confirmed = reservedStake;
+        if (ramp) {
+            for (let value = Math.max(1, Number(step)); value < confirmed; value += Math.max(1, Number(step))) {
+                currentBet = value;
+                playPress();
+                updateStakeDisplay();
+                updatePaytable();
+                await new Promise(resolve => setTimeout(resolve, T.betRampTickMs));
+            }
+        }
+        currentBet = confirmed;
+        betResetPending = false;
+        applyCabinetSnapshot(snapshot);
+        playPress();
+        updateBonusHandText();
+        showMessage('PRESS DEAL OR CANCEL');
+    } catch (error) {
+        showMessage(error.message, 'lose');
+    } finally {
+        betRampRunning = false;
+        currentBet = reservedStake;
+        updateStakeDisplay();
+        updatePaytable();
+        setButtonStates();
+        _flushDeferredServerSnapshot();
+    }
 }
 
 async function doSwitchDealer() {
@@ -2258,7 +2367,11 @@ function restoreRoundFromSnapshot(snapshot) {
 
 // ── 9. ACTIONS ───────────────────────────────────────────────────────────
 async function doDeal() {
-    if (_actionLock || jackpotDrainActive) return;
+    if (_actionLock || jackpotDrainActive || _cabinetCommandBusy || betRampRunning) return;
+    if (_pendingCabinetCommand || sessionStorage.getItem(pendingCommandStorageKey())) {
+        try { await fetchAndRestoreFromSnapshot(); } catch (error) { showMessage(error.message, 'lose'); }
+        return;
+    }
     if (gameState === 'idle') {
         if (!machineJoined) {
             if (!isHubConnected()) {
@@ -2271,8 +2384,8 @@ async function doDeal() {
         }
         // The server is authoritative for stake reservation and draw funding.
         // Do not pre-charge or require a client-side 2x balance.
-        if (balance < currentBet) {
-            showMessage('NEED ENOUGH CREDITS FOR DEAL', 'lose');
+        if (!reservationId || reservedStake <= 0) {
+            showMessage('PLACE YOUR BET FIRST', 'lose');
             return;
         }
         playPress();
@@ -2288,17 +2401,15 @@ async function doDeal() {
         duDealerCard = null;
 
         try {
-            const result = await apiCall('POST', GAME_CONFIG.api.deal, {
-                machineId,
-                betAmount: currentBet
+            const snapshot = await submitCabinetCommand('deal', {
+                bet_amount: reservedStake, reservation_id: reservationId
             });
+            const result = buildRoundSnapshotFromCabinetSnapshot(snapshot);
             if (!result || !Array.isArray(result.cards)) {
                 throw new Error(`Deal response missing cards (keys: ${Object.keys(result || {}).join(',')})`);
             }
             roundId = result.roundId;
             cards = result.cards;
-            syncMachineCreditsFromResponse(result);
-            if (result.jackpots) updateJackpotDisplay(result.jackpots);
             updateWinAmountDisplay(0);
             holdIndexes.clear();
             $$('.cab-hold').forEach(btn => btn.classList.remove('active'));
@@ -2325,6 +2436,8 @@ async function doDeal() {
             setButtonStates();
             showIdleTitle();
             updateIdleOverlayVisibility();
+        } finally {
+            _flushDeferredServerSnapshot();
         }
     } else if (gameState === 'hold') {
         if (balance < currentBet) {
@@ -2473,6 +2586,7 @@ async function doDeal() {
 }
 
 function cancelHold() {
+    if (gameState === 'idle') return cancelStakeReservation();
     if (gameState !== 'hold') return;
     playPress();
     holdIndexes.clear();
@@ -3421,57 +3535,7 @@ async function setupSignalR() {
         })
         .build();
 
-    hubConnection.on('MachineStateUpdated', (state) => {
-        if (state) {
-            if (state.state_version !== undefined) clientStateVersion = state.state_version;
-            if (state.sequence_number !== undefined) clientSequenceNumber = state.sequence_number;
-            if (state.jackpots || state.Jackpot) {
-                updateJackpotDisplay(state.jackpots || state.Jackpot);
-            }
-            // Seamless state sync: active players now receive server pushes too.
-            // When mid-action (animation/lock), defer application to avoid interrupting
-            // the player's flow. When idle, apply immediately — this keeps the client
-            // in sync with server-authoritative state (machine close, admin actions, etc).
-            if (state.gameState || state.game_state) {
-                const roundSnapshot = buildRoundSnapshotFromCabinetSnapshot(state);
-                if (_isPresentationBusy() || isSpectatorMode) {
-                    // Spectators always apply immediately (no action lock).
-                    // Active players defer when mid-action.
-                    if (isSpectatorMode) {
-                        if (roundSnapshot) {
-                            restoreRoundFromSnapshot(roundSnapshot);
-                        } else {
-                            resetGameRuntimeState({ clearSelection: false });
-                        }
-                    } else if (roundSnapshot) {
-                        // Defer: keep only the latest snapshot (discard stale ones)
-                        _deferredServerSnapshot = roundSnapshot;
-                        _deferredServerSnapshotVersion = state.state_version ?? clientStateVersion ?? 0;
-                    } else {
-                        // No round content (idle/closed machine): still queue the
-                        // reset so an external close/reset is honored once the
-                        // current animation finishes instead of being dropped.
-                        _deferredServerSnapshot = _RESET_SENTINEL;
-                        _deferredServerSnapshotVersion = state.state_version ?? clientStateVersion ?? 0;
-                    }
-                } else {
-                    // Version guard: skip pushes we have already applied (the REST
-                    // response records its version, so the broadcast twin of our own
-                    // action is dropped here instead of re-rendering identical state).
-                    const pushVersion = state.state_version ?? 0;
-                    if (pushVersion > 0 && pushVersion <= _lastAppliedStateVersion) {
-                        return;
-                    }
-                    if (roundSnapshot) {
-                        restoreRoundFromSnapshot(roundSnapshot);
-                        _lastAppliedStateVersion = pushVersion > 0 ? pushVersion : _lastAppliedStateVersion;
-                    } else {
-                        resetGameRuntimeState({ clearSelection: false });
-                    }
-                }
-            }
-        }
-    });
+    hubConnection.on('MachineStateUpdated', receiveCabinetSnapshot);
 
     hubConnection.on('SpectatorsChanged', (data) => {
         if (data && data.machineId === machineId) {
@@ -3493,36 +3557,8 @@ async function setupSignalR() {
         }
     });
 
-    hubConnection.on('CabinetSnapshotEvent', (snapshot) => {
-        if (snapshot) {
-            if (snapshot.state_version !== undefined) clientStateVersion = snapshot.state_version;
-            if (snapshot.sequence_number !== undefined) clientSequenceNumber = snapshot.sequence_number;
-            // Version guard: reject stale snapshots that predate what we've already applied
-            const sv = snapshot.state_version ?? 0;
-            if (sv > 0 && sv < _lastAppliedStateVersion) return;
-            const roundSnapshot = buildRoundSnapshotFromCabinetSnapshot(snapshot);
-            if (roundSnapshot) {
-                restoreRoundFromSnapshot(roundSnapshot);
-                _lastAppliedStateVersion = sv > 0 ? sv : _lastAppliedStateVersion;
-            }
-        }
-    });
-
-    hubConnection.on('CabinetReplayEvent', (replay) => {
-        if (replay && replay.Snapshot) {
-            const snapshot = replay.Snapshot;
-            if (snapshot.state_version !== undefined) clientStateVersion = snapshot.state_version;
-            if (snapshot.sequence_number !== undefined) clientSequenceNumber = snapshot.sequence_number;
-            // Version guard: reject stale snapshots
-            const sv = snapshot.state_version ?? 0;
-            if (sv > 0 && sv < _lastAppliedStateVersion) return;
-            const roundSnapshot = buildRoundSnapshotFromCabinetSnapshot(snapshot);
-            if (roundSnapshot) {
-                restoreRoundFromSnapshot(roundSnapshot);
-                _lastAppliedStateVersion = sv > 0 ? sv : _lastAppliedStateVersion;
-            }
-        }
-    });
+    hubConnection.on('CabinetSnapshotEvent', receiveCabinetSnapshot);
+    hubConnection.on('CabinetReplayEvent', replay => receiveCabinetSnapshot(replay?.snapshot || replay?.Snapshot));
 
     hubConnection.on('Error', (err) => {
         console.error('SignalR error:', err);
@@ -3576,7 +3612,9 @@ async function setupSignalR() {
                     // Primary path: ReconnectSync returns a CabinetReplay with
                     // a full snapshot. The CabinetReplayEvent/CabinetSnapshotEvent
                     // handlers restore DU state from it.
+                    await recoverPendingCabinetCommand();
                     await invokeHub('ReconnectSync', machineId, clientStateVersion, clientSequenceNumber);
+                    await fetchAndRestoreFromSnapshot();
                 }
             } catch (err) {
                 console.error('ReconnectSync failed, falling back to snapshot restore:', err);
@@ -3640,18 +3678,10 @@ function invokeHub(method, ...args) {
 async function joinMachine(id) {
     if (!isHubConnected()) return;
     try {
-        // Always reset to idle when joining — the server will send a snapshot
-        // if there's an active round/DU to restore. This prevents getting stuck
-        // in a stale DU state from a previous session.
-        if (gameState !== 'idle') {
-            exitDoubleUp();
-            refreshIdleMachineState();
-        }
-        currentBet = 0;
-        betResetPending = false;
-        betRampRunning = false;
+        // Restore server state after joining; never erase a paid reservation locally.
         await invokeHub('JoinMachine', id);
         machineJoined = true;
+        await fetchAndRestoreFromSnapshot();
         updateStakeDisplay();
         setButtonStates();
     } catch (e) {
@@ -3672,6 +3702,11 @@ async function joinMachineAsSpectator(id) {
 }
 
 async function leaveMachine(id) {
+    await recoverPendingCabinetCommand();
+    await fetchAndRestoreFromSnapshot();
+    if (gameState === 'idle' && reservationId) {
+        await submitCabinetCommand('cancel_stake', { reservation_id: reservationId });
+    }
     if (!isHubConnected()) return;
     try {
         await invokeHub('LeaveMachine', id);
@@ -3688,7 +3723,7 @@ async function leaveMachineAsSpectator(id) {
 }
 
 async function doLogout() {
-    if (machineJoined && machineId > 0) {
+    if (machineId > 0) {
         if (isSpectatorMode) {
             await leaveMachineAsSpectator(machineId);
         } else {
@@ -4769,7 +4804,7 @@ async function backToLobbyFromGame() {
     }
     const previousMachineId = machineId;
     setMenuPanelOpen(false);
-    if (machineJoined && previousMachineId > 0) {
+    if (previousMachineId > 0 && !isSpectatorMode) {
         await leaveMachine(previousMachineId);
     }
     resetGameRuntimeState({ clearSelection: true });
@@ -4835,6 +4870,7 @@ async function initGame(options = {}) {
 
         const profile = await apiCall('GET', GAME_CONFIG.api.profile);
         walletBalance = profile.walletBalance;
+        await recoverPendingCabinetCommand();
         const session = await fetchMachineSession();
         updateCredits();
         updateStakeDisplay();
