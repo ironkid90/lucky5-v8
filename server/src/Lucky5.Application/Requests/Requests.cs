@@ -14,7 +14,7 @@ public sealed record ResendOtpRequest(string Username);
 public sealed record TransferRequest(decimal Amount, string Reference, string Direction);
 public sealed record UserTransactionRequest(decimal Amount, int MachineId = 0);
 public sealed record ContactReportRequest(int ContactTypeId, string Subject, string Message);
-public sealed record DealRequest(int MachineId, decimal BetAmount);
+public sealed record DealRequest(int MachineId, decimal BetAmount, Guid? ReservationId = null);
 public sealed record DrawRequest(Guid RoundId, int[] HoldIndexes);
 public sealed record DoubleUpRequest(Guid RoundId, string Guess);
 public sealed record TokenRefreshRequest(string RefreshToken);
