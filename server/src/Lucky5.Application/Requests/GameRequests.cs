@@ -10,3 +10,4 @@ public sealed record TakeHalfRequest(Guid RoundId);
 public sealed record ChangeJackpotRankRequest(int MachineId, int Rank);
 
 public sealed record MachineCashRequest(decimal Amount);
+

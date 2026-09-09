@@ -263,7 +263,6 @@ function preloadAllAssets() {
             resolve();
         }
 
-        // Hard timeout unblocker (2.5s max) to guarantee the app never hangs on asset loading
         if (typeof CabinetClock !== 'undefined' && CabinetClock?.delayMs) {
             CabinetClock.delayMs(2500, () => {
                 console.warn('[AssetLoader] Preload timeout unblocker triggered after 2.5s');
@@ -301,7 +300,9 @@ function preloadAllAssets() {
 
         const total = allPaths.length;
         if (total === 0) {
-            clearTimeout(timeoutTimer);
+            // The preload watchdog uses CabinetClock/setTimeout directly and has
+            // no cancellable timer handle.  Avoid referencing the old, removed
+            // timeoutTimer variable when a variant has no image assets.
             finishPreload();
             return;
         }

@@ -6,6 +6,7 @@ public sealed class MachineSessionState
     public Guid UserId { get; init; }
     public int MachineId { get; init; }
     public decimal MachineCredits { get; set; }
+
     public decimal TotalCashIn { get; set; }
     public bool IsMachineClosed { get; set; }
     public int CounterplayScore { get; set; }

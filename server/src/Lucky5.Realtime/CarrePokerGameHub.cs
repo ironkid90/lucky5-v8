@@ -208,7 +208,12 @@ public sealed class CarrePokerGameHub(
             throw new HubException("Machine id must be positive.");
         }
 
-        var hasUserId = TryGetUserId(out var userId);
+        if (!TryGetUserId(out var userId))
+        {
+            await EmitErrorAsync("UNAUTHORIZED", "Unauthorized");
+            throw new HubException("Unauthorized");
+        }
+        var hasUserId = true;
         var isReclaimingPendingSeat = false;
 
         // If this machine has a pending disconnect for the SAME user, cancel
