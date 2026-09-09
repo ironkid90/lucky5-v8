@@ -2575,7 +2575,10 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 				Stake: ToDecimalString(roundBet > 0m ? roundBet : machine.MinBet),
 				TotalCashIn: ToDecimalString(session.TotalCashIn),
 				CashOutThreshold: ToDecimalString(session.TotalCashIn * 2m),
-				PendingWinAmount: ToDecimalString(pendingWin)),
+				PendingWinAmount: ToDecimalString(pendingWin),
+				ReservedStake: ToDecimalString(session.ReservedStake),
+				ReservationId: session.ReservationId,
+				ReservationExpiresUtc: session.ReservationExpiresUtc),
 			Hand: new CabinetHandDto(
 				Cards: handCards,
 				ResultCards: resultCards,

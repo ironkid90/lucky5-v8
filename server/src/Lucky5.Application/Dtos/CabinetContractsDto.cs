@@ -164,7 +164,13 @@ public sealed record CabinetCreditsDto(
     [property: JsonPropertyName("cash_out_threshold")]
     string CashOutThreshold,
     [property: JsonPropertyName("pending_win_amount")]
-    string PendingWinAmount);
+    string PendingWinAmount,
+    [property: JsonPropertyName("reserved_stake")]
+    string ReservedStake = "0",
+    [property: JsonPropertyName("reservation_id"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    Guid? ReservationId = null,
+    [property: JsonPropertyName("reservation_expires_utc"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    DateTime? ReservationExpiresUtc = null);
 
 public sealed record CabinetJackpotDto(
     [property: JsonPropertyName("full_house")]
