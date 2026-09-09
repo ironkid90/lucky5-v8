@@ -2717,6 +2717,15 @@ async function startDoubleUpFlow() {
 async function doDoubleUp(guess) {
     if (_actionLock || jackpotDrainActive) return;
     if (gameState !== 'doubleup') return;
+    // Accept both cabinet labels (BIG/SMALL) and the HI/LOW terminology used
+    // by the original AI9 gamble screen. Keep the API contract canonical.
+    const normalizedGuess = String(guess || '').trim().toLowerCase();
+    guess = normalizedGuess === 'hi' || normalizedGuess === 'high' || normalizedGuess === 'big'
+        ? 'Big'
+        : normalizedGuess === 'lo' || normalizedGuess === 'low' || normalizedGuess === 'small'
+            ? 'Small'
+            : guess;
+    if (guess !== 'Big' && guess !== 'Small') return;
     _actionLock = true;
     if (window.CabinetState) CabinetState.setPresentationLocked(true);
     playPress();
