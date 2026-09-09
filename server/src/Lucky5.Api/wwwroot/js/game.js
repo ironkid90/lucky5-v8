@@ -501,6 +501,9 @@ function bindSingleButton(id, handler) {
     }
 
     const activate = () => {
+        // Physical cabinet input may leave a button disabled while the
+        // presentation state has already advanced.  Route the action through
+        // the same state-aware handler instead of silently dropping the pick.
         if (window.CabinetInput) {
             window.CabinetInput.trigger(id, handler);
         } else {
