@@ -48,9 +48,10 @@ window.CabinetOrchestrator = (function () {
         // The orchestrator only manages presentation state (locked, snapshot sync).
         // This prevents dual-system conflicts where both setButtonStates() and the orchestrator
         // fight over button disabled/enabled states.
-        if (typeof setButtonStates === 'function') {
-            setButtonStates();
-        }
+        // The patched setButtonStates caller has already applied the legacy
+        // button rules. Do not call it again here: the wrapper would recurse
+        // indefinitely and leave Double Up controls unusable.
+        return;
     }
 
     function _patch(name, replacement) {
@@ -209,8 +210,8 @@ window.CabinetOrchestrator = (function () {
         });
 
         _patch('renderDoubleUpCards', function (legacy) {
-            return function patchedRenderDoubleUpCards(dealerCard, showShuffle, challengerCard) {
-                const result = legacy.call(this, dealerCard, showShuffle, challengerCard);
+            return function patchedRenderDoubleUpCards(dealerCard, showShuffle, challengerCard, options) {
+                const result = legacy.call(this, dealerCard, showShuffle, challengerCard, options);
                 const trail = (typeof duCardTrail !== 'undefined' && Array.isArray(duCardTrail)) ? duCardTrail : [];
                 CabinetState.updateMachine({
                     duDealerCard: dealerCard || null,

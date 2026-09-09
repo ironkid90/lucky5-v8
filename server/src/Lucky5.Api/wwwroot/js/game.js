@@ -1831,10 +1831,18 @@ async function doBet() {
     if (currentBet < machine.minBet || betResetPending) {
         betResetPending = false;
         currentBet = 0;
-        // Auto-ramp: rapidly fill from current to minBet in 100-credit steps
+        // Auto-ramp is a stake reservation request, not a local balance mutation.
+        // The first server deal consumes the reserved stake exactly once.
+        const rampStep = Math.max(1, Number(step));
+        const rampTarget = Number(machine.minBet);
+        const rampStart = Number(currentBet);
+        const rampValues = [];
+        for (let value = rampStart + rampStep; value < rampTarget; value += rampStep) rampValues.push(value);
+        rampValues.push(rampTarget);
+        let rampIndex = 0;
         betRampRunning = true;
         const rampInterval = setInterval(() => {
-            currentBet = Math.min(currentBet + step, machine.minBet);
+            currentBet = rampValues[rampIndex++];
             playPress();
             updateStakeDisplay();
             updatePaytable();
@@ -1867,11 +1875,13 @@ async function doBet() {
 }
 
 async function doSwitchDealer() {
+    if (_actionLock || jackpotDrainActive) return;
     if (gameState !== 'doubleup' || duSwitchesRemaining <= 0) return;
-    playPress();
-    stopShuffle();
-
+    _actionLock = true;
     try {
+        if (window.CabinetState) CabinetState.setPresentationLocked(true);
+        playPress();
+        stopShuffle();
         const result = await apiCall('POST', GAME_CONFIG.api.duSwitch, { roundId });
         _noteAppliedStateVersion(result);
         syncDoubleUpPanelState(result);
@@ -1907,6 +1917,11 @@ async function doSwitchDealer() {
         setButtonStates();
     } catch (e) {
         showMessage(e.message, 'lose');
+    } finally {
+        _actionLock = false;
+        if (window.CabinetState) CabinetState.setPresentationLocked(false);
+        setButtonStates();
+        _flushDeferredServerSnapshot();
     }
 }
 
@@ -2245,8 +2260,10 @@ async function doDeal() {
                 console.warn('Machine join unavailable; continuing without realtime sync.');
             }
         }
-        if (balance < currentBet * 2) {
-            showMessage('NEED ENOUGH CREDITS FOR DEAL + DRAW', 'lose');
+        // The server is authoritative for stake reservation and draw funding.
+        // Do not pre-charge or require a client-side 2x balance.
+        if (balance < currentBet) {
+            showMessage('NEED ENOUGH CREDITS FOR DEAL', 'lose');
             return;
         }
         playPress();
@@ -2632,11 +2649,11 @@ function stopShuffle(freezeCard) {
         CabinetClock.unregisterHandler(shuffleTickHandler);
         shuffleTickHandler = null;
     }
-    const cardToFreeze = freezeCard || duDealerCard;
+    const cardToFreeze = freezeCard;
     if (cardToFreeze) {
         const shuffleImg = document.querySelector('#du-shuffle-frame img');
         if (shuffleImg) {
-            shuffleImg.src = resolveCardFaceSrc(cardToFreeze);
+            shuffleImg.src = cardImagePath(cardToFreeze);
         }
     }
 }

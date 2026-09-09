@@ -41,6 +41,31 @@ public static class GameServiceRegressionTests
 		await AdminResetBlocksRecoverableRoundsAsync(failures);
 		await AdminResetAllowsClosedSessionsWithoutActiveRoundsAsync(failures);
 		await CabinetSnapshotExposesAutoHoldAdviceAsync(failures);
+		await MachineStakeConfigurationsAndSingleDealChargeAsync(failures);
+	}
+
+	private static async Task MachineStakeConfigurationsAndSingleDealChargeAsync(List<string> failures)
+	{
+		var store = new InMemoryDataStore();
+		var service = CreateService(store);
+		var expected = new[] { (2500m, 5000m), (5000m, 10000m), (10000m, 20000m) };
+		foreach (var machine in store.Machines.Values.OrderBy(machine => machine.Id))
+		{
+			var pair = expected[machine.Id - 1];
+			Assert(failures, $"Machine {machine.Id} should expose the configured stake range.", machine.MinBet == pair.Item1 && machine.MaxBet == pair.Item2);
+		}
+
+		var userId = Guid.Parse("25000000-0000-0000-0000-000000000001");
+		SeedPlayer(store, userId, "stake-reservation", 500_000m);
+		var stakeMachine = store.Machines[1];
+		await service.CashInAsync(userId, stakeMachine.Id, 200_000m, CancellationToken.None);
+		var before = await service.GetMachineSessionAsync(userId, stakeMachine.Id, CancellationToken.None);
+		var deal = await service.DealAsync(userId, new DealRequest(stakeMachine.Id, stakeMachine.MinBet), CancellationToken.None);
+		var after = await service.GetMachineSessionAsync(userId, stakeMachine.Id, CancellationToken.None);
+		Assert(failures, "The first ramp stake should be consumed by the authoritative deal exactly once.", after.MachineCredits == before.MachineCredits - stakeMachine.MinBet);
+		Assert(failures, "The authoritative deal should report the post-charge machine credits.", deal.MachineCreditsAfterBet == after.MachineCredits);
+		var betEntries = store.WalletLedger.Count(entry => entry.UserId == userId && entry.TransactionType == "Bet" && entry.ReferenceId == deal.RoundId.ToString("N"));
+		Assert(failures, "A deal should create one Bet ledger entry, not a second client-side charge.", betEntries == 1);
 	}
 
 	private static async Task JackpotSnapshotsExposeAuthoritativeMachineIdentityAsync(List<string> failures)
