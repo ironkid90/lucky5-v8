@@ -253,6 +253,7 @@ function preloadAllAssets() {
             const loader = document.getElementById('asset-loader');
             if (loader) {
                 loader.classList.add('done');
+                // VSYNC-locked fade-out so the loader dismiss never drifts from the clock.
                 if (typeof CabinetClock !== 'undefined' && CabinetClock?.delayMs) {
                     CabinetClock.delayMs(500, () => { loader.style.display = 'none'; });
                 } else {
@@ -263,10 +264,17 @@ function preloadAllAssets() {
         }
 
         // Hard timeout unblocker (2.5s max) to guarantee the app never hangs on asset loading
-        const timeoutTimer = setTimeout(() => {
-            console.warn('[AssetLoader] Preload timeout unblocker triggered after 2.5s');
-            finishPreload();
-        }, 2500);
+        if (typeof CabinetClock !== 'undefined' && CabinetClock?.delayMs) {
+            CabinetClock.delayMs(2500, () => {
+                console.warn('[AssetLoader] Preload timeout unblocker triggered after 2.5s');
+                finishPreload();
+            });
+        } else {
+            setTimeout(() => {
+                console.warn('[AssetLoader] Preload timeout unblocker triggered after 2.5s');
+                finishPreload();
+            }, 2500);
+        }
 
         const allPaths = [];
         if (typeof CARD_BACK_SRC !== 'undefined' && CARD_BACK_SRC) {
@@ -2619,24 +2627,38 @@ function startShuffle() {
     const frame = document.getElementById('du-shuffle-frame');
     if (frame) frame.classList.add('du-flip-in');
 
-    const swapIntervalTicks = CabinetClock.msToTicks(T.shuffleFrameMs || 100);
-    let elapsedTicks = 0;
+    // VSYNC-locked reel cadence: one flip cycle = flip-out → swap face → flip-in.
+    // The cycle length is derived from the configured shuffleFrameMs (30ms → ~2 ticks),
+    // split into fixed half-cycle phases so the transition is stutter-free.
+    const cycleTicks = Math.max(2, CabinetClock.msToTicks(T.shuffleFrameMs || 30));
+    const outPhaseTicks = Math.max(1, Math.round(cycleTicks * 0.45));
+    const inPhaseTicks = Math.max(1, cycleTicks - outPhaseTicks);
+    let phaseTicks = 0;
+    let phase = 'in'; // start in the "face visible" phase so the first swap is clean
 
     shuffleTickHandler = function(tickCount) {
-        elapsedTicks++;
-        if (elapsedTicks >= swapIntervalTicks) {
-            elapsedTicks = 0;
-            const f = document.querySelector('#du-shuffle-frame img');
-            if (f) {
-                const frame = document.getElementById('du-shuffle-frame');
-                if (frame) {
-                    frame.classList.remove('du-flip-in');
-                    frame.classList.add('du-flip-out');
-                    CabinetClock.delayTicks(4, () => {
-                        f.src = randomCardSrc();
-                        frame.classList.remove('du-flip-out');
-                        frame.classList.add('du-flip-in');
-                    });
+        phaseTicks++;
+        if (phase === 'in') {
+            if (phaseTicks >= inPhaseTicks) {
+                phaseTicks = 0;
+                phase = 'out';
+                const f = document.querySelector('#du-shuffle-frame img');
+                const fr = document.getElementById('du-shuffle-frame');
+                if (f && fr) {
+                    fr.classList.remove('du-flip-in');
+                    fr.classList.add('du-flip-out');
+                }
+            }
+        } else {
+            if (phaseTicks >= outPhaseTicks) {
+                phaseTicks = 0;
+                phase = 'in';
+                const f = document.querySelector('#du-shuffle-frame img');
+                const fr = document.getElementById('du-shuffle-frame');
+                if (f && fr) {
+                    f.src = randomCardSrc();
+                    fr.classList.remove('du-flip-out');
+                    fr.classList.add('du-flip-in');
                 }
             }
         }
@@ -3071,7 +3093,10 @@ function animateJackpotFill(amount, startBalance, handName) {
         const tickHandler = function(tickCount) {
             elapsedTicks++;
             const progress = Math.min(elapsedTicks / totalTicks, 1);
-            const credited = Math.floor(amount * progress);
+            // ease-out cubic so the counter eases into its final value instead of
+            // jumping in linear increments that read as jank on large jackpot fills.
+            const eased = 1 - Math.pow(1 - progress, 3);
+            const credited = Math.floor(amount * eased);
             balance = startBalance + credited;
             if (creditsSpan) creditsSpan.textContent = formatNum(balance);
             if (winEl) winEl.textContent = `JACKPOT ${formatNum(amount - credited)}`;
@@ -3085,6 +3110,8 @@ function animateJackpotFill(amount, startBalance, handName) {
             }
             if (progress >= 1) {
                 CabinetClock.unregisterHandler(tickHandler);
+                balance = startBalance + amount;
+                if (creditsSpan) creditsSpan.textContent = formatNum(balance);
                 if (winEl) winEl.textContent = '';
                 // Remove freeze overlay
                 if (cardArea) cardArea.classList.remove('frozen');
@@ -3125,6 +3152,10 @@ function animateDrainToCredits(amount, startBalance, handRank = null) {
             elapsedTicks++;
             const progress = Math.min(elapsedTicks / totalTicks, 1);
             const ease = 1 - Math.pow(1 - progress, 3);
+            // Use the eased progress for the drain so the credits meter eases into
+            // its final value instead of snapping on the last tick (which caused
+            // jank on large drains where the final increment was disproportionately
+            // large relative to the preceding frames).
             const drained = Math.floor(amount * ease);
             const remaining = amount - drained;
 
@@ -3158,10 +3189,13 @@ function animateDrainToCredits(amount, startBalance, handRank = null) {
 
             if (progress >= 1) {
                 CabinetClock.unregisterHandler(tickHandler);
+                // Snap to exact final values — no floating-point drift on the last frame.
                 balance = startBalance + amount;
+                if (creditsSpan) creditsSpan.textContent = formatNum(balance);
                 updateCredits();
                 if (winEl) winEl.textContent = '';
                 if (winAmountEl) winAmountEl.textContent = '';
+                if (payAmountEl) payAmountEl.textContent = '0';
                 creditsEl.classList.remove('credit-ticking');
                 if (payRow) payRow.classList.remove('du-highlight');
                 takeScoreAnimating = false;

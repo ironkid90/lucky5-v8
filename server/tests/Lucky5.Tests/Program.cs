@@ -11,6 +11,7 @@ await Lucky5.Tests.PersistentStateRecoveryTests.RunAsync(failures);
 await Lucky5.Tests.HubTests.RunAsync(failures);
 await Lucky5.Tests.CleanRoomEngineTests.RunAsync(failures);
 await Lucky5.Tests.RtpSimulationTests.RunAsync(failures);
+await Lucky5.Tests.AdminContentTests.RunAsync(failures);
 
 if (failures.Count > 0)
 {
