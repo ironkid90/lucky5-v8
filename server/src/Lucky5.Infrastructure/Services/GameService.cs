@@ -41,6 +41,17 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		public int ReferenceCount { get; set; }
 	}
 
+	private static void ReleaseExpiredReservation(MachineSessionState session)
+	{
+		if (session.ReservedStake > 0m && session.ReservationExpiresUtc <= DateTime.UtcNow)
+		{
+			session.ReservedStake = 0m;
+			session.ReservationId = null;
+			session.ReservationExpiresUtc = null;
+			session.ReservationStatus = "expired";
+		}
+	}
+
 	private static string SessionGateKey(Guid userId, int machineId) => $"{userId:N}:{machineId}";
 
 	private static async Task<T> WithSessionGateAsync<T>(Guid userId, int machineId, CancellationToken cancellationToken, Func<Task<T>> action)
@@ -406,6 +417,14 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		if (session.IsMachineClosed)
 			throw new InvalidOperationException("Machine is closed - cash out to wallet before continuing");
 
+		ReleaseExpiredReservation(session);
+		if (session.ReservedStake > 0m)
+		{
+			if (request.ReservationId is null || request.ReservationId != session.ReservationId || session.ReservedStake != request.BetAmount)
+				throw new InvalidOperationException("A different stake is already reserved for this machine session");
+			request = request with { BetAmount = session.ReservedStake };
+		}
+
 		// Last-hand behavior: if credits < min bet but > 0, allow play with remaining credits.
 		// Paytable scales to the actual bet amount. This prevents orphaned credits on the machine.
 		bool isLastHand = session.MachineCredits > 0 && session.MachineCredits < machine.MinBet;
@@ -469,6 +488,10 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		var drawState = FiveCardDrawState.Create(seed, shuffledDeck.ToArray(), hand);
 
 		session.MachineCredits -= request.BetAmount;
+		session.ReservedStake = 0m;
+		session.ReservationId = null;
+		session.ReservationExpiresUtc = null;
+		session.ReservationStatus = "consumed";
 		session.LastUpdatedUtc = DateTime.UtcNow;
 		await store.UpdateMachineSessionAsync(session);
 
