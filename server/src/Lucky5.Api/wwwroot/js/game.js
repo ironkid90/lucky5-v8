@@ -1842,7 +1842,7 @@ async function doBet() {
         let rampIndex = 0;
         betRampRunning = true;
         const rampInterval = setInterval(() => {
-            currentBet = rampValues[rampIndex++];
+            currentBet = rampValues[rampIndex++] ?? machine.minBet;
             playPress();
             updateStakeDisplay();
             updatePaytable();
