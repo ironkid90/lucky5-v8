@@ -477,3 +477,46 @@ public sealed record EngineConfig(
 	/// </summary>
 	public decimal GetKentCap() => JackpotKentCap;
 }
+
+// === Modifier / Card / Effect placeholder profiles — t_1d6a966b (additive, zero-config safe) ===
+public enum ModifierTarget { doubleUp, basePayout, jackpot, deck, progressive }
+public enum ModifierType { multiplier, add, cap, block, toggle }
+
+public sealed record ModifierProfile(
+    string Id,
+    string Name,
+    ModifierTarget Target = ModifierTarget.doubleUp,
+    ModifierType Type = ModifierType.multiplier,
+    decimal Value = 0m,
+    object? Conditions = null,
+    int Priority = 0,
+    bool Enabled = true);
+
+public enum CardKind { standard, joker, wild, trap }
+public sealed record CustomCard(
+    int Rank,
+    char Suit,
+    CardKind Kind = CardKind.standard,
+    string? EffectRef = null);
+
+public sealed record CardProfile(
+    int StandardDeckSize = 52,
+    CustomCard[] CustomCards = null!,
+    string[] DeckAlterations = null!,
+    string[] NeverRemove = null!,
+    string[] DuplicateRanks = null!);
+
+public enum EffectTrigger { onDeal, onDraw, onDoubleUpSwitch, onProgressiveHit, onMachineClose }
+public enum EffectTarget { deck, hand, jackpot, machine, player }
+public enum EffectAction { modifyDeck, grantCredits, lockCard, revealCard, resetState, applyMultiplier }
+
+public sealed record EffectProfile(
+    string Id,
+    string Name,
+    EffectTrigger Trigger,
+    EffectTarget Target,
+    EffectAction Action,
+    decimal? Value = null,
+    object? Conditions = null,
+    int? MaxInstances = null,
+    bool Enabled = true);
