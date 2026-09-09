@@ -35,7 +35,7 @@ public static class ModifierCardEffectLoader
         if (modifiers == null || modifiers.Length == 0) return basePayout;
         decimal scaled = basePayout;
         foreach (var m in modifiers
-            .Where(x => x.Enabled)
+            .Where(x => x != null && x.Enabled)
             .OrderBy(x => x.Priority))
         {
             scaled = m.Type switch
@@ -43,7 +43,7 @@ public static class ModifierCardEffectLoader
                 ModifierType.multiplier => scaled * m.Value,
                 ModifierType.add => scaled + (decimal)m.Value,
                 ModifierType.cap => Math.Min(scaled, m.Value),
-                ModifierType.block => scaled = 0,
+                ModifierType.block => 0,
                 ModifierType.toggle => (m.Value != 0 ? scaled * 2 : scaled),
                 _ => scaled
             };
@@ -56,7 +56,7 @@ public static class ModifierCardEffectLoader
     /// </summary>
     public static CleanRoomCard[] IntegrateCustomCards(CleanRoomCard[] baseDeck, CustomCard[] customCards)
     {
-        var list = new List<CleanRoomCard>(baseDeck);
+        var list = new List<CleanRoomCard>(baseDeck ?? Array.Empty<CleanRoomCard>());
         foreach (var c in customCards ?? Array.Empty<CustomCard>())
         {
             list.Add(new CleanRoomCard(c.Rank, c.Suit));
@@ -77,8 +77,11 @@ public static class ModifierCardEffectLoader
     {
         if (effects == null || effects.Length == 0) return Array.Empty<EffectProfile>();
         var active = new List<EffectProfile>();
-        var triggerEnum = Enum.Parse<EffectTrigger>(trigger);
-        foreach (var e in effects.Where(x => x.Enabled && x.Trigger == triggerEnum))
+        if (string.IsNullOrEmpty(trigger) || !Enum.TryParse<EffectTrigger>(trigger, true, out var triggerEnum))
+        {
+            return Array.Empty<EffectProfile>();
+        }
+        foreach (var e in effects.Where(x => x != null && x.Enabled && x.Trigger == triggerEnum))
         {
             if (e.Conditions != null && !ConditionsMet(e.Conditions, hand, bet, round)) continue;
             active.Add(e);
