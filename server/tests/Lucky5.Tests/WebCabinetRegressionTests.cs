@@ -13,6 +13,8 @@ public static class WebCabinetRegressionTests
         string readme;
         string devScript;
 
+        string gameControllerCs;
+
         try
         {
             program = await File.ReadAllTextAsync(ResolveRepoFilePath("server", "src", "Lucky5.Api", "Program.cs"));
@@ -21,6 +23,7 @@ public static class WebCabinetRegressionTests
             gameCss = await File.ReadAllTextAsync(ResolveRepoFilePath("server", "src", "Lucky5.Api", "wwwroot", "css", "game.css"));
             apiClientJs = await File.ReadAllTextAsync(ResolveRepoFilePath("server", "src", "Lucky5.Api", "wwwroot", "js", "api-client.js"));
             cabinetStoreJs = await File.ReadAllTextAsync(ResolveRepoFilePath("server", "src", "Lucky5.Api", "wwwroot", "js", "cabinet-store-vnext.js"));
+            gameControllerCs = await File.ReadAllTextAsync(ResolveRepoFilePath("server", "src", "Lucky5.Api", "Controllers", "GameController.cs"));
             readme = await File.ReadAllTextAsync(ResolveRepoFilePath("README.md"));
             devScript = await File.ReadAllTextAsync(ResolveRepoFilePath("dev.ps1"));
         }
@@ -102,6 +105,19 @@ public static class WebCabinetRegressionTests
                 && devScript.Contains("Lucky5 v8 - Web Cabinet", StringComparison.Ordinal)
                 && devScript.Contains("Opening web cabinet", StringComparison.Ordinal)
                 && !devScript.Contains("Godot", StringComparison.Ordinal));
+
+        Assert(
+            failures,
+            "The web cabinet double-up controls (BET/switch, TAKE HALF, TAKE SCORE) must resolve to GameController routes: switch, take-half, and cashout.",
+            gameJs.Contains("GAME_CONFIG.api.duSwitch", StringComparison.Ordinal)
+                && gameJs.Contains("GAME_CONFIG.api.duTakeHalf", StringComparison.Ordinal)
+                && gameJs.Contains("GAME_CONFIG.api.duCashout", StringComparison.Ordinal)
+                && gameControllerCs.Contains("[HttpPost(\"double-up/switch\")]", StringComparison.Ordinal)
+                && gameControllerCs.Contains("[HttpPost(\"double-up/take-half\")]", StringComparison.Ordinal)
+                && gameControllerCs.Contains("[HttpPost(\"double-up/cashout\")]", StringComparison.Ordinal)
+                && gameControllerCs.Contains("SwitchDealerAsync", StringComparison.Ordinal)
+                && gameControllerCs.Contains("TakeHalfAsync", StringComparison.Ordinal)
+                && gameControllerCs.Contains("CashoutDoubleUpAsync", StringComparison.Ordinal));
     }
 
     private static string ResolveRepoFilePath(params string[] segments)
