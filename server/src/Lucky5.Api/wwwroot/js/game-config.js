@@ -61,15 +61,15 @@ const GAME_CONFIG = Object.freeze({
     // frames at runtime by CabinetClock.delayMs().
     timing: Object.freeze({
         // ── Global stagger (one value drives everything) ──
-        // VSYNC-locked @ 60Hz: 11 frames = ~183ms per card — classic arcade feel
-        staggerFrames:         11,  // ~183ms @ 60Hz — classic arcade deal pace
+        // VSYNC-locked @ 60Hz: 12 frames = 200ms per card — AI9 mechanical cadence
+        staggerFrames:         12,  // 200ms @ 60Hz — AI9 12-frame deal/draw/DU cadence
 
         // Main-hand deal
         dealBaseFrames:        5,   // ~83ms — brief pause before first card
         dealDurationFrames:   11,   // ~183ms — slide/thump settle time
 
         // Draw (replacing non-held cards) — equal timing to initial deal
-        drawStaggerFrames:    11,   // ~183ms — equal to deal stagger (staggerFrames)
+        drawStaggerFrames:    12,   // 200ms — equal to deal stagger (staggerFrames)
         drawOutFrames:         1,   //   1 frame — old cards vanish instantly
         drawDurationFrames:   11,   // ~183ms — replacement slide/thump settle
         drawRevealStartFrames: 5,   // ~83ms — equal to dealBaseFrames

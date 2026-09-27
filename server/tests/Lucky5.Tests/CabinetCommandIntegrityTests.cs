@@ -174,6 +174,8 @@ public static class CabinetCommandIntegrityTests
             !rejected.Accepted
             && rejected.Status == "stale_state"
             && rejected.Error?.Code == "STALE_STATE"
+            && rejected.Error?.Message != "OK"
+            && !string.IsNullOrWhiteSpace(rejected.Error?.Message)
             && rejected.Snapshot is not null
             && rejected.StateVersion == accepted.StateVersion);
         Assert(
@@ -401,11 +403,21 @@ public static class CabinetCommandIntegrityTests
         var machine = store.Machines.Values.First(m => m.IsOpen);
         await service.CashInAsync(user, machine.Id, machine.MinBet, CancellationToken.None);
         var session = GetSession(store, user, machine.Id);
+        var idleSnapshot = await service.GetCabinetSnapshotAsync(user, machine.Id, CancellationToken.None);
+        Assert(failures, "Idle funded cabinet prompts PLACE YOUR BET until stake is reserved",
+            idleSnapshot.Evaluation.Message == "PLACE YOUR BET"
+            && idleSnapshot.Session.IsArmed == false
+            && idleSnapshot.Credits.Stake == "0");
         var cursor = await service.GetCabinetStateCursorAsync(user, machine.Id, CancellationToken.None);
         var command = BuildCommand(Guid.NewGuid(), "reserve_stake", machine.Id, session.SessionId,
             cursor.StateVersion, Guid.NewGuid().ToString(), new Dictionary<string, object?> { ["bet_amount"] = machine.MinBet });
         var reserved = await service.SubmitCabinetCommandAsync(user, command, CancellationToken.None);
         Assert(failures, "BET must reserve and debit before DEAL", reserved.Accepted && session.MachineCredits == 0m && session.ReservedStake == machine.MinBet);
+        Assert(failures, "Reserved idle cabinet arms DEAL and stops showing OK/PRESS DEAL without a hold",
+            reserved.Snapshot is not null
+            && reserved.Snapshot.Session.IsArmed
+            && reserved.Snapshot.Evaluation.Message == "PRESS DEAL"
+            && decimal.Parse(reserved.Snapshot.Credits.Stake, System.Globalization.CultureInfo.InvariantCulture) == machine.MinBet);
         if (!reserved.Accepted) return;
         var duplicate = await service.SubmitCabinetCommandAsync(user, command, CancellationToken.None);
         Assert(failures, "reserve retry must not double debit", duplicate.Status == "duplicate" && session.ReservedStake == machine.MinBet);
