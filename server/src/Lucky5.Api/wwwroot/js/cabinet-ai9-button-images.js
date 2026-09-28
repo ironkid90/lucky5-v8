@@ -43,7 +43,18 @@ window.CabinetAI9ButtonImages = (function () {
         'cab-menu': { idle: 'menu.png', pressed: 'menu.png' }  // menu has no pressed state
     };
 
+    // HQ layer: when css/cabinet-v8-hq.css is active (body.hq-on), serve the
+    // regenerated high-resolution assets from /assets_hq/ instead of the
+    // original bitmaps. Controlled by js/cabinet-hq-toggle.js (or the ?hq= URL
+    // flag / localStorage 'lucky5-hq'). Default ON.
     const ASSET_BASE = '/assets/images/';
+    const ASSET_BASE_HQ = '/assets_hq/';
+
+    function _assetBase() {
+        return document.body && document.body.classList.contains('hq-on')
+            ? ASSET_BASE_HQ
+            : ASSET_BASE;
+    }
 
     /**
      * Set the --btn-image CSS variable on a button element.
@@ -52,7 +63,7 @@ window.CabinetAI9ButtonImages = (function () {
      */
     function _setButtonImage(btn, imageName) {
         if (!btn) return;
-        const url = `url('${ASSET_BASE}${imageName}')`;
+        const url = `url('${_assetBase()}${imageName}')`;
         btn.style.setProperty('--btn-image', url);
     }
 
@@ -150,7 +161,11 @@ window.CabinetAI9ButtonImages = (function () {
 
         // Allow manual update if needed
         updateButton: _updateButtonImage,
-        updateAllButtons: _initializeButtonImages
+        updateAllButtons: _initializeButtonImages,
+
+        // Re-resolve asset base when the HQ layer toggles (called by
+        // cabinet-hq-toggle.js after flipping body.hq-on).
+        refreshAssets: _initializeButtonImages
     };
 })();
 

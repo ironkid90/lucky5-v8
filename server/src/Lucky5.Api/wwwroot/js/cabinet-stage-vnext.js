@@ -153,7 +153,7 @@ window.CabinetStage = (function () {
     function resolveCardFaceSrc(cardLike) {
         const card = _asCard(cardLike);
         return card && card.code
-            ? `/assets/images/cards/${card.code}.png`
+            ? window.Lucky5HQ.cardAssetUrl(`cards/${card.code}.png`)
             : _config.cardBack;
     }
 
@@ -173,9 +173,13 @@ window.CabinetStage = (function () {
     function _getCardTemplate(inputCard) {
             const card = _asCard(inputCard);
             const code = card && card.code ? card.code.toUpperCase() : 'BACK';
+            // Cache key must include the HQ state so toggling the layer
+            // re-renders faces from the correct asset root.
+            const hqTag = (window.Lucky5HQ && window.Lucky5HQ.isOn()) ? ':hq' : ':std';
+            const cacheKey = code + hqTag;
 
-            if (_cardTemplateCache[code]) {
-                return _cardTemplateCache[code].cloneNode(true);
+            if (_cardTemplateCache[cacheKey]) {
+                return _cardTemplateCache[cacheKey].cloneNode(true);
             }
 
             const template = document.createElement('div');
@@ -185,13 +189,13 @@ window.CabinetStage = (function () {
 
             if (code === 'BACK') {
                 // Use the bside.png asset
-                template.innerHTML = `<img src="/assets/images/cards/bside.png" class="card-back-pattern" style="width:100%; height:100%; object-fit:contain; display:block;" />`;
+                template.innerHTML = `<img src="${window.Lucky5HQ.cardAssetUrl('cards/bside.png')}" class="card-back-pattern" style="width:100%; height:100%; object-fit:contain; display:block;" />`;
             } else {
-                template.innerHTML = `<img src="/assets/images/cards/${code}.png" class="card-front" style="width:100%; height:100%; object-fit:contain; display:block;" />`;
+                template.innerHTML = `<img src="${window.Lucky5HQ.cardAssetUrl(`cards/${code}.png`)}" class="card-front" style="width:100%; height:100%; object-fit:contain; display:block;" />`;
             }
 
-            _cardTemplateCache[code] = template.firstElementChild;
-            return _cardTemplateCache[code].cloneNode(true);
+            _cardTemplateCache[cacheKey] = template.firstElementChild;
+            return _cardTemplateCache[cacheKey].cloneNode(true);
         }
 
     function _precacheAllCards() {
