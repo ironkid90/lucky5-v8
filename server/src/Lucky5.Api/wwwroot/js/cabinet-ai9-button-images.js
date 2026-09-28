@@ -50,12 +50,6 @@ window.CabinetAI9ButtonImages = (function () {
     const ASSET_BASE = '/assets/images/';
     const ASSET_BASE_HQ = '/assets_hq/';
 
-    function _assetBase() {
-        return document.body && document.body.classList.contains('hq-on')
-            ? ASSET_BASE_HQ
-            : ASSET_BASE;
-    }
-
     /**
      * Set the --btn-image CSS variable on a button element.
      * @param {HTMLElement} btn - The button element
@@ -63,8 +57,23 @@ window.CabinetAI9ButtonImages = (function () {
      */
     function _setButtonImage(btn, imageName) {
         if (!btn) return;
-        const url = `url('${_assetBase()}${imageName}')`;
+        // Only buttons with regenerated HQ art switch root; menu.png and
+        // any unmapped asset fall back to the standard root.
+        const url = `url('${_assetBaseFor(imageName)}${imageName}')`;
         btn.style.setProperty('--btn-image', url);
+    }
+
+    // Assets that exist in /assets_hq/. Anything else (menu.png) uses std root.
+    const HQ_AVAILABLE = new Set([
+        'hold_off.png','hold_on.png','big.png','big_on.png','small.png','small_on.png',
+        'cancel_hold.png','cancel_hold_on.png','deal_draw.png','deal_draw_on.png',
+        'bet.png','bet_on.png','take_half.png','take_half_on.png',
+        'take_score.png','take_score_on.png','board.png'
+    ]);
+
+    function _assetBaseFor(imageName) {
+        const hq = document.body && document.body.classList.contains('hq-on');
+        return (hq && HQ_AVAILABLE.has(imageName)) ? ASSET_BASE_HQ : ASSET_BASE;
     }
 
     /**
