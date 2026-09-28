@@ -25,6 +25,13 @@ public sealed class SessionCleanupService : BackgroundService
     private static readonly TimeSpan CleanupInterval = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan StaleRoundThreshold = TimeSpan.FromMinutes(10);
 
+    // Sessions with residue (credits or a reserved stake) but no active round and no
+    // update for this long are treated as abandoned — the crash/kill-without-disconnect
+    // case the hub's grace timer can never see. The threshold is deliberately longer
+    // than the hub's 5-minute reconnect grace period so a player in a normal reconnect
+    // window is never swept out from under their own session.
+    private static readonly TimeSpan StaleSessionThreshold = TimeSpan.FromMinutes(15);
+
     public SessionCleanupService(IServiceScopeFactory scopeFactory, InMemoryDataStore store, ILogger<SessionCleanupService> logger)
     {
         _scopeFactory = scopeFactory;
@@ -42,6 +49,7 @@ public sealed class SessionCleanupService : BackgroundService
             try
             {
                 await CleanupStaleRoundsAsync(stoppingToken);
+                await CleanupStaleSessionsAsync(stoppingToken);
             }
             catch (Exception ex)
             {
@@ -92,6 +100,62 @@ public sealed class SessionCleanupService : BackgroundService
             }
 
             _store.ActiveRounds.TryRemove(roundId, out _);
+        }
+    }
+
+    /// <summary>
+    /// Safety net for the crash/kill-without-disconnect case: ages SESSIONS by
+    /// LastUpdatedUtc (not rounds) and force-settles any that hold residue — machine
+    /// credits or a reserved stake — with no active round. The hub's grace timer only
+    /// ever arms if OnDisconnectedAsync ran; when the process never saw a disconnect
+    /// (server restart, network kill, app crash), the session would otherwise sit
+    /// occupied with credits forever. Settlement funnels through the hub's single
+    /// ForceReleaseMachineCoreAsync path (reserved stake released, pending round
+    /// resolved, credits cashed out to the wallet, seat released, lobby notified).
+    /// </summary>
+    private async Task CleanupStaleSessionsAsync(CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+
+        // Machines with any live active round are settled by CleanupStaleRoundsAsync /
+        // the round's own cashout path — never sweep a session out from under one.
+        var machinesWithActiveRound = new HashSet<int>(_store.ActiveRounds.Values.Select(r => r.MachineId));
+
+        var staleSessions = _store.MachineSessions.Values
+            .Where(s => now - s.LastUpdatedUtc > StaleSessionThreshold)
+            .Where(s => s.MachineCredits > 0m || s.ReservedStake > 0m)
+            .Where(s => !machinesWithActiveRound.Contains(s.MachineId))
+            .ToList();
+
+        if (staleSessions.Count == 0)
+            return;
+
+        _logger.LogWarning("Force-settling {Count} abandoned machine sessions", staleSessions.Count);
+
+        using var scope = _scopeFactory.CreateScope();
+        var hubContext = scope.ServiceProvider.GetRequiredService<Microsoft.AspNetCore.SignalR.IHubContext<CarrePokerGameHub>>();
+        var registry = scope.ServiceProvider.GetRequiredService<ConnectionRegistry>();
+
+        foreach (var session in staleSessions)
+        {
+            try
+            {
+                var result = await CarrePokerGameHub.ForceReleaseMachineCoreAsync(
+                    session.MachineId,
+                    _scopeFactory,
+                    hubContext,
+                    registry,
+                    CarrePokerGameHub.ForceReleaseReason.StaleSessionSweep);
+                _logger.LogInformation(
+                    "Stale session sweep settled machine {MachineId} (user {UserId}): occupied={WasOccupied} settled={Settled}",
+                    session.MachineId, session.UserId, result.WasOccupied, result.Settled);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "Stale session sweep failed for machine {MachineId} (user {UserId}); will retry next sweep",
+                    session.MachineId, session.UserId);
+            }
         }
     }
 }

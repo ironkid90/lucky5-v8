@@ -80,7 +80,7 @@ window.CabinetShell = (function () {
     /**
      * Replaces the default lobby machine list rendering with cabinet-family styled cards.
      * Called by game.js after machines are loaded. Falls back gracefully if no machines.
-     * @param {Array<{id:number, name:string, minBet:number, maxBet:number, isOpen:boolean, isOccupied:boolean, occupiedByUsername:string, activeSpectatorCount:number, status:string}>} machines
+     * @param {Array<{id:number, name:string, minBet:number, maxBet:number, isOpen:boolean, isOccupied:boolean, activeSpectatorCount:number, status:string}>} machines
      * @param {function(machine): void} onSelect  — callback from game.js on machine selection
      */
     function renderLobbyMachineCards(machines, onSelect) {
@@ -142,12 +142,14 @@ window.CabinetShell = (function () {
             nameEl.className = 'lobby-machine-name';
             nameEl.textContent = machine.name;
 
-            // Occupied by info
-            if (machine.occupiedByUsername) {
+            // Occupancy is shown as a bare state, never "who". Occupant identity is
+            // intentionally absent from lobby payloads (Ai9 Finding 2 class fix) —
+            // the floor list must not track which player is at which machine.
+            if (machine.isOccupied) {
                 const occupantEl = document.createElement('div');
                 occupantEl.className = 'lobby-machine-occupant';
                 occupantEl.style.cssText = 'font-size:7px; color:#aaa;';
-                occupantEl.textContent = `IN USE BY ${machine.occupiedByUsername.toUpperCase()}`;
+                occupantEl.textContent = 'IN USE';
                 meta.appendChild(occupantEl);
             }
 

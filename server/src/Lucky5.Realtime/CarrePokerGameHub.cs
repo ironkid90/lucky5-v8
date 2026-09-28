@@ -60,6 +60,212 @@ public sealed class CarrePokerGameHub(
     public static string MachineGroupNamePublic(int machineId) => GroupName(machineId);
     public static string SpectatorGroupNamePublic(int machineId) => SpectatorGroupName(machineId);
 
+    /// <summary>Why a machine was force-released. Telemetry tag for the settlement path.</summary>
+    public enum ForceReleaseReason
+    {
+        /// <summary>The disconnect grace-period timer expired without a reconnect.</summary>
+        GraceTimeout,
+        /// <summary>The heartbeat monitor pruned the occupying connection (dead client).</summary>
+        HeartbeatOccupantDead,
+        /// <summary>The session sweep found a stale session with residue (crash-without-disconnect).</summary>
+        StaleSessionSweep
+    }
+
+    /// <summary>Outcome of <see cref="ForceReleaseMachineCoreAsync"/> — lets callers and tests
+    /// assert the residue was actually cleared, not just that no exception threw.</summary>
+    public sealed record ForceReleaseResult(
+        bool WasOccupied,
+        bool PendingEntryRemoved,
+        bool Settled,
+        decimal CreditsCleared,
+        decimal StakeReleased);
+
+    /// <summary>
+    /// THE single settle-and-release path for an abandoned machine seat. Every watchdog
+    /// (disconnect grace timer, heartbeat-pruned occupant, stale-session sweep) funnels
+    /// through here so there is exactly one settlement code path and it stays idempotent
+    /// by the same compare-and-remove construction the reconnect path relies on.
+    ///
+    /// Sequence: atomically remove the pending-disconnect entry (losing the race to a live
+    /// reconnect aborts the settle), liveness-check the current occupant, release the seat,
+    /// then CashOutAsync(bypassRules: true) the session — which releases any reserved stake,
+    /// settles any uncompleted round, and returns remaining credits to the player's wallet —
+    /// then broadcast MachineStatusChanged(isOccupied=false) + lobby update.
+    ///
+    /// Safe to call from any background context: touches only the hub's static state,
+    /// IServiceScopeFactory and IHubContext (both singletons), never a disposed hub instance.
+    /// </summary>
+    /// <param name="machineId">Machine to release.</param>
+    /// <param name="expectedPendingEntry">When set, the settle proceeds only if THIS exact
+    /// pending-disconnect entry is still installed (the generation guard used by the grace
+    /// timer: a newer entry means the seat was reclaimed or re-armed and this caller no
+    /// longer owns settlement). Null = unconditional ownership (session sweep, heartbeat).</param>
+    /// <param name="expectedOccupantConnectionId">When set, the settle is skipped if the
+    /// seat is now held by a DIFFERENT live connection (player reconnected past the guard).</param>
+    public static async Task<ForceReleaseResult> ForceReleaseMachineCoreAsync(
+        int machineId,
+        IServiceScopeFactory scopeFactory,
+        IHubContext<CarrePokerGameHub> hubContext,
+        ConnectionRegistry registry,
+        ForceReleaseReason reason,
+        KeyValuePair<int, (Guid UserId, Timer Timer)>? expectedPendingEntry = null,
+        string? expectedOccupantConnectionId = null)
+    {
+        Guid userId = Guid.Empty;
+
+        // Generation guard: only remove the entry this caller armed/owns. A newer
+        // disconnect for the same machine installs a replacement entry — a late-firing
+        // older caller must not consume it and cash out the replacement session in the
+        // middle of its own grace period.
+        if (expectedPendingEntry.HasValue)
+        {
+            if (!((ICollection<KeyValuePair<int, (Guid UserId, Timer Timer)>>)PendingDisconnects)
+                    .Remove(expectedPendingEntry.Value))
+            {
+                // Reclaimed on reconnect, replaced by a newer disconnect, or the
+                // reconnect path installed its own token — in every case this caller no
+                // longer owns settlement and must not cash out.
+                return new ForceReleaseResult(false, false, false, 0m, 0m);
+            }
+            userId = expectedPendingEntry.Value.Value.UserId;
+        }
+        else if (PendingDisconnects.TryRemove(machineId, out var pendingEntry))
+        {
+            pendingEntry.Timer.Dispose();
+            userId = pendingEntry.UserId;
+        }
+
+        // Final liveness check: if the seat is now held by a live connection (player
+        // reconnected but the reclaim raced past the guard), skip the settle instead of
+        // yanking the credits out from under an active session.
+        var wasOccupied = MachineOccupancy.TryGetValue(machineId, out var occupantAtFire);
+        if (wasOccupied &&
+            occupantAtFire is not null &&
+            occupantAtFire != expectedOccupantConnectionId &&
+            registry.TryGetUserId(occupantAtFire, out var occupantStillLive))
+        {
+            return new ForceReleaseResult(true, expectedPendingEntry.HasValue || userId != Guid.Empty, false, 0m, 0m);
+        }
+
+        // If the caller didn't already establish the owner (heartbeat path: occupant is
+        // the dead connection), derive the user from the seat we are about to release.
+        if (userId == Guid.Empty && wasOccupied && occupantAtFire is not null)
+        {
+            registry.TryGetUserId(occupantAtFire, out userId);
+        }
+
+        MachineOccupancy.TryRemove(machineId, out _);
+
+        // Settle: return remaining machine credits to the player's wallet. CashOutCoreAsync
+        // releases any reserved stake first, resolves any uncompleted round via the core
+        // draw path, finalizes pending DU winnings, and zeroes the session — the full
+        // residue clear, through the existing money path.
+        decimal creditsCleared = 0m;
+        var settled = false;
+        if (userId != Guid.Empty)
+        {
+            try
+            {
+                await using var scope = scopeFactory.CreateAsyncScope();
+                var scopedStore = scope.ServiceProvider.GetRequiredService<Lucky5.Application.Interfaces.IDataStore>();
+                var preSession = await scopedStore.GetMachineSessionAsync(userId, machineId);
+                var scopedGameService = scope.ServiceProvider.GetRequiredService<IGameService>();
+                await scopedGameService.CashOutAsync(userId, machineId, CancellationToken.None, bypassRules: true);
+                creditsCleared = preSession?.MachineCredits ?? 0m;
+                settled = true;
+            }
+            catch (Exception ex)
+            {
+                // Log but don't throw — we still need to release the machine.
+                Console.WriteLine($"[ForceRelease:{reason}] CashOut failed for user {userId} on machine {machineId}: {ex.Message}");
+            }
+        }
+
+        _ = hubContext.Clients.All.SendAsync(MachineStatusChangedEvent,
+            new { machineId, isOccupied = false, playerId = (int?)null, gameId = 0 },
+            CancellationToken.None);
+        if (userId != Guid.Empty)
+        {
+            _ = hubContext.Clients.All.SendAsync(UserStatusChangedEvent,
+                new { userId = GetMemberId(userId), state = "Idle" },
+                CancellationToken.None);
+        }
+        try
+        {
+            await using var scope = scopeFactory.CreateAsyncScope();
+            var scopedGameService = scope.ServiceProvider.GetRequiredService<IGameService>();
+            await BroadcastLobbyMachinesUpdatedCoreAsync(scopedGameService, registry, hubContext.Clients.All, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ForceRelease:{reason}] Lobby broadcast failed for machine {machineId}: {ex.Message}");
+        }
+
+        return new ForceReleaseResult(wasOccupied, true, settled, creditsCleared, 0m);
+    }
+
+    /// <summary>
+    /// Heartbeat signal hook: the heartbeat monitor pruned this connection as stale.
+    /// If the connection currently holds a machine seat, route the seat through the
+    /// standard grace-period path — the seat is NOT killed instantly (a flaky heartbeat
+    /// must not instantly end a session; the 5-min grace is the product contract), but
+    /// it must not stay locked forever either (previously the occupancy entry survived
+    /// the registry prune with no timer ever armed).
+    /// Returns true if a grace countdown was (or already is) armed for a machine.
+    /// </summary>
+    public static bool HandleStaleConnection(
+        string connectionId,
+        IServiceScopeFactory scopeFactory,
+        IHubContext<CarrePokerGameHub> hubContext,
+        ConnectionRegistry registry)
+    {
+        var armed = false;
+        foreach (var kvp in MachineOccupancy)
+        {
+            if (kvp.Value != connectionId)
+            {
+                continue;
+            }
+
+            var machineId = kvp.Key;
+            if (PendingDisconnects.ContainsKey(machineId))
+            {
+                // A grace/settlement entry already exists (e.g. OnDisconnectedAsync ran).
+                // Nothing to do — the existing owner will settle.
+                continue;
+            }
+
+            if (!registry.TryGetUserId(connectionId, out var userId) || userId == Guid.Empty)
+            {
+                // Registry already pruned it and no user attached: release immediately
+                // through the core path (no grace owner to protect).
+                _ = ForceReleaseMachineCoreAsync(
+                    machineId, scopeFactory, hubContext, registry,
+                    ForceReleaseReason.HeartbeatOccupantDead,
+                    expectedOccupantConnectionId: connectionId);
+                armed = true;
+                continue;
+            }
+
+            // Arm a real grace countdown exactly as OnDisconnectedAsync would have, with
+            // the pruned connection recorded as the expected occupant.
+            Timer? timer = null;
+            timer = new Timer(async _timerState =>
+            {
+                var myEntry = new KeyValuePair<int, (Guid UserId, Timer Timer)>(machineId, (userId, timer!));
+                await ForceReleaseMachineCoreAsync(
+                    machineId, scopeFactory, hubContext, registry,
+                    ForceReleaseReason.HeartbeatOccupantDead,
+                    expectedPendingEntry: myEntry,
+                    expectedOccupantConnectionId: connectionId);
+            }, null, SessionPauseGracePeriod, Timeout.InfiniteTimeSpan);
+
+            PendingDisconnects[machineId] = (userId, timer);
+            armed = true;
+        }
+        return armed;
+    }
+
     public override Task OnConnectedAsync()
     {
         if (TryGetUserId(out var userId))
@@ -119,62 +325,19 @@ public sealed class CarrePokerGameHub(
             Timer? timer = null;
             timer = new Timer(async _timerState =>
             {
-                // Generation guard: only remove the entry THIS timer armed. A newer
-                // disconnect for the same machine installs a replacement entry — a
-                // late-firing older timer must not consume it and cash out the
-                // replacement session in the middle of its own grace period.
+                // Generation guard: only the entry THIS timer armed owns settlement.
+                // The core path re-checks it atomically and aborts if the seat was
+                // reclaimed or re-armed — a late-firing older timer must not cash out
+                // the replacement session in the middle of its own grace period.
                 var myEntry = new KeyValuePair<int, (Guid UserId, Timer Timer)>(machineId, (userId, timer!));
-                if (!((ICollection<KeyValuePair<int, (Guid UserId, Timer Timer)>>)PendingDisconnects).Remove(myEntry))
-                {
-                    // Reclaimed on reconnect, replaced by a newer disconnect, or the
-                    // reconnect path installed its own token AFTER our entry expired
-                    // (in-flight window) — in every case this timer no longer owns
-                    // settlement and must not cash out.
-                    return;
-                }
-
-                // Final liveness check: if the seat is now held by a live
-                // connection (player reconnected but the reclaim raced past the
-                // cancel), skip the auto-cashout instead of yanking the credits
-                // out from under an active session.
-                if (MachineOccupancy.TryGetValue(machineId, out var occupantAtFire) &&
-                    occupantAtFire != disconnectedConnectionId &&
-                    registry.TryGetUserId(occupantAtFire, out var occupantStillLive))
-                {
-                    return;
-                }
-
-                MachineOccupancy.TryRemove(machineId, out _);
-
-                // Auto-cashout: return remaining machine credits to player's wallet
-                try
-                {
-                    await using var scope = scopeFactory.CreateAsyncScope();
-                    var scopedGameService = scope.ServiceProvider.GetRequiredService<IGameService>();
-                    await scopedGameService.CashOutAsync(userId, machineId, CancellationToken.None, bypassRules: true);
-                }
-                catch (Exception ex)
-                {
-                    // Log but don't throw — we still need to release the machine
-                    Console.WriteLine($"[AutoCashout] Failed for user {userId} on machine {machineId}: {ex.Message}");
-                }
-
-                _ = hubContext.Clients.All.SendAsync(MachineStatusChangedEvent,
-                    new { machineId, isOccupied = false, playerId = (int?)null, gameId = 0 },
-                    CancellationToken.None);
-                _ = hubContext.Clients.All.SendAsync(UserStatusChangedEvent,
-                    new { userId = GetMemberId(userId), state = "Idle" },
-                    CancellationToken.None);
-                try
-                {
-                    await using var scope = scopeFactory.CreateAsyncScope();
-                    var scopedGameService = scope.ServiceProvider.GetRequiredService<IGameService>();
-                    await BroadcastLobbyMachinesUpdatedCoreAsync(scopedGameService, registry, hubContext.Clients.All, CancellationToken.None);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[AutoCashout] Lobby broadcast failed for machine {machineId}: {ex.Message}");
-                }
+                await ForceReleaseMachineCoreAsync(
+                    machineId,
+                    scopeFactory,
+                    hubContext,
+                    registry,
+                    ForceReleaseReason.GraceTimeout,
+                    expectedPendingEntry: myEntry,
+                    expectedOccupantConnectionId: disconnectedConnectionId);
             }, null, SessionPauseGracePeriod, Timeout.InfiniteTimeSpan);
 
             PendingDisconnects[machineId] = (userId, timer);
@@ -753,14 +916,12 @@ public sealed class CarrePokerGameHub(
         var result = new List<LobbyMachineInfo>();
         foreach (var machine in lobbyMachines)
         {
-            int? occupantUserId = null;
+            // Lobby is occupancy-only by design (Ai9 Finding 2 class): no occupant
+            // identity — neither the real username nor the GetMemberId pseudo-id —
+            // leaves the server on the floor list. "Who is at which machine" is
+            // revealed only to joined spectators of that machine, never on the lobby.
             var isOccupied = MachineOccupancy.ContainsKey(machine.Id);
-            if (isOccupied && MachineOccupancy.TryGetValue(machine.Id, out var connectionId)
-                && connectionRegistry.TryGetUserId(connectionId, out var occUserId))
-            {
-                occupantUserId = GetMemberId(occUserId);
-            }
-            result.Add(new LobbyMachineInfo(machine.Id, isOccupied, occupantUserId, machine.SpectatorCount, machine.OccupiedByUsername, machine.IdleSecondsRemaining, machine.ReservedUntilUtc));
+            result.Add(new LobbyMachineInfo(machine.Id, isOccupied, machine.SpectatorCount, machine.IdleSecondsRemaining, machine.ReservedUntilUtc));
         }
 
         await target.SendAsync(LobbyMachinesUpdatedEvent, result, cancellationToken);

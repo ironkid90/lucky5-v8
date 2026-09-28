@@ -3587,7 +3587,6 @@ async function setupSignalR() {
                 minBet: minBet,
                 maxBet: maxBet,
                 isOccupied: isOccupied,
-                occupiedByUsername: machine.occupiedByUsername,
                 activeSpectatorCount: spectatorCount,
                 idleSecondsRemaining: machine.idleSecondsRemaining || 0,
                 reservedUntilUtc: machine.reservedUntilUtc || null
@@ -3781,7 +3780,6 @@ async function loadAvailableMachines() {
                 minBet: minBet,
                 maxBet: maxBet,
                 isOccupied: isOccupied,
-                occupiedByUsername: machine.occupiedByUsername,
                 activeSpectatorCount: spectatorCount,
                 idleSecondsRemaining: machine.idleSecondsRemaining || 0,
                 reservedUntilUtc: machine.reservedUntilUtc || null
@@ -3838,7 +3836,6 @@ function renderGameGrid() {
             maxBet: g.maxBet,
             isOpen: g.status !== 'unavailable',
             isOccupied: g.isOccupied,
-            occupiedByUsername: g.occupiedByUsername,
             activeSpectatorCount: g.activeSpectatorCount,
             status: g.status
         }));
@@ -3897,16 +3894,9 @@ function renderGameGrid() {
             specDiv.textContent = 'IN USE';
         }
 
-        // Occupied by info
-        if (game.occupiedByUsername) {
-            const occupantDiv = document.createElement('div');
-            occupantDiv.className = 'game-card-occupant';
-            occupantDiv.style.fontSize = '7px';
-            occupantDiv.style.color = '#aaa';
-            occupantDiv.style.marginTop = '2px';
-            occupantDiv.textContent = `BY ${game.occupiedByUsername.toUpperCase()}`;
-            card.appendChild(occupantDiv);
-        }
+        // Occupancy is a bare state only. Occupant identity is intentionally absent
+        // from lobby payloads (Ai9 Finding 2 class fix); the floor grid must not
+        // reveal which player is at which machine, so there is no "BY <name>" here.
 
         // Show bet range if available
         const betInfo = document.createElement('div');
@@ -3920,9 +3910,6 @@ function renderGameGrid() {
 
         card.appendChild(iconDiv);
         card.appendChild(nameDiv);
-        if (game.occupiedByUsername) {
-            card.appendChild(occupantDiv);
-        }
         card.appendChild(betInfo);
         card.appendChild(specDiv);
         card.appendChild(badge);

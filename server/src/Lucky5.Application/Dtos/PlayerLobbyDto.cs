@@ -20,7 +20,6 @@ public sealed record PlayerLobbyMachineDto(
     MachineSessionDto? Session,
     ActiveRoundStateDto? ActiveRound,
     bool IsOccupied = false,
-    string? OccupiedByUsername = null,
     DateTime? ReservedUntilUtc = null,
     int IdleSecondsRemaining = 0,
     int ActiveSpectatorCount = 0);

@@ -216,7 +216,8 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 		{
 			var activeOccupantSession = allSessions.FirstOrDefault(s => s.MachineId == machine.Id && !s.IsMachineClosed && s.MachineCredits > 0m);
 			bool isOccupied = activeOccupantSession != null;
-			string? occupiedByUsername = isOccupied ? (await store.GetUserByIdAsync(activeOccupantSession!.UserId))?.Username : null;
+			// Occupancy-only: the occupant's identity is never resolved for lobby payloads
+			// (see MachineListingDto's design note).
 			DateTime? reservedUntil = isOccupied ? activeOccupantSession!.LastUpdatedUtc.AddMinutes(5) : null;
 			int idleSec = 0;
 			if (reservedUntil.HasValue)
@@ -234,7 +235,6 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 				machine.MaxBet,
 				machine.BetIncrement,
 				isOccupied,
-				occupiedByUsername,
 				reservedUntil,
 				idleSec,
 				spectatorCount));
@@ -263,7 +263,6 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 			var allSessions = await store.GetAllMachineSessionsAsync();
 			var activeOccupantSession = allSessions.FirstOrDefault(s => s.MachineId == machine.Id && !s.IsMachineClosed && s.MachineCredits > 0m);
 			bool isOccupied = activeOccupantSession != null;
-			string? occupiedByUsername = isOccupied ? (await store.GetUserByIdAsync(activeOccupantSession!.UserId))?.Username : null;
 			DateTime? reservedUntil = isOccupied ? activeOccupantSession!.LastUpdatedUtc.AddMinutes(5) : null;
 			int idleSec = 0;
 			if (reservedUntil.HasValue)
@@ -286,7 +285,6 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 				sessionDto,
 				activeRound,
 				isOccupied,
-				occupiedByUsername,
 				reservedUntil,
 				idleSec,
 				spectatorCount));
