@@ -2540,7 +2540,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 				MachineId: machine.Id,
 				IsMachineClosed: session.IsMachineClosed,
 				CanCashOut: CanCashOut(session) && activeRound is null,
-				IsArmed: activeRound is null && session.MachineCredits > 0m && roundBet > 0m,
+				IsArmed: activeRound is null && session.ReservedStake > 0m && session.ReservationId is not null,
 				Visibility: "foreground",
 				StartedAtUtc: session.CreatedUtc,
 				LastSeenUtc: serverTimeUtc),
@@ -2570,7 +2570,7 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 				MachineCredits: ToDecimalString(session.MachineCredits),
 				WalletBalance: ToDecimalString(profile.WalletBalance),
 				CreditBalance: ToDecimalString(profile.Credit),
-				Stake: ToDecimalString(roundBet > 0m ? roundBet : machine.MinBet),
+				Stake: ToDecimalString(roundBet > 0m ? roundBet : session.ReservedStake),
 				TotalCashIn: ToDecimalString(session.TotalCashIn),
 				CashOutThreshold: ToDecimalString(session.TotalCashIn * 2m),
 				PendingWinAmount: ToDecimalString(pendingWin),
@@ -3069,8 +3069,9 @@ public sealed class GameService(IDataStore store, IEntropyGenerator entropyGener
 	{
 		return gameState switch
 		{
-			"idle" when session.MachineCredits <= 0m => "INSERT COIN",
-			"idle" => "PRESS DEAL",
+			"idle" when session.MachineCredits <= 0m && session.ReservedStake <= 0m => "INSERT COIN",
+			"idle" when session.ReservedStake > 0m => "PRESS DEAL",
+			"idle" => "PLACE YOUR BET",
 			"dealing" => "SELECT HOLDS",
 			"drawn" when pendingWin > 0m => "WIN BONUS",
 			"drawn" => "NO WIN",

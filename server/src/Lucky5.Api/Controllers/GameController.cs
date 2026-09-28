@@ -93,13 +93,24 @@ public class GameController(IGameService gameService, IMachineStateNotifier mach
     public async Task<ActionResult<ApiResponse<CabinetCommandResultDto>>> SubmitCabinetCommand([FromBody] CabinetCommandDto command, CancellationToken cancellationToken)
     {
         var result = await gameService.SubmitCabinetCommandAsync(UserId, command, cancellationToken);
-        var response = ApiResponse<CabinetCommandResultDto>.Ok(result, traceId: HttpContext.TraceIdentifier);
+        var message = result.Accepted
+            ? "OK"
+            : (result.Error?.Message ?? result.Status);
+        var errors = result.Accepted || string.IsNullOrWhiteSpace(result.Error?.Code)
+            ? []
+            : new[] { result.Error!.Code };
+        var response = new ApiResponse<CabinetCommandResultDto>(
+            result.Accepted,
+            message,
+            result,
+            errors,
+            HttpContext.TraceIdentifier);
 
         return result.Status switch
         {
             "stale_state" => Conflict(response),
             "invalid" or "rejected" or "requires_snapshot" => BadRequest(response),
-            _ => Ok(response)
+            _ => result.Accepted ? Ok(response) : BadRequest(response)
         };
     }
 

@@ -34,6 +34,21 @@
         return normalizeKeys(json.data ?? json.Data ?? json);
     }
 
+    function resolveErrorMessage(json, response, payload) {
+        const nested = payload?.error?.message
+            || payload?.Error?.Message
+            || (payload && payload.accepted === false && payload.status && String(payload.status).toLowerCase() !== 'ok'
+                ? String(payload.status).replace(/_/g, ' ')
+                : null);
+        const envelope = json?.message ?? json?.Message;
+        const envelopeIsOk = String(envelope || '').trim().toUpperCase() === 'OK';
+        const errors = json?.errors ?? json?.Errors;
+        return nested
+            || (!envelopeIsOk ? envelope : null)
+            || (Array.isArray(errors) ? errors[0] : null)
+            || `Request failed (${response.status})`;
+    }
+
     class ApiClient {
         constructor({ baseUrl = '', tokenProvider = () => null, fetchImpl } = {}) {
             this.baseUrl = String(baseUrl || '').replace(/\/$/, '');
@@ -72,17 +87,18 @@
             }
 
             const normalized = normalizeKeys(json || {});
+            const payload = unwrapResponse(json);
             const status = normalized.status;
             const success = normalized.success ?? true;
             if (!response.ok || success === false || String(status || '').toLowerCase() === 'error') {
                 throw new ApiError(
-                    normalized.message || normalized.errors?.[0] || `Request failed (${response.status})`,
+                    resolveErrorMessage(json, response, payload),
                     {
                         status: response.status,
-                        code: normalized.code,
+                        code: payload?.error?.code || normalized.code,
                         traceId: normalized.traceId,
                         retryable: normalized.retryable,
-                        data: unwrapResponse(json)
+                        data: payload
                     }
                 );
             }

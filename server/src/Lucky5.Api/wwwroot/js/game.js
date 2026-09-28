@@ -410,9 +410,12 @@ async function apiCall(method, path, body) {
     const message = json?.message ?? json?.Message;
     const payload = normalizeApiPayload(json?.data ?? json?.Data ?? json ?? null);
     const isSuccess = json?.success ?? json?.Success ?? true;
+    const nestedMessage = payload?.error?.message || payload?.Error?.Message;
+    const envelopeIsOk = String(message || '').trim().toUpperCase() === 'OK';
+    const failMessage = nestedMessage || (!envelopeIsOk ? message : null) || errors?.[0] || 'Request failed';
 
     if (!res.ok || String(statusText || '').toLowerCase() === 'error' || isSuccess === false) {
-        throw Object.assign(new Error(message || errors?.[0] || 'Request failed'), { status: res.status, data: payload });
+        throw Object.assign(new Error(failMessage), { status: res.status, data: payload });
     }
 
     debugLog('api:response', { method, url, status: res.status, data: payload });
@@ -808,7 +811,16 @@ function savePendingCabinetCommand(command) {
     else sessionStorage.removeItem(pendingCommandStorageKey());
 }
 
-async function submitCabinetCommand(commandType, payload) {
+function cabinetCommandFailureMessage(error, fallback) {
+    const data = error?.data;
+    const nested = data?.error?.message || data?.Error?.Message
+        || (data?.accepted === false ? (data?.status || data?.Status) : null);
+    const raw = String(nested || error?.message || fallback || 'Command failed').trim();
+    if (!raw || raw.toUpperCase() === 'OK') return fallback || 'Command failed';
+    return raw.replace(/_/g, ' ').toUpperCase();
+}
+
+async function submitCabinetCommand(commandType, payload, retryOnStale = true) {
     if (_cabinetCommandBusy) throw new Error('COMMAND IN PROGRESS');
     const stored = sessionStorage.getItem(pendingCommandStorageKey());
     const pending = _pendingCabinetCommand || (stored ? JSON.parse(stored) : null);
@@ -826,12 +838,13 @@ async function submitCabinetCommand(commandType, payload) {
     savePendingCabinetCommand(command);
     _cabinetCommandBusy = true;
     setButtonStates();
+    let retryStale = false;
     try {
         const result = await apiCall('POST', '/api/Game/cabinet/command', command);
         if (!result || typeof result.accepted !== 'boolean' || (result.accepted && !result.snapshot)) throw new Error('Incomplete command acknowledgement');
         savePendingCabinetCommand(null);
         if (result.snapshot) applyCabinetSnapshot(result.snapshot);
-        if (!result.accepted) throw Object.assign(new Error(result.error?.message || result.status), { definitive: true });
+        if (!result.accepted) throw Object.assign(new Error(cabinetCommandFailureMessage({ data: result }, commandType + ' rejected')), { definitive: true, data: result });
         return result.snapshot;
     } catch (error) {
         // A lost response is NOT a rejection: never cancel/refund or mint another ID.
@@ -839,12 +852,24 @@ async function submitCabinetCommand(commandType, payload) {
         if (rejection?.accepted === false || error.definitive) {
             savePendingCabinetCommand(null);
             if (rejection?.snapshot) applyCabinetSnapshot(rejection.snapshot);
+            const status = String(rejection?.status || rejection?.Status || '').toLowerCase();
+            if (retryOnStale && status === 'stale_state') {
+                retryStale = true;
+            } else {
+                throw Object.assign(new Error(cabinetCommandFailureMessage(error, commandType + ' rejected')), {
+                    data: rejection,
+                    status: error.status,
+                    definitive: true
+                });
+            }
+        } else {
+            throw error;
         }
-        throw error;
     } finally {
         _cabinetCommandBusy = false;
         setButtonStates();
     }
+    if (retryStale) return submitCabinetCommand(commandType, payload, false);
 }
 
 async function recoverPendingCabinetCommand() {
@@ -908,17 +933,21 @@ function applyCabinetSnapshot(snapshot) {
     if (version !== null && version !== undefined) clientStateVersion = Number(version) || 0;
     if (sequence !== null && sequence !== undefined) clientSequenceNumber = Number(sequence) || 0;
 
-    const nextStake = parseCabinetNumber(readCabinetField(credits, 'stake'), currentBet);
-    if (nextStake > 0) {
-        currentBet = nextStake;
-    }
-
     syncMachineCreditsFromResponse({
         machineCredits: readCabinetField(credits, 'machineCredits', 'machine_credits'),
         walletBalance: readCabinetField(credits, 'walletBalance', 'wallet_balance')
     });
 
     syncStakeReservation(credits);
+    const snapshotGameState = String(readCabinetField(snapshot, 'gameState', 'game_state') || 'idle').toLowerCase();
+    if (reservedStake > 0 && reservationId) {
+        currentBet = reservedStake;
+    } else if (snapshotGameState !== 'idle') {
+        const nextStake = parseCabinetNumber(readCabinetField(credits, 'stake'), currentBet);
+        if (nextStake > 0) currentBet = nextStake;
+    } else {
+        currentBet = 0;
+    }
     walletBalance = parseCabinetNumber(readCabinetField(credits, 'walletBalance', 'wallet_balance'), walletBalance);
     syncMachineSessionState({
         isMachineClosed: readCabinetField(sessionState, 'isMachineClosed', 'is_machine_closed'),
@@ -1098,6 +1127,7 @@ async function cashInMachine(amount) {
     syncMachineSessionState(session);
     walletBalance = session.walletBalance ?? walletBalance;
     updateLobbyBalance();
+    try { await fetchAndRestoreFromSnapshot(); } catch (_) {}
     return session;
 }
 
@@ -1957,7 +1987,7 @@ async function doBet() {
         if (_pendingCabinetCommand || sessionStorage.getItem(pendingCommandStorageKey())) {
             await recoverPendingCabinetCommand();
             await fetchAndRestoreFromSnapshot();
-            return;
+            if (gameState !== 'idle') return;
         }
         const step = machine.betIncrement || GAME_RULES.betStep;
         const ramp = !reservationId || betResetPending;
@@ -1971,7 +2001,13 @@ async function doBet() {
                 playPress();
                 updateStakeDisplay();
                 updatePaytable();
-                await new Promise(resolve => setTimeout(resolve, T.betRampTickMs));
+                await new Promise(resolve => {
+                    if (window.CabinetClock && typeof CabinetClock.delayMs === 'function') {
+                        CabinetClock.delayMs(T.betRampTickMs, resolve);
+                    } else {
+                        setTimeout(resolve, T.betRampTickMs);
+                    }
+                });
             }
         }
         currentBet = confirmed;
@@ -2369,8 +2405,14 @@ function restoreRoundFromSnapshot(snapshot) {
 async function doDeal() {
     if (_actionLock || jackpotDrainActive || _cabinetCommandBusy || betRampRunning) return;
     if (_pendingCabinetCommand || sessionStorage.getItem(pendingCommandStorageKey())) {
-        try { await fetchAndRestoreFromSnapshot(); } catch (error) { showMessage(error.message, 'lose'); }
-        return;
+        try {
+            await recoverPendingCabinetCommand();
+            await fetchAndRestoreFromSnapshot();
+        } catch (error) {
+            showMessage(error.message, 'lose');
+            return;
+        }
+        if (gameState !== 'idle' && gameState !== 'hold') return;
     }
     if (gameState === 'idle') {
         if (!machineJoined) {
@@ -3637,7 +3679,7 @@ async function setupSignalR() {
         }
         startHeartbeat();
         if (gameState === 'idle') {
-            showMessage('INSERT COIN');
+            refreshIdleMachineState();
         }
     });
 
