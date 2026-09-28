@@ -1718,7 +1718,7 @@ function cardImagePath(card) {
  return CabinetStage.resolveCardFaceSrc(card);
  }
     if (!card || !card.code) return CARD_BACK_SRC;
-    return `/assets/images/cards/${card.code}.png`;
+    return window.Lucky5HQ.cardAssetUrl(`cards/${card.code}.png`);
 }
 
 function fullHouseSelectorCode(rank = jackpotRank) {
