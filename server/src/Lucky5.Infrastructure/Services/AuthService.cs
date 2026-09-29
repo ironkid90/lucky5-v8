@@ -379,7 +379,7 @@ public sealed class AuthService(InMemoryDataStore store, ITokenService tokenServ
             profile.UserId, profile.Username, profile.DisplayName, profile.FullName,
             profile.Email, profile.PhoneNumber, profile.DateOfBirth,
             profile.WalletBalance, profile.Credit, profile.TotalWins,
-            profile.AgentId, profile.GeneratedID, profile.MinimumOut,
+            profile.AgentId, profile.MinimumOut,
             profile.BonusDate, profile.BonusRechargeCount,
             profile.LastSeenUtc, role);
     }

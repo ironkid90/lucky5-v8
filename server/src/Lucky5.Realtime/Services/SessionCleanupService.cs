@@ -145,7 +145,8 @@ public sealed class SessionCleanupService : BackgroundService
                     _scopeFactory,
                     hubContext,
                     registry,
-                    CarrePokerGameHub.ForceReleaseReason.StaleSessionSweep);
+                    CarrePokerGameHub.ForceReleaseReason.StaleSessionSweep,
+                    expectedUserId: session.UserId);
                 _logger.LogInformation(
                     "Stale session sweep settled machine {MachineId} (user {UserId}): occupied={WasOccupied} settled={Settled}",
                     session.MachineId, session.UserId, result.WasOccupied, result.Settled);

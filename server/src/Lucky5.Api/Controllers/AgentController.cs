@@ -92,7 +92,6 @@ public class AgentController(IAgentService agentService) : ControllerBase
                         dbProfile.Credit,
                         dbProfile.TotalWins,
                         dbProfile.AgentId,
-                        dbProfile.GeneratedID,
                         dbProfile.MinimumOut,
                         dbProfile.BonusDate,
                         dbProfile.BonusRechargeCount,

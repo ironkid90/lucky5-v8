@@ -102,6 +102,11 @@ public sealed class CarrePokerGameHub(
     /// longer owns settlement). Null = unconditional ownership (session sweep, heartbeat).</param>
     /// <param name="expectedOccupantConnectionId">When set, the settle is skipped if the
     /// seat is now held by a DIFFERENT live connection (player reconnected past the guard).</param>
+    /// <param name="expectedUserId">When set, the settle targets THIS user — used by the
+    /// stale-session sweep, where the session row (not the registry or pending-disconnect
+    /// state) is the authoritative owner after a crash/restart. The liveness check still
+    /// protects a live reconnect: if the seat is currently held by a connection the
+    /// registry maps to a DIFFERENT user, the settle is skipped.</param>
     public static async Task<ForceReleaseResult> ForceReleaseMachineCoreAsync(
         int machineId,
         IServiceScopeFactory scopeFactory,
@@ -109,7 +114,8 @@ public sealed class CarrePokerGameHub(
         ConnectionRegistry registry,
         ForceReleaseReason reason,
         KeyValuePair<int, (Guid UserId, Timer Timer)>? expectedPendingEntry = null,
-        string? expectedOccupantConnectionId = null)
+        string? expectedOccupantConnectionId = null,
+        Guid expectedUserId = default)
     {
         Guid userId = Guid.Empty;
 
@@ -137,18 +143,29 @@ public sealed class CarrePokerGameHub(
 
         // Final liveness check: if the seat is now held by a live connection (player
         // reconnected but the reclaim raced past the guard), skip the settle instead of
-        // yanking the credits out from under an active session.
+        // yanking the credits out from under an active session. With expectedUserId set
+        // (session sweep), a live occupant that resolves to the SAME user is also safe
+        // to settle — that's the post-restart case where the player's own session row
+        // is being swept while their new connection hasn't yet taken the seat; the
+        // JoinMachine path will re-key the seat afterward. A live occupant owned by a
+        // DIFFERENT user is always a hard stop.
         var wasOccupied = MachineOccupancy.TryGetValue(machineId, out var occupantAtFire);
         if (wasOccupied &&
             occupantAtFire is not null &&
             occupantAtFire != expectedOccupantConnectionId &&
-            registry.TryGetUserId(occupantAtFire, out var occupantStillLive))
+            registry.TryGetUserId(occupantAtFire, out var occupantStillLive) &&
+            (expectedUserId == default || occupantStillLive != expectedUserId))
         {
             return new ForceReleaseResult(true, expectedPendingEntry.HasValue || userId != Guid.Empty, false, 0m, 0m);
         }
 
-        // If the caller didn't already establish the owner (heartbeat path: occupant is
-        // the dead connection), derive the user from the seat we are about to release.
+        // If the caller didn't already establish the owner, prefer the caller-supplied
+        // expectedUserId (session sweep's authoritative owner), then fall back to the
+        // seat's registry mapping (heartbeat path: occupant is the dead connection).
+        if (userId == Guid.Empty && expectedUserId != default)
+        {
+            userId = expectedUserId;
+        }
         if (userId == Guid.Empty && wasOccupied && occupantAtFire is not null)
         {
             registry.TryGetUserId(occupantAtFire, out userId);
@@ -177,7 +194,7 @@ public sealed class CarrePokerGameHub(
             catch (Exception ex)
             {
                 // Log but don't throw — we still need to release the machine.
-                Console.WriteLine($"[ForceRelease:{reason}] CashOut failed for user {userId} on machine {machineId}: {ex.Message}");
+                Console.WriteLine($"[ForceRelease:{reason}] CashOut failed for user {userId} on machine {machineId}: {ex}");
             }
         }
 
@@ -228,10 +245,23 @@ public sealed class CarrePokerGameHub(
             }
 
             var machineId = kvp.Key;
-            if (PendingDisconnects.ContainsKey(machineId))
+            if (PendingDisconnects.TryGetValue(machineId, out var existingPending))
             {
-                // A grace/settlement entry already exists (e.g. OnDisconnectedAsync ran).
-                // Nothing to do — the existing owner will settle.
+                // A grace/settlement entry already exists. If it belongs to a DIFFERENT
+                // user than the stale connection's owner, the seat has changed hands
+                // without clearing the lock — settle immediately rather than leaving
+                // the stale connection's occupancy entry to rot under the new owner.
+                if (registry.TryGetUserId(connectionId, out var staleOwnerId)
+                    && staleOwnerId != Guid.Empty
+                    && existingPending.UserId != staleOwnerId)
+                {
+                    _ = ForceReleaseMachineCoreAsync(
+                        machineId, scopeFactory, hubContext, registry,
+                        ForceReleaseReason.HeartbeatOccupantDead,
+                        expectedOccupantConnectionId: connectionId);
+                    armed = true;
+                }
+                // Same-user pending entry: the existing timer owns settlement.
                 continue;
             }
 

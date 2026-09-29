@@ -12,7 +12,6 @@ public sealed record MemberProfileDto(
     decimal Credit,
     int TotalWins,
     int? AgentId,
-    string GeneratedID,
     decimal MinimumOut,
     DateTime? BonusDate,
     int BonusRechargeCount,

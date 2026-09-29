@@ -35,6 +35,12 @@ public static class HubTests
         await LobbyMachinesUpdatedEmittedOnSpectatorJoinAsync(failures);
         await JoinMachineReclaimsSeatForPendingDisconnectOwnerAsync(failures);
         await JoinMachineDoesNotClearOtherUsersPendingDisconnectAsync(failures);
+        await ForceReleaseSettlesStaleSessionAndReleasesStakeAsync(failures);
+        await ForceReleaseEmitsMachineStatusChangedFreeAsync(failures);
+        await ForceReleaseIsIdempotentThroughGenerationGuardAsync(failures);
+        await HandleStaleConnectionArmsGraceForKnownOccupantAsync(failures);
+        await HandleStaleConnectionSettlesImmediatelyForUnknownOccupantAsync(failures);
+        LobbyPayloadsCarryNoOccupantIdentity(failures);
     }
 
     private static async Task GetAvailableMachinesReturnsMachineListAsync(List<string> failures)
@@ -659,5 +665,354 @@ public static class HubTests
             }
             timer.Dispose();
         }
+    }
+
+    // ---------------------------------------------------------------------
+    // AI9 gamestate hardening (PR1) — the settle-and-release core path and the
+    // lobby identity redaction. These tests build a real ServiceProvider so the
+    // force-release path can resolve its scoped IGameService + IDataStore.
+    // ---------------------------------------------------------------------
+
+    private static (ServiceProvider Provider, Mock<IGameService> GameService, Mock<IClientProxy> AllClients, Mock<Lucky5.Application.Interfaces.IDataStore> Store)
+        BuildForceReleaseFixture(out ConnectionRegistry registry)
+    {
+        registry = new ConnectionRegistry();
+        var gameServiceMock = new Mock<IGameService>();
+        gameServiceMock
+            .Setup(x => x.GetLobbyMachinesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<MachineListingDto>());
+        gameServiceMock
+            .Setup(x => x.CashOutAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>(), true))
+            .ReturnsAsync((MachineSessionDto?)null!);
+
+        var storeMock = new Mock<Lucky5.Application.Interfaces.IDataStore>();
+        storeMock
+            .Setup(x => x.GetMachineSessionAsync(It.IsAny<Guid>(), It.IsAny<int>()))
+            .ReturnsAsync((Lucky5.Domain.Entities.MachineSessionState?)null);
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddScoped(_ => gameServiceMock.Object);
+        services.AddScoped(_ => storeMock.Object);
+        var provider = services.BuildServiceProvider();
+
+        var allMock = new Mock<IClientProxy>();
+        var hubContextMock = new Mock<IHubContext<CarrePokerGameHub>>();
+        hubContextMock.Setup(x => x.Clients.All).Returns(allMock.Object);
+
+        return (provider, gameServiceMock, allMock, storeMock);
+    }
+
+    private static async Task ForceReleaseSettlesStaleSessionAndReleasesStakeAsync(List<string> failures)
+    {
+        const int machineId = 9910;
+        var userId = Guid.NewGuid();
+        var (provider, gameServiceMock, allMock, storeMock) = BuildForceReleaseFixture(out var registry);
+        await using (provider)
+        {
+            var hubContextMock = new Mock<IHubContext<CarrePokerGameHub>>();
+            hubContextMock.Setup(x => x.Clients.All).Returns(allMock.Object);
+
+            // Stale session: credits + reserved stake, no active round, old LastUpdatedUtc.
+            var staleSession = new Lucky5.Domain.Entities.MachineSessionState
+            {
+                UserId = userId,
+                MachineId = machineId,
+                MachineCredits = 2500m,
+                ReservedStake = 500m,
+                LastUpdatedUtc = DateTime.UtcNow.AddMinutes(-30)
+            };
+            storeMock
+                .Setup(x => x.GetMachineSessionAsync(userId, machineId))
+                .ReturnsAsync(staleSession);
+
+            var occupancyField = typeof(CarrePokerGameHub).GetField("MachineOccupancy", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            var pendingField = typeof(CarrePokerGameHub).GetField("PendingDisconnects", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            var occupancy = (ConcurrentDictionary<int, string>)occupancyField!.GetValue(null)!;
+            var pendingDisconnects = (ConcurrentDictionary<int, (Guid UserId, Timer Timer)>)pendingField!.GetValue(null)!;
+
+            // Seat held by a ghost occupancy entry (server restarted before the
+            // disconnect was ever seen, so the in-memory registry has no entry for
+            // this connection and the user's session row is the authoritative owner).
+            occupancy[machineId] = "dead-connection";
+            try
+            {
+                var result = await CarrePokerGameHub.ForceReleaseMachineCoreAsync(
+                    machineId,
+                    provider.GetRequiredService<IServiceScopeFactory>(),
+                    hubContextMock.Object,
+                    registry,
+                    CarrePokerGameHub.ForceReleaseReason.StaleSessionSweep,
+                    expectedUserId: userId);
+
+                // CashOut must have been invoked with bypassRules: true so reserved
+                // stake is released and residue credits settle to the wallet.
+                gameServiceMock.Verify(
+                    x => x.CashOutAsync(userId, machineId, It.IsAny<CancellationToken>(), true),
+                    Times.Once);
+
+                var seatReleased = !occupancy.ContainsKey(machineId);
+                Assert(failures,
+                    "Stale session (credits + reserved stake, no round) should force-settle: CashOutAsync(bypassRules: true) called, seat released",
+                    result.Settled && result.WasOccupied && seatReleased);
+            }
+            finally
+            {
+                occupancy.TryRemove(machineId, out _);
+                if (pendingDisconnects.TryRemove(machineId, out var leftover)) leftover.Timer.Dispose();
+            }
+        }
+    }
+
+    private static async Task ForceReleaseEmitsMachineStatusChangedFreeAsync(List<string> failures)
+    {
+        const int machineId = 9911;
+        var userId = Guid.NewGuid();
+        var (provider, gameServiceMock, allMock, _) = BuildForceReleaseFixture(out var registry);
+        await using (provider)
+        {
+            var hubContextMock = new Mock<IHubContext<CarrePokerGameHub>>();
+            hubContextMock.Setup(x => x.Clients.All).Returns(allMock.Object);
+
+            var occupancyField = typeof(CarrePokerGameHub).GetField("MachineOccupancy", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            var pendingField = typeof(CarrePokerGameHub).GetField("PendingDisconnects", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            var occupancy = (ConcurrentDictionary<int, string>)occupancyField!.GetValue(null)!;
+            var pendingDisconnects = (ConcurrentDictionary<int, (Guid UserId, Timer Timer)>)pendingField!.GetValue(null)!;
+
+            occupancy[machineId] = "dead-connection";
+            try
+            {
+                await CarrePokerGameHub.ForceReleaseMachineCoreAsync(
+                    machineId,
+                    provider.GetRequiredService<IServiceScopeFactory>(),
+                    hubContextMock.Object,
+                    registry,
+                    CarrePokerGameHub.ForceReleaseReason.StaleSessionSweep);
+
+                allMock.Verify(
+                    x => x.SendCoreAsync(
+                        "MachineStatusChanged",
+                        It.Is<object[]>(args => args.Length == 1
+                            && args[0]!.GetType().GetProperty("isOccupied")!.GetValue(args[0])!.Equals(false)
+                            && args[0]!.GetType().GetProperty("machineId")!.GetValue(args[0])!.Equals(machineId)),
+                        It.IsAny<CancellationToken>()),
+                    Times.Once);
+
+                Assert(failures, "Force-release should emit MachineStatusChanged(isOccupied=false) for the released machine", true);
+            }
+            finally
+            {
+                occupancy.TryRemove(machineId, out _);
+                if (pendingDisconnects.TryRemove(machineId, out var leftover)) leftover.Timer.Dispose();
+            }
+        }
+    }
+
+    private static async Task ForceReleaseIsIdempotentThroughGenerationGuardAsync(List<string> failures)
+    {
+        const int machineId = 9912;
+        var userId = Guid.NewGuid();
+        var (provider, gameServiceMock, allMock, _) = BuildForceReleaseFixture(out var registry);
+        await using (provider)
+        {
+            var hubContextMock = new Mock<IHubContext<CarrePokerGameHub>>();
+            hubContextMock.Setup(x => x.Clients.All).Returns(allMock.Object);
+
+            var occupancyField = typeof(CarrePokerGameHub).GetField("MachineOccupancy", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            var pendingField = typeof(CarrePokerGameHub).GetField("PendingDisconnects", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            var occupancy = (ConcurrentDictionary<int, string>)occupancyField!.GetValue(null)!;
+            var pendingDisconnects = (ConcurrentDictionary<int, (Guid UserId, Timer Timer)>)pendingField!.GetValue(null)!;
+
+            // Install a pending entry, then remove it — simulating a reconnect that
+            // consumed the entry before the stale grace timer fired.
+            var timer = new Timer(_ => { }, null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+            var entry = new KeyValuePair<int, (Guid UserId, Timer Timer)>(machineId, (userId, timer));
+            pendingDisconnects[machineId] = (userId, timer);
+            occupancy[machineId] = "live-reconnected-connection";
+            registry.Add("live-reconnected-connection", userId);
+
+            // Reconnect consumed the pending entry.
+            pendingDisconnects.TryRemove(machineId, out _);
+
+            try
+            {
+                var result = await CarrePokerGameHub.ForceReleaseMachineCoreAsync(
+                    machineId,
+                    provider.GetRequiredService<IServiceScopeFactory>(),
+                    hubContextMock.Object,
+                    registry,
+                    CarrePokerGameHub.ForceReleaseReason.GraceTimeout,
+                    expectedPendingEntry: entry);
+
+                // The stale caller must NOT have cashed out: the generation guard
+                // rejected its ownership claim.
+                gameServiceMock.Verify(
+                    x => x.CashOutAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>(), It.IsAny<bool>()),
+                    Times.Never);
+
+                Assert(failures,
+                    "Grace auto-cashout must be idempotent: a stale generation-guard entry must abort the settle with no CashOut",
+                    !result.Settled && !result.PendingEntryRemoved);
+            }
+            finally
+            {
+                occupancy.TryRemove(machineId, out _);
+                pendingDisconnects.TryRemove(machineId, out _);
+                timer.Dispose();
+                registry.Remove("live-reconnected-connection");
+            }
+        }
+    }
+
+    private static Task HandleStaleConnectionArmsGraceForKnownOccupantAsync(List<string> failures)
+    {
+        const int machineId = 9913;
+        var userId = Guid.NewGuid();
+        var registry = new ConnectionRegistry();
+        var deadConnectionId = "stale-occupant-connection";
+        registry.Add(deadConnectionId, userId);
+
+        var occupancyField = typeof(CarrePokerGameHub).GetField("MachineOccupancy", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        var pendingField = typeof(CarrePokerGameHub).GetField("PendingDisconnects", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        var occupancy = (ConcurrentDictionary<int, string>)occupancyField!.GetValue(null)!;
+        var pendingDisconnects = (ConcurrentDictionary<int, (Guid UserId, Timer Timer)>)pendingField!.GetValue(null)!;
+
+        occupancy[machineId] = deadConnectionId;
+        try
+        {
+            var services = new ServiceCollection();
+            var gameServiceMock = new Mock<IGameService>();
+            gameServiceMock
+                .Setup(x => x.GetLobbyMachinesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new List<MachineListingDto>());
+            services.AddScoped(_ => gameServiceMock.Object);
+            var provider = services.BuildServiceProvider();
+            var hubContextMock = new Mock<IHubContext<CarrePokerGameHub>>();
+
+            var armed = CarrePokerGameHub.HandleStaleConnection(
+                deadConnectionId,
+                provider.GetRequiredService<IServiceScopeFactory>(),
+                hubContextMock.Object,
+                registry);
+
+            // The seat is NOT killed instantly: a pending grace entry must now exist
+            // for this machine, owned by the stale connection's user.
+            var graceArmed = pendingDisconnects.TryGetValue(machineId, out var entry) && entry.UserId == userId;
+            var seatStillHeld = occupancy.TryGetValue(machineId, out var occ) && occ == deadConnectionId;
+
+            Assert(failures,
+                "Heartbeat-pruned occupant should arm the 5-min grace timer (not instant-settle)",
+                armed && graceArmed && seatStillHeld);
+
+            provider.Dispose();
+        }
+        finally
+        {
+            occupancy.TryRemove(machineId, out _);
+            if (pendingDisconnects.TryRemove(machineId, out var leftover)) leftover.Timer.Dispose();
+            registry.Remove(deadConnectionId);
+        }
+        return Task.CompletedTask;
+    }
+
+    private static async Task HandleStaleConnectionSettlesImmediatelyForUnknownOccupantAsync(List<string> failures)
+    {
+        const int machineId = 9914;
+        var registry = new ConnectionRegistry();
+        var deadConnectionId = "pruned-unknown-connection";
+        // Connection was already removed from the registry (heartbeat prune).
+
+        var occupancyField = typeof(CarrePokerGameHub).GetField("MachineOccupancy", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        var pendingField = typeof(CarrePokerGameHub).GetField("PendingDisconnects", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        var occupancy = (ConcurrentDictionary<int, string>)occupancyField!.GetValue(null)!;
+        var pendingDisconnects = (ConcurrentDictionary<int, (Guid UserId, Timer Timer)>)pendingField!.GetValue(null)!;
+
+        occupancy[machineId] = deadConnectionId;
+        try
+        {
+            var services = new ServiceCollection();
+            var gameServiceMock = new Mock<IGameService>();
+            gameServiceMock
+                .Setup(x => x.GetLobbyMachinesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new List<MachineListingDto>());
+            gameServiceMock
+                .Setup(x => x.CashOutAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<CancellationToken>(), It.IsAny<bool>()))
+                .ReturnsAsync((MachineSessionDto?)null!);
+            var storeMock = new Mock<Lucky5.Application.Interfaces.IDataStore>();
+            storeMock
+                .Setup(x => x.GetMachineSessionAsync(It.IsAny<Guid>(), It.IsAny<int>()))
+                .ReturnsAsync((Lucky5.Domain.Entities.MachineSessionState?)null);
+            services.AddScoped(_ => gameServiceMock.Object);
+            services.AddScoped(_ => storeMock.Object);
+            var provider = services.BuildServiceProvider();
+            var allMock = new Mock<IClientProxy>();
+            var hubContextMock = new Mock<IHubContext<CarrePokerGameHub>>();
+            hubContextMock.Setup(x => x.Clients.All).Returns(allMock.Object);
+
+            var armed = CarrePokerGameHub.HandleStaleConnection(
+                deadConnectionId,
+                provider.GetRequiredService<IServiceScopeFactory>(),
+                hubContextMock.Object,
+                registry);
+
+            // No user derivable -> the immediate release path ran (fire-and-forget).
+            // Give the fire-and-forget task a moment to run its synchronous prefix.
+            await Task.Delay(50);
+
+            var noPendingEntry = !pendingDisconnects.ContainsKey(machineId);
+            Assert(failures,
+                "Heartbeat-pruned occupant with no resolvable user should settle immediately (no grace entry armed)",
+                armed && noPendingEntry);
+
+            provider.Dispose();
+        }
+        finally
+        {
+            occupancy.TryRemove(machineId, out _);
+            if (pendingDisconnects.TryRemove(machineId, out var leftover)) leftover.Timer.Dispose();
+        }
+    }
+
+    private static void LobbyPayloadsCarryNoOccupantIdentity(List<string> failures)
+    {
+        // The redaction is enforced at the type level: no DTO or hub payload type
+        // may carry an occupant-identity member. Reflect to prove it.
+        var lobbyTypes = new[]
+        {
+            typeof(Lucky5.Application.Dtos.LobbyMachineInfo),
+            typeof(Lucky5.Application.Dtos.PlayerLobbyMachineDto),
+            typeof(Lucky5.Application.Dtos.MachineListingDto)
+        };
+
+        var offending = new List<string>();
+        foreach (var t in lobbyTypes)
+        {
+            foreach (var prop in t.GetProperties())
+            {
+                if (prop.Name.Contains("Username", StringComparison.OrdinalIgnoreCase)
+                    || prop.Name.Contains("Occupant", StringComparison.OrdinalIgnoreCase)
+                    || prop.Name.Contains("OccupiedBy", StringComparison.OrdinalIgnoreCase))
+                {
+                    offending.Add($"{t.Name}.{prop.Name}");
+                }
+            }
+            foreach (var ctor in t.GetConstructors())
+            {
+                foreach (var p in ctor.GetParameters())
+                {
+                    if (p.Name is not null
+                        && (p.Name.Contains("username", StringComparison.OrdinalIgnoreCase)
+                            || p.Name.Contains("occupant", StringComparison.OrdinalIgnoreCase)
+                            || p.Name.Contains("occupiedBy", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        offending.Add($"{t.Name} ctor param {p.Name}");
+                    }
+                }
+            }
+        }
+
+        Assert(failures,
+            "Lobby DTOs must carry no occupant identity (no OccupiedByUsername / OccupantUserId / username ctor param) — found: " + string.Join(", ", offending),
+            offending.Count == 0);
     }
 }
