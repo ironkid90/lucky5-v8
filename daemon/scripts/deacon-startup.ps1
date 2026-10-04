@@ -14,6 +14,6 @@ $env:GT_ROOT='D:\Users\kapo_\Documents\github\lucky5-v8\lucky5-v8'
 $env:GT_SESSION='hq-deacon'
 $env:GT_SESSION_ID_ENV='CLAUDE_SESSION_ID'
 $env:NODE_OPTIONS=''
-& D:\ProgramData\chocolatey\bin\claude.exe --dangerously-skip-permissions '[GAS TOWN] deacon <- daemon • 2026-10-04T05:55 • patrol
+& D:\ProgramData\chocolatey\bin\claude.exe --dangerously-skip-permissions '[GAS TOWN] deacon <- daemon • 2026-10-04T05:58 • patrol
 
 I am Deacon. Start patrol: run gt deacon heartbeat, then check gt hook. If no hook, run gt sling mol-deacon-patrol deacon, then execute the hook it creates.'
