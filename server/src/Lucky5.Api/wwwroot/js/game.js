@@ -1881,7 +1881,7 @@ function flashWinCards() {
 }
 
 function toggleHold(index) {
-    if (gameState !== 'hold') return;
+    if (_actionLock || jackpotDrainActive || gameState !== 'hold') return;
     playPress();
     if (holdIndexes.has(index)) {
         holdIndexes.delete(index);
@@ -1900,7 +1900,7 @@ function toggleHold(index) {
 }
 
 function cycleJackpotRank() {
-    if (!canAdjustJackpotRank()) return;
+    if (_actionLock || jackpotDrainActive || !canAdjustJackpotRank()) return;
     jackpotRank = jackpotRank >= 14 ? 2 : jackpotRank + 1;
     apiCall('POST', GAME_CONFIG.api.jackpotRank, { machineId, rank: jackpotRank })
         .then(jp => updateJackpotDisplay(jp))
@@ -1921,7 +1921,7 @@ function setButtonStates() {
     const takeScoreBtn = $('#btn-take-score');
     const takeHalfBtn = $('#btn-take-half');
 
-    if (takeScoreAnimating || isSpectatorMode || _cabinetCommandBusy || betRampRunning) {
+    if (takeScoreAnimating || isSpectatorMode || _cabinetCommandBusy || betRampRunning || _actionLock || jackpotDrainActive) {
         betBtn.disabled = true;
         dealBtn.disabled = true;
         cancelBtn.disabled = true;
@@ -1978,9 +1978,19 @@ let betRampRunning = false;
 async function doBet() {
     if (gameState === 'doubleup') { await doSwitchDealer(); return; }
     if (gameState !== 'idle' || betRampRunning || _actionLock || _cabinetCommandBusy) return;
+    if (!machineJoined) {
+        if (!isHubConnected()) {
+            try { await setupSignalR(); } catch (_) {}
+        }
+        await joinMachine(machineId);
+        if (!machineJoined) {
+            console.warn('Machine join unavailable; continuing without realtime sync.');
+        }
+    }
     const machine = machines.find(m => m.id === machineId);
     if (!machine) return;
     betRampRunning = true;
+    if (window.CabinetState) CabinetState.setPresentationLocked(true);
     setButtonStates();
     try {
         // Resolve an ambiguous previous action before creating another transaction.
@@ -2020,6 +2030,7 @@ async function doBet() {
         showMessage(error.message, 'lose');
     } finally {
         betRampRunning = false;
+        if (window.CabinetState) CabinetState.setPresentationLocked(false);
         currentBet = reservedStake;
         updateStakeDisplay();
         updatePaytable();
@@ -2432,6 +2443,7 @@ async function doDeal() {
         }
         playPress();
         gameState = 'dealing';
+        if (window.CabinetState) CabinetState.setPresentationLocked(true);
         setButtonStates();
         showMessage('DEALING...');
         updateBonusBar(null);
@@ -2466,6 +2478,7 @@ async function doDeal() {
                     applyAutoHold(cards);
                 }
                 setButtonStates();
+                if (window.CabinetState) CabinetState.setPresentationLocked(false);
                 if (holdIndexes.size > 0) {
                     showMessage('AUTO HOLD');
                 } else {
@@ -2488,6 +2501,7 @@ async function doDeal() {
         }
         playPress();
         gameState = 'drawing';
+        if (window.CabinetState) CabinetState.setPresentationLocked(true);
         setButtonStates();
         showMessage('DRAWING...');
         updateIdleOverlayVisibility();
@@ -2506,6 +2520,7 @@ async function doDeal() {
             if (result.jackpots) updateJackpotDisplay(result.jackpots);
 
             renderDrawStage(cards, holdIndexes, () => {
+                if (window.CabinetState) CabinetState.setPresentationLocked(false);
                 const handName = result.handRank || 'Nothing';
                 currentHandRank = handName !== 'Nothing' ? handName : null;
                 roundDoubleUpAvailable = Boolean(result.doubleUpAvailable);
@@ -2622,13 +2637,14 @@ async function doDeal() {
         } catch (e) {
             showMessage(e.message, 'lose');
             gameState = 'idle';
+            if (window.CabinetState) CabinetState.setPresentationLocked(false);
             setButtonStates();
         }
     }
 }
 
 function cancelHold() {
-    if (gameState === 'idle') return cancelStakeReservation();
+    if (_actionLock || jackpotDrainActive || gameState === 'idle') return cancelStakeReservation();
     if (gameState !== 'hold') return;
     playPress();
     holdIndexes.clear();
@@ -2968,6 +2984,10 @@ async function doDoubleUp(guess) {
                         // external pushes apply without waiting for DU exit.
                         duCallToken = null;
                         _flushDeferredServerSnapshot();
+                        if (window.CabinetState) CabinetState.setPresentationLocked(false);
+                    } else {
+                        _actionLock = false;
+                        duCallToken = null;
                         if (window.CabinetState) CabinetState.setPresentationLocked(false);
                     }
                 });
@@ -3722,7 +3742,11 @@ async function joinMachine(id) {
         // Restore server state after joining; never erase a paid reservation locally.
         await invokeHub('JoinMachine', id);
         machineJoined = true;
-        await fetchAndRestoreFromSnapshot();
+        try {
+            await fetchAndRestoreFromSnapshot();
+        } catch (restoreError) {
+            console.warn('Machine state restore after join failed:', restoreError);
+        }
         updateStakeDisplay();
         setButtonStates();
     } catch (e) {
@@ -4858,6 +4882,18 @@ async function enterLobbyAfterLogin(profileData) {
 
 async function initGame(options = {}) {
     const { allowLobbyFallback = false } = options;
+    // Reset per-machine state/version trackers so a newly joined machine is not
+    // blocked by stale high-water marks carried over from a previous machine.
+    clientStateVersion = 0;
+    clientSequenceNumber = 0;
+    _lastAppliedStateVersion = 0;
+    _deferredCabinetSnapshot = null;
+    _deferredServerSnapshotVersion = 0;
+    reservedStake = 0;
+    reservationId = null;
+    reservationExpiresUtc = null;
+    currentBet = 0;
+    betResetPending = false;
     try {
         const [machineData, rulesData, configRulesResponse] = await Promise.all([
             apiCall('GET', GAME_CONFIG.api.machines),
